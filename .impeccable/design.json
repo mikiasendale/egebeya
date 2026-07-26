@@ -1,0 +1,108 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-26T00:00:00Z",
+  "title": "Design System: Egebeya",
+  "extensions": {
+    "colorMeta": {
+      "surface": { "role": "neutral", "displayName": "Newsprint Cream / Paper", "canonical": "#F6F1E8", "tonalRamp": ["#1A1411","#3B2820","#6E5B4E","#A89484","#C9BCAA","#E3D9C6","#F6F1E8","#FBF8F2"] },
+      "surface-raised": { "role": "neutral", "displayName": "Bleached Paper / Receipt Card", "canonical": "#FBF8F2", "tonalRamp": ["#1A1411","#3B2820","#6E5B4E","#A89484","#C9BCAA","#E3D9C6","#F6F1E8","#FBF8F2"] },
+      "ink": { "role": "ink", "displayName": "Espresso Ink", "canonical": "#1A1411", "tonalRamp": ["#0A0807","#1A1411","#2A211C","#3B2820","#6E5B4E","#A89484","#C9BCAA","#E3D9C6"] },
+      "ink-soft": { "role": "ink", "displayName": "Ink Soft", "canonical": "#6E5B4E", "tonalRamp": ["#1A1411","#3B2820","#6E5B4E","#8C7868","#A89484","#C9BCAA","#E3D9C6","#FBF8F2"] },
+      "primary": { "role": "primary", "displayName": "Telebirr Green", "canonical": "#0FA958", "tonalRamp": ["#063F2D","#0A6239","#0FA958","#3CBD78","#67CF9A","#9CDFB8","#C9EED7","#E9F9EE"] },
+      "primary-deep": { "role": "primary", "displayName": "Telebirr Deep", "canonical": "#063F2D", "tonalRamp": ["#042D20","#063F2D","#0A6239","#0FA958","#3CBD78","#67CF9A","#9CDFB8","#C9EED7"] },
+      "accent": { "role": "accent", "displayName": "Ethiopian-Poster Red", "canonical": "#D33426", "tonalRamp": ["#5E1A12","#8E2218","#D33426","#E25A4E","#EE847A","#F5B0A8","#FAD6CF","#FDE9E5"] },
+      "canvas": { "role": "neutral", "displayName": "Counter (Espresso Wood)", "canonical": "#3B2820", "tonalRamp": ["#0A0807","#1A1411","#2A211C","#3B2820","#543E33","#7A5C49","#A89484","#C9BCAA"] },
+      "canvas-soft": { "role": "neutral", "displayName": "Counter Soft", "canonical": "#7A5C49", "tonalRamp": ["#1A1411","#3B2820","#543E33","#7A5C49","#9A7E6F","#B8A596","#D6C9BD","#EDE4DA"] },
+      "link": { "role": "link", "displayName": "Link / Focus", "canonical": "#063F2D", "tonalRamp": ["#042D20","#063F2D","#0A6239","#0FA958","#3CBD78","#67CF9A","#9CDFB8","#C9EED7"] },
+      "focus": { "role": "link", "displayName": "Focus Ring", "canonical": "#063F2D", "tonalRamp": ["#042D20","#063F2D","#0A6239","#0FA958","#3CBD78","#67CF9A","#9CDFB8","#C9EED7"] },
+      "success": { "role": "success", "displayName": "Success", "canonical": "#0FA958", "tonalRamp": ["#063F2D","#0A6239","#0FA958","#3CBD78","#67CF9A","#9CDFB8","#C9EED7","#E9F9EE"] },
+      "warning": { "role": "warning", "displayName": "Warning", "canonical": "#D33426", "tonalRamp": ["#5E1A12","#8E2218","#D33426","#E25A4E","#EE847A","#F5B0A8","#FAD6CF","#FDE9E5"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Hero headlines only on Persuade surfaces." },
+      "headline": { "displayName": "Headline", "purpose": "Section H2 in landing; dashboard page titles." },
+      "title": { "displayName": "Title", "purpose": "Section H3, plan-card title, modal title, large list-item label." },
+      "body": { "displayName": "Body", "purpose": "Default paragraph and most UI copy." },
+      "label": { "displayName": "Label (mono)", "purpose": "Receipt-mono eyebrow, status pills." },
+      "ethiopic-display": { "displayName": "Ethiopic Display", "purpose": "Amharic wordmark and scoped Amharic headings." },
+      "receipt-mono": { "displayName": "Receipt Mono", "purpose": "Numerals inside tariff rows, queue rows, deposit receipts." }
+    },
+    "shadows": [
+      { "name": "pinned-notice", "value": "0 1px 2px rgba(26, 20, 17, 0.08), 0 4px 12px rgba(26, 20, 17, 0.10)", "purpose": "The single authored 'this is pinned' affordance under a hero notice or highlighted plan-card; hover adds the second layer. No other shadow exists in the system." }
+    ],
+    "motion": [
+      { "name": "receipt-print-in", "value": "clip-path reveal steps(8, jump-none) 480ms", "purpose": "The telebirr deposit print-in moment; clip-path reveals the receipt from left to right." },
+      { "name": "toast-in", "value": "cubic-bezier(0.16, 1, 0.3, 1) 200ms", "purpose": "Toast slide-in from the right." },
+      { "name": "toast-out", "value": "ease-in 160ms", "purpose": "Toast slide-out to the right." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "lg", "value": "1024px" }
+    ]
+  },
+  "components": [
+    { "name": "Primary Button (Take a Number)", "kind": "button", "refersTo": "button-primary", "description": "Deposit / commit / book action. Telebirr-green fill on bleached paper text, 2px radius, Bricolage heavy.", "html": "<button class=\"ds-btn-primary\">Take a number</button>", "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; padding: 16px 24px; background: var(--color-primary); color: var(--color-surface-raised); font-family: 'Bricolage Grotesque', system-ui, sans-serif; font-weight: 700; border: none; border-radius: 2px; transition: background-color 120ms ease-out; } .ds-btn-primary:hover { background: var(--color-primary-deep); } .ds-btn-primary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }" },
+    { "name": "Secondary Button (mono outline)", "kind": "button", "refersTo": "button-secondary", "description": "Mono uppercase outline with the dashed receipt tear-line.", "html": "<button class=\"ds-btn-secondary\">today tariff</button>", "css": ".ds-btn-secondary { display: inline-flex; align-items: center; justify-content: center; padding: 16px 24px; border: 1px dashed var(--color-ink-rule-dashed); color: var(--color-ink); background: transparent; font-family: 'JetBrains Mono', ui-monospace, monospace; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.875rem; border-radius: 2px; } .ds-btn-secondary:hover { border-color: var(--color-ink); } .ds-btn-secondary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }" },
+    { "name": "Counter Button", "kind": "button", "refersTo": "button-counter", "description": "Primary on the espresso-counter inverted band.", "html": "<button class=\"ds-btn-counter\">Open your site</button>", "css": ".ds-btn-counter { display: inline-flex; align-items: center; justify-content: center; padding: 16px 24px; background: var(--color-primary); color: var(--color-surface-raised); font-family: 'Bricolage Grotesque', system-ui, sans-serif; font-weight: 700; border: none; border-radius: 2px; } .ds-btn-counter:hover { background: var(--color-primary-deep); } .ds-btn-counter:focus-visible { outline: 2px solid var(--color-surface-raised); outline-offset: 2px; }" },
+    { "name": "Ghost Link", "kind": "button", "refersTo": "button-ghost", "description": "In-paragraph link; underline appears on hover.", "html": "<a class=\"ds-link\" href=\"#\">log in</a>", "css": ".ds-link { color: var(--color-link); text-decoration: none; } .ds-link:hover { text-decoration: underline; } .ds-link:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }" },
+    { "name": "Receipt Card", "kind": "card", "refersTo": "card-receipt", "description": "Bleached paper on cream ground, hairline ink-rule border, optional 2px telebirr ::before top rule on payment cards.", "html": "<div class=\"ds-card-receipt\"><div class=\"ds-card-receipt__eyebrow\">Telebirr receipt</div><div class=\"ds-card-receipt__title\">Lux Nails & Spa</div></div>", "css": ".ds-card-receipt { position: relative; background: var(--color-surface-raised); border: 1px solid var(--color-ink-rule); border-radius: 2px; padding: 20px; } .ds-card-receipt__eyebrow { font-family: 'JetBrains Mono', monospace; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.12em; color: var(--color-primary-deep); } .ds-card-receipt__title { margin-top: 0.25rem; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 1.25rem; }" },
+    { "name": "Receipt Input (dashed underline)", "kind": "input", "refersTo": "input-receipt", "description": "Form reads like filling a receipt. Dashed tear-line underline, thickens to telebirr green on focus.", "html": "<input class=\"ds-receipt-input\" placeholder=\"+251 9...\" />", "css": ".ds-receipt-input { border: none; border-bottom: 1px dashed var(--color-ink-rule-dashed); background: transparent; padding: 0.625rem 0.125rem; font-family: 'Inter', system-ui, sans-serif; color: var(--color-ink); outline: none; transition: border-color 120ms ease-out; } .ds-receipt-input::placeholder { color: color-mix(in srgb, var(--color-ink-soft) 80%, transparent); } .ds-receipt-input:focus { border-bottom: 2px solid var(--color-primary); }" },
+    { "name": "Status Pill", "kind": "chip", "refersTo": "badge-status", "description": "Mono uppercase inside a hairline outline. Green for success, red for warning, neutral for canvas-soft.", "html": "<span class=\"ds-status ds-status--next\">NEXT</span>", "css": ".ds-status { display: inline-flex; align-items: center; padding: 2px 8px; border: 1px solid var(--color-ink-rule); border-radius: 2px; font-family: 'JetBrains Mono', monospace; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.7rem; color: var(--color-ink-soft); } .ds-status--next { color: var(--color-primary-deep); border-color: var(--color-primary); } .ds-status--done { opacity: 0.6; } .ds-status--wait { color: var(--color-accent); border-color: var(--color-accent); }" },
+    { "name": "Take-a-Number Chip", "kind": "chip", "refersTo": "take-a-number-chip", "description": "The booking seriality on the queue row. Telebirr-green swatch square with receipt-mono numeral.", "html": "<span class=\"ds-take-a-number\" aria-hidden>03</span>", "css": ".ds-take-a-number { display: inline-flex; align-items: center; justify-content: center; width: 2.25rem; height: 2.25rem; background: var(--color-primary); color: var(--color-surface-raised); font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 0.95rem; border-radius: 2px; }" },
+    { "name": "Wordmark Stack", "kind": "custom", "refersTo": "wordmark-stack", "description": "Heavy Amharic wordmark in Noto Serif Ethiopic above Bricolage 'Egebeya'.", "html": "<div class=\"ds-wordmark\"><div class=\"ds-wordmark__ethiopic\">wordmark</div><div class=\"ds-wordmark__latin\">Egebeya</div></div>", "css": ".ds-wordmark__ethiopic { font-family: 'Noto Serif Ethiopic', serif; font-weight: 700; font-size: clamp(2.25rem, 4.5vw, 3.5rem); line-height: 0.95; color: var(--color-ink); } .ds-wordmark__latin { margin-top: 0.25rem; font-family: 'Bricolage Grotesque', system-ui, sans-serif; font-weight: 700; font-size: clamp(1.5rem, 3vw, 2.25rem); letter-spacing: -0.02em; color: var(--color-ink); }" }
+  ],
+  "puckChrome": {
+    "_note": "Puck's outer shell (sidebar / top bar / drawer) themes to these tokens via Puck's --puck-color-* CSS variables. The canvas content stays tenant-owned; the chrome belongs to Egebeya.",
+    "overrides": {
+      "--puck-color-foreground": "var(--color-ink)",
+      "--puck-color-background": "var(--color-surface-raised)",
+      "--puck-color-background-dark": "var(--color-canvas)",
+      "--puck-color-primary": "var(--color-primary)",
+      "--puck-color-primary-dark": "var(--color-primary-deep)",
+      "--puck-color-accent": "var(--color-primary-deep)",
+      "--puck-color-border": "var(--color-ink-rule)",
+      "--puck-color-grey-05": "var(--color-surface)",
+      "--puck-color-grey-09": "var(--color-surface-raised)",
+      "--puck-color-grey-15": "rgba(26,20,17,0.12)"
+    }
+  },
+  "narrative": {
+    "northStar": "The kebele noticewall — the telebirr receipt on a Qof-coffee counter.",
+    "overview": "Egebeya's visual identity is the receipt Ethiopian service-business owners and their customers already trust most: the telebirr charge slip, printed on cream newsprint, signed by a green header rule and a psycho-bold mono tariff row. Around it lives the warmth of the salon counter — espresso wood, a take-a-number token, hairline dividers — the institution customers walk into for an appointment. The deposit confirms the appointment: a thing that physically becomes a receipt, designed to make that mechanism visible on a phone screen.",
+    "keyCharacteristics": [
+      "Cream paper ground (--color-surface = #F6F1E8) on every customer-facing area; espresso --color-canvas (#3B2820) for inverted bands only.",
+      "Telebirr green (--color-primary = #0FA958) owns 30-50% of the surface only when dramatizing the deposit-confirms-booking moment.",
+      "Hairline rules (--color-ink-rule 1px solid) instead of card shadows. Shadows exist for one narrated moment only.",
+      "Receipt-mono (JetBrains Mono) for numerals, tariffs, tx_refs, dates, slot times, status labels. Bricolage Grotesque for headlines.",
+      "Noto Serif Ethiopic for every Amharic glyph at display scale; the wordmark stack is the masthead lockup.",
+      "2px radius everywhere (--radius-card); pills exist only as rounded-full utility for genuine take-a-number chips."
+    ],
+    "rules": [
+      { "name": "The One Voice Rule", "body": "The telebirr-green accent appears on <=10% of any surface that is not dramatizing the deposit-confirm-booking moment.", "section": "colors" },
+      { "name": "The No-Blue Rule", "body": "There is no blue in Egebeya's palette. Any blue literal (#1E3A8A, bg-blue-50) is the off-world placeholder and a defect.", "section": "colors" },
+      { "name": "The Tinted-Neutral Rule", "body": "Secondary text, eyebrow labels, and helper copy use --color-ink-soft (espresso-tinted) on cream and --color-canvas-soft on counter. Never text-gray-400 / text-gray-500 / text-gray-700.", "section": "colors" },
+      { "name": "The Mono-For-Data Rule", "body": "Any numeral that captures a tariff, an amount, a slot time, a tx_ref, a queue position, or a date stamp uses JetBrains Mono.", "section": "typography" },
+      { "name": "The Inter-Is-Not-Display Rule", "body": "Inter never appears above 1.125rem as a heading element.", "section": "typography" },
+      { "name": "The Flat-By-Default Rule", "body": "Surfaces are flat at rest. The pinned-notice shadow appears only as the authored 'this is pinned' affordance.", "section": "elevation" },
+      { "name": "The No-Glass Rule", "body": "backdrop-blur as decoration does not exist. Navbar's scrolled-in saturate(180%) blur(4px) is the lone exception.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do use bg-primary, bg-surface, bg-surface-raised, text-ink, text-ink-soft, border-ink-rule, bg-canvas, text-canvas-soft, text-link, focus:ring-focus Tailwind utilities (the semantic aliases in src/index.css's @theme).",
+      "Do retain the bare kebele primitives (bg-paper, bg-telebirr, font-receipt, rounded-rd-card) when the surface dramatizes the explicit Ethiopian-receipt moment.",
+      "Do pair Bricolage + Noto Serif Ethiopic + Inter + JetBrains Mono — these four faces ARE the design.",
+      "Do tint secondary text from the surface hue (--color-ink-soft on cream, --color-canvas-soft on counter), never gray.",
+      "Do reserve --color-primary green for the deposit / commit / book action and the take-a-number chip.",
+      "Do ship 2px radius (rounded-card) everywhere; deny rounded-xl / rounded-2xl / rounded-full defaults.",
+      "Do replace inputs with .receipt-input dash-underline treatment on customer-facing Booking and Settings forms."
+    ],
+    "donts": [
+      "Don't use #1E3A8A (navy), #F59E0B (amber), or any Tailwind bg-blue-* / bg-amber-* / text-blue-* literal. They are off-world; the unification pass deletes them.",
+      "Don't use bg-white / bg-gray-50 / bg-gray-100 / text-gray-400 / text-gray-500 / text-gray-700 / border-gray-200 / border-gray-300. Use the kebele surface/ink-rule aliases instead.",
+      "Don't apply box-shadow defaults (shadow-sm, shadow-lg, shadow-xl). The world is flat; only the pinned-notice offset is valid.",
+      "Don't ship gradient decorations (bg-gradient-to-br, rounded-full bg-[#F59E0B]/20 blur-3xl). Gradients and blurred blobs do not exist in this world.",
+      "Don't set Inter above 1.125rem as a heading. Inter-as-display is the typo-rut of generic SaaS.",
+      "Don't use rounded-full for buttons. Pills contradict the receipt metaphor; buttons are 2px rectangles.",
+      "Don't carry the kebele canvas over to the Puck editor's canvas content — theme Puck's outer shell only."
+    ]
+  }
+}

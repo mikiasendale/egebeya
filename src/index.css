@@ -1,0 +1,184 @@
+@import "tailwindcss";
+
+@theme {
+  /* Original kebele-world primitives. Still available when the surface
+     needs the explicit Ethiopian-receipt metaphor (e.g. a real printed
+     receipt card). Continue to consume these via `var(--color-…)` or
+     the generated utilities `bg-paper`, `text-ink`, `font-receipt`, etc. */
+  --color-paper: #F6F1E8;
+  --color-paper-bleached: #FBF8F2;
+  --color-ink: #1A1411;
+  --color-ink-soft: #6E5B4E;
+  --color-ink-rule: rgba(26, 20, 17, 0.12);
+  --color-ink-rule-dashed: rgba(26, 20, 17, 0.28);
+  --color-counter: #3B2820;
+  --color-counter-soft: #7A5C49;
+  --color-telebirr: #0FA958;
+  --color-telebirr-deep: #063F2D;
+  --color-signal: #D33426;
+  /* counter-soft rule for inverted-band hairlines (PricingSection divider,
+     Footer counter-soft top rule). The only non-kebele-named literal that
+     earns a slot. */
+  --color-counter-rule: rgba(122, 92, 73, 0.30);
+
+  /* Semantic aliases — the canonical Egebeya system. New code reaches for
+     these (bg-primary, bg-surface, text-ink, border-ink-rule, bg-canvas,
+     text-link, focus:ring-focus, etc.). Each value intentionally mirrors
+     one of the kebele primitives: the alias is for clarity of intent, the
+     primitive stays for moments that want the explicit Ethiopian word. */
+  --color-primary: #0FA958;          /* = telebirr; deposit / commit / book / success */
+  --color-primary-deep: #063F2D;     /* = telebirr-deep; hover + headings on telebirr */
+  --color-surface: #F6F1E8;          /* = paper; page ground */
+  --color-surface-raised: #FBF8F2;   /* = paper-bleached; cards, inputs */
+  --color-canvas: #3B2820;           /* = counter; espresso inverted band */
+  --color-canvas-soft: #7A5C49;      /* = counter-soft; secondary text on canvas */
+  --color-accent: #D33426;           /* = signal; warnings / errors / cancellations */
+  --color-success: #0FA958;          /* = primary; intentional alias so semantic
+                                         contexts (badge success, status pill) name
+                                         the role, not the brand-literal word */
+  --color-success-deep: #063F2D;     /* = primary-deep */
+  --color-warning: #D33426;          /* = accent / signal */
+  --color-link: #063F2D;             /* = telebirr-deep; links + focus treatments */
+  --color-focus: #063F2D;           /* = telebirr-deep; focus ring */
+
+  /* Form-language alias: Tailwind v4 derives `rounded-card` from this.
+     `--rd-card` stays for backward compat with existing inline-style uses. */
+  --radius-card: 2px;
+  --rd-card: 2px;
+
+  --font-serif-ethiopic: "Noto Serif Ethiopic", serif;
+  --font-display: "Bricolage Grotesque", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-receipt: "JetBrains Mono", ui-monospace, "SFMono-Regular", monospace;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Receipt rule: 1px solid hairline divider, semantic on receipt cards */
+.rule {
+  border-color: var(--color-ink-rule);
+}
+.rule-dashed {
+  border-color: var(--color-ink-rule-dashed);
+  border-style: dashed;
+}
+
+/* "Take a number" chip: a small telebirr-swatch square with receipt-mono numeral */
+.take-a-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-receipt);
+  font-weight: 700;
+  background-color: var(--color-telebirr);
+  color: var(--color-paper-bleached);
+  border-radius: 2px;
+}
+
+/* Receipt top rule: telebirr 2px green band above a payment card */
+.receipt-rule-top {
+  position: relative;
+}
+.receipt-rule-top::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 2px;
+  background-color: var(--color-telebirr);
+}
+
+/* Tariff row: hairline-bordered receipt row, label left in display, mono tariff right */
+.tariff-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  gap: 1.5rem;
+  padding: 1rem 0.25rem;
+  border-top: 1px solid var(--color-ink-rule);
+}
+.tariff-row:last-child {
+  border-bottom: 1px solid var(--color-ink-rule);
+}
+
+/* Underscore inputs (form reads like filling a receipt, not a SaaS form) */
+.receipt-input {
+  border: none;
+  border-bottom: 1px solid var(--color-ink-rule-dashed);
+  background: transparent;
+  padding: 0.625rem 0.125rem;
+  font-family: var(--font-body);
+  color: var(--color-ink);
+  outline: none;
+  transition: border-color 120ms ease-out;
+}
+.receipt-input::placeholder {
+  color: color-mix(in srgb, var(--color-ink-soft) 80%, transparent);
+}
+.receipt-input:focus {
+  border-color: var(--color-telebirr);
+  border-bottom-width: 2px;
+}
+
+/* Telebirr deposit print-in: clip-path reveal */
+@keyframes receipt-print {
+  0% { clip-path: inset(0 100% 0 0); opacity: 0.4; }
+  100% { clip-path: inset(0 0 0 0); opacity: 1; }
+}
+.receipt-print-in {
+  animation: receipt-print 480ms steps(8, jump-none) both;
+}
+
+/* The calendar-zoom hook from the previous pass stays so the booking page
+   remains 3× larger by request. (World-agnostic, kept for behavior.) */
+.calendar-zoom {
+  display: inline-block;
+  transform: scale(3);
+  transform-origin: top center;
+  margin: 1.5em auto 0;
+  min-height: 38rem;
+  width: 100%;
+}
+
+/* Toast slide-in / slide-out (bottom-right) */
+@keyframes toast-in {
+  from {
+    transform: translateX(calc(100% + 1rem));
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+@keyframes toast-out {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(calc(100% + 1rem));
+    opacity: 0;
+  }
+}
+.animate-toast-in {
+  animation: toast-in 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.animate-toast-out {
+  animation: toast-out 160ms ease-in forwards;
+}
+
+:root {
+  color-scheme: light;
+}
