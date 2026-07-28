@@ -34,6 +34,7 @@ export function Landing() {
     >
       <Navbar />
       <Lead stamped={stamped} onStamp={() => setStamped(true)} />
+      <SearchSection />
       <TariffSection />
       <PricingSection />
       <QueueSection />
@@ -52,16 +53,38 @@ function Lead({ stamped, onStamp }: { stamped: boolean; onStamp: () => void }) {
       aria-label="Egebeya · the deposit confirms the booking"
     >
       <div className="mx-auto max-w-6xl">
-        {/* Office header bar — wordmark left, issue-no stamp right */}
+        {/* Receipt-style ledger header — replaces the wordmark + stamps bar */}
         <div
-          className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 pb-4"
-          style={{ borderBottom: '2px solid var(--color-ink)' }}
+          className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 pb-4"
+          style={{ borderBottom: '1px dashed var(--color-ink-rule-dashed)' }}
         >
-          <Wordmark size="lg" tone="ink" />
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="stamp" aria-label="Office">{t('lead.office')}&nbsp;አዲስ&nbsp;አበባ</span>
-            <span className="stamp" aria-label="Edition">{t('lead.issue')}&nbsp;{new Date().getFullYear()}</span>
-            <span className="stamp positive">{t('lead.depositClears')}</span>
+          <div
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: '0.68rem',
+              color: 'var(--color-ink-soft)',
+              letterSpacing: '0.05em',
+              textTransform: 'uppercase',
+              lineHeight: 1.7,
+            }}
+          >
+            <div>Egebeya · Booking Ledger</div>
+            <div>Issue #EGB-2026 · Addis Ababa</div>
+            <div>Deposit confirms before the chair is held</div>
+          </div>
+          <div
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontWeight: 500,
+              fontSize: '0.72rem',
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              color: 'var(--color-ink-soft)',
+              textAlign: 'right' as const,
+              paddingTop: 2,
+            }}
+          >
+            Fintech Platform · Ethiopia
           </div>
         </div>
 
@@ -662,5 +685,115 @@ export function Wordmark({
         Egebeya
       </span>
     </span>
+  );
+}
+
+/* ── Search section — find businesses on the platform ── */
+function SearchSection() {
+  return (
+    <section
+      className="px-5 sm:px-8 lg:px-12 py-8 lg:pb-16"
+      aria-label="Find a business"
+    >
+      <div className="mx-auto max-w-6xl">
+        <h2
+          className="m-0"
+          style={{
+            fontFamily: 'var(--font-display)',
+            fontWeight: 600,
+            fontSize: 'clamp(1.25rem, 2.5vw, 1.65rem)',
+            marginBottom: 6,
+          }}
+        >
+          Find a business&nbsp;
+          <span style={{ fontFamily: 'var(--font-serif-ethiopic)', fontWeight: 700, color: 'var(--color-ink-soft)' }}>
+            ንግድ ይፈልጉ
+          </span>
+        </h2>
+        <p
+          className="m-0"
+          style={{ color: 'var(--color-ink-soft)', fontSize: '0.9rem', marginBottom: 20 }}
+        >
+          Every business on Egebeya takes Telebirr deposits. Search by name, area, or service.
+        </p>
+        <div
+          style={{
+            display: 'flex',
+            gap: 0,
+            border: '1px solid var(--color-ink)',
+            borderRadius: 'var(--rd-card)',
+            overflow: 'hidden',
+          }}
+        >
+          <input
+            type="text"
+            placeholder="Salons, clinics, barbers, plumbers in Addis…"
+            style={{
+              flex: 1,
+              border: 'none',
+              padding: '16px 20px',
+              fontFamily: 'var(--font-body)',
+              fontSize: '1rem',
+              color: 'var(--color-ink)',
+              outline: 'none',
+              background: 'transparent',
+            }}
+            onFocus={(e) => (e.target.style.outline = 'none')}
+          />
+          <button
+            type="button"
+            style={{
+              background: 'var(--color-ink)',
+              color: 'var(--color-paper)',
+              border: 'none',
+              padding: '16px 28px',
+              fontFamily: 'var(--font-mono)',
+              fontWeight: 600,
+              fontSize: '0.8rem',
+              letterSpacing: '0.05em',
+              textTransform: 'uppercase' as const,
+              cursor: 'pointer',
+            }}
+          >
+            Find · ፈልግ
+          </button>
+        </div>
+        <div
+          style={{
+            marginTop: 16,
+            display: 'flex',
+            gap: 12,
+            flexWrap: 'wrap' as const,
+          }}
+        >
+          {['Salons · ሳሎን', 'Clinics · ክሊኒክ', 'Barbers · ፀጉር', 'Plumbers · ውሃ', 'Tutors · አስተማሪ'].map((cat) => (
+            <a
+              key={cat}
+              href="#"
+              style={{
+                color: 'var(--color-ink-soft)',
+                textDecoration: 'none',
+                fontSize: '0.82rem',
+                padding: '5px 14px',
+                border: '1px solid var(--color-ink-rule)',
+                borderRadius: 9999,
+                fontFamily: 'var(--font-body)',
+                transition: 'border-color 120ms, color 120ms',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = 'var(--color-telebirr)';
+                e.currentTarget.style.color = 'var(--color-telebirr)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'var(--color-ink-rule)';
+                e.currentTarget.style.color = 'var(--color-ink-soft)';
+              }}
+            >
+              {cat}
+            </a>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }

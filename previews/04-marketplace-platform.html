@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="am">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Egebeya · Marketplace Platform Direction</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Sans+Ethiopic:wght@100..900&family=Noto+Serif+Ethiopic:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --white: #FAFAFA;
+  --paper: #F3F0EB;
+  --paper-raised: #EBE6DD;
+  --ink: #1B2B5C;
+  --ink-soft: #5C6B8A;
+  --ink-faint: rgba(27, 43, 92, 0.12);
+  --emerald: #0C8F5A;
+  --emerald-deep: #0A6E48;
+  --emerald-wash: #E6F4EE;
+  --amber: #C17D2A;
+  --amber-deep: #9C6420;
+  --font-am: "Noto Serif Ethiopic", "Noto Sans Ethiopic", serif;
+  --font-display: "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { overflow-x: clip; }
+body {
+  background: var(--white);
+  color: var(--ink);
+  font-family: var(--font-display);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: clip;
+}
+
+/* ── Nav — clean SaaS platform bar ── */
+.nav {
+  position: sticky; top: 0; z-index: 50;
+  background: rgba(255,255,255,0.92); backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--ink-faint);
+  padding: 0 24px;
+}
+.nav-inner {
+  max-width: 1200px; margin: 0 auto;
+  display: flex; align-items: center; justify-content: space-between;
+  height: 60px;
+}
+.nav-wordmark { display: flex; align-items: baseline; gap: 8px; text-decoration: none; }
+.nav-wordmark .am  { font-family: var(--font-am); font-weight: 700; font-size: 1.4rem; color: var(--ink); }
+.nav-wordmark .lat { font-family: var(--font-display); font-weight: 600; font-size: 0.7rem; color: var(--ink-soft); letter-spacing: 0.04em; text-transform: uppercase; }
+.nav-links { display: flex; gap: 32px; align-items: center; }
+.nav-links a {
+  color: var(--ink); text-decoration: none; font-weight: 500; font-size: 0.9rem;
+  transition: color 120ms;
+}
+.nav-links a:hover { color: var(--emerald); }
+.nav-right { display: flex; align-items: center; gap: 16px; }
+.nav-login { color: var(--ink); text-decoration: none; font-weight: 500; font-size: 0.9rem; }
+.nav-cta {
+  background: var(--ink); color: white; text-decoration: none;
+  padding: 10px 24px; font-weight: 600; font-size: 0.85rem; border-radius: 4px;
+}
+.nav-cta:hover { background: #152347; }
+
+/* ── Hero — search-first marketplace ── */
+.hero {
+  max-width: 1200px; margin: 0 auto;
+  padding: 80px 24px 56px; text-align: center;
+}
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--emerald-wash); color: var(--emerald-deep);
+  font-family: var(--font-mono); font-weight: 600; font-size: 0.7rem;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 5px 14px; border-radius: 999px; margin-bottom: 28px;
+}
+.hero-badge .dot {
+  width: 8px; height: 8px; background: var(--emerald); border-radius: 50%;
+}
+.hero h1 {
+  font-family: var(--font-am); font-weight: 700;
+  font-size: clamp(2.5rem, 7vw, 5rem); line-height: 0.95; color: var(--ink);
+  max-width: 800px; margin: 0 auto;
+}
+.hero h1 span.lat {
+  display: block; font-family: var(--font-display); font-weight: 600;
+  font-size: clamp(1.15rem, 2.8vw, 1.7rem);
+  color: var(--ink-soft); margin-top: 8px; line-height: 1.3;
+}
+.hero-sub {
+  margin: 24px auto 0; max-width: 520px;
+  font-size: 1.05rem; line-height: 1.65; color: var(--ink-soft);
+}
+/* Search bar */
+.search-bar {
+  max-width: 560px; margin: 32px auto 0;
+  display: flex; gap: 0;
+  border: 2px solid var(--ink); border-radius: 4px; overflow: hidden;
+}
+.search-bar input {
+  flex: 1; border: none; padding: 16px 20px; font-family: var(--font-display);
+  font-size: 1rem; color: var(--ink); outline: none; background: white;
+}
+.search-bar input::placeholder { color: var(--ink-soft); }
+.search-bar button {
+  background: var(--ink); color: white; border: none; padding: 16px 28px;
+  font-family: var(--font-mono); font-weight: 600; font-size: 0.8rem;
+  letter-spacing: 0.05em; text-transform: uppercase; cursor: pointer;
+}
+.search-bar button:hover { background: #152347; }
+.hero-categories {
+  margin-top: 20px; display: flex; gap: 16px; justify-content: center; flex-wrap: wrap;
+}
+.hero-categories a {
+  color: var(--ink-soft); text-decoration: none; font-size: 0.85rem;
+  padding: 6px 14px; border: 1px solid var(--ink-faint); border-radius: 999px;
+  transition: all 120ms;
+}
+.hero-categories a:hover { border-color: var(--emerald); color: var(--emerald); }
+
+/* ── Business cards grid ── */
+.businesses {
+  max-width: 1200px; margin: 0 auto; padding: 64px 24px;
+}
+.businesses h2 {
+  font-family: var(--font-display); font-weight: 600;
+  font-size: clamp(1.5rem, 3vw, 2rem); margin-bottom: 8px; color: var(--ink);
+}
+.businesses h2 span { font-family: var(--font-am); font-weight: 700; color: var(--ink-soft); }
+.businesses .subheading { color: var(--ink-soft); font-size: 0.95rem; margin-bottom: 36px; }
+.biz-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.biz-card {
+  background: white; border: 1px solid var(--ink-faint); border-radius: 4px;
+  overflow: hidden; transition: border-color 120ms, box-shadow 120ms;
+}
+.biz-card:hover { border-color: var(--emerald); box-shadow: 0 0 0 3px var(--emerald-wash); }
+.biz-card-image {
+  height: 160px; background: var(--paper-raised);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-am); font-size: 2rem; color: var(--ink-soft);
+}
+.biz-card-body { padding: 20px; }
+.biz-card-body h3 { font-family: var(--font-display); font-weight: 600; font-size: 1.1rem; }
+.biz-card-body .am-name { font-family: var(--font-am); font-size: 0.85rem; color: var(--ink-soft); margin-top: 2px; }
+.biz-card-body .type { font-family: var(--font-mono); font-size: 0.65rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--emerald); margin-top: 10px; }
+.biz-card-body .info { font-size: 0.85rem; color: var(--ink-soft); margin-top: 6px; line-height: 1.5; }
+.biz-card-body .price {
+  font-family: var(--font-mono); font-weight: 600; font-size: 1.05rem;
+  color: var(--amber-deep); margin-top: 12px;
+}
+
+/* ── Two-column CTA ── */
+.split-cta {
+  max-width: 1200px; margin: 0 auto; padding: 80px 24px;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 24px;
+}
+.split-card {
+  padding: 48px 36px; border-radius: 4px;
+}
+.split-card.build {
+  background: var(--ink); color: white;
+}
+.split-card.browse {
+  background: var(--paper); color: var(--ink); border: 1px solid var(--ink-faint);
+}
+.split-card h3 { font-family: var(--font-display); font-weight: 600; font-size: 1.5rem; margin-bottom: 8px; }
+.split-card .am-title { font-family: var(--font-am); font-weight: 700; font-size: 1.1rem; opacity: 0.7; }
+.split-card p { margin-top: 12px; font-size: 0.95rem; line-height: 1.55; opacity: 0.85; }
+.split-card .cta-link {
+  display: inline-block; margin-top: 24px; font-family: var(--font-display);
+  font-weight: 600; font-size: 1rem; text-decoration: none;
+}
+.split-card.build .cta-link { color: var(--emerald); }
+.split-card.browse .cta-link { color: var(--ink); }
+
+/* ── Footer ── */
+.footer {
+  border-top: 1px solid var(--ink-faint); padding: 56px 24px 36px;
+}
+.footer-inner { max-width: 1200px; margin: 0 auto; }
+.footer-top { display: flex; justify-content: space-between; gap: 48px; flex-wrap: wrap; margin-bottom: 36px; }
+.footer-brand { max-width: 300px; }
+.footer-brand .am { font-family: var(--font-am); font-weight: 700; font-size: 1.35rem; }
+.footer-brand .lat { font-family: var(--font-display); font-weight: 600; font-size: 0.62rem; color: var(--ink-soft); letter-spacing: 0.06em; text-transform: uppercase; margin-top: 4px; }
+.footer-brand p { margin-top: 12px; font-size: 0.85rem; line-height: 1.6; color: var(--ink-soft); }
+.footer-cols { display: flex; gap: 48px; }
+.footer-col h4 { font-family: var(--font-mono); font-size: 0.62rem; letter-spacing: 0.10em; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 14px; }
+.footer-col a  { display: block; color: var(--ink); text-decoration: none; font-size: 0.85rem; padding: 3px 0; }
+.footer-col a:hover { color: var(--emerald); }
+.footer-bottom {
+  border-top: 1px solid var(--ink-faint); padding-top: 20px;
+  display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+  font-family: var(--font-mono); font-size: 0.62rem; color: var(--ink-soft);
+  letter-spacing: 0.06em; text-transform: uppercase;
+}
+
+@media (max-width: 768px) {
+  .nav-links, .nav-login { display: none; }
+  .biz-grid { grid-template-columns: 1fr; }
+  .split-cta { grid-template-columns: 1fr; }
+  .footer-cols { flex-direction: column; gap: 24px; }
+}
+</style>
+</head>
+<body>
+
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="#" class="nav-wordmark">
+        <span class="am">ኢ-ገበያ</span>
+        <span class="lat">Egebeya</span>
+      </a>
+      <div class="nav-links">
+        <a href="#">Discover · ፈልግ</a>
+        <a href="#">How it works</a>
+        <a href="#">Pricing · ዋጋ</a>
+      </div>
+      <div class="nav-right">
+        <a href="#" class="nav-login">Log in · ግባ</a>
+        <a href="#" class="nav-cta">Build your site</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="hero">
+    <div class="hero-badge"><span class="dot"></span> Now live · Telegirr deposits</div>
+    <h1>
+      ተወሰነ<br>በውሉ።
+      <span class="lat">Build a booking website for any local business. Telebirr collects the deposit — you collect the confidence.</span>
+    </h1>
+    <p class="hero-sub">
+      Pick a business type, build its site, and start taking deposits in minutes. Salon, plumber, clinic, barber — Egebeya is the operating system for Ethiopian service booking.
+    </p>
+    <div class="search-bar">
+      <input type="text" placeholder="Search for businesses in Addis…">
+      <button>Find · ፈልግ</button>
+    </div>
+    <div class="hero-categories">
+      <a href="#">Salons · ሳሎን</a>
+      <a href="#">Clinics · ክሊኒክ</a>
+      <a href="#">Barbers · ፀጉር</a>
+      <a href="#">Plumbers · ውሃ</a>
+      <a href="#">Tutors · አስተማሪ</a>
+    </div>
+  </div>
+
+  <div class="businesses">
+    <h2>Featured businesses · <span>የተመረጡ ንግዶች</span></h2>
+    <p class="subheading">Real businesses built on Egebeya by young Ethiopian operators. Each one takes Telebirr deposits.</p>
+    <div class="biz-grid">
+      <div class="biz-card">
+        <div class="biz-card-image">💅</div>
+        <div class="biz-card-body">
+          <h3>Lux Nails &amp; Spa</h3>
+          <div class="am-name">ሉክስ ኔይልስ እና ስፓ</div>
+          <div class="type">Salon</div>
+          <div class="info">Manicure, pedicure, waxing · Bole, Addis Ababa</div>
+          <div class="price">From Br 200.00</div>
+        </div>
+      </div>
+      <div class="biz-card">
+        <div class="biz-card-image">✂️</div>
+        <div class="biz-card-body">
+          <h3>Dawit's Barbershop</h3>
+          <div class="am-name">ዳዊት ፀጉር ቤት</div>
+          <div class="type">Barber</div>
+          <div class="info">Haircut, beard trim, hot towel · Piassa</div>
+          <div class="price">From Br 150.00</div>
+        </div>
+      </div>
+      <div class="biz-card">
+        <div class="biz-card-image">🩺</div>
+        <div class="biz-card-body">
+          <h3>Addis Family Clinic</h3>
+          <div class="am-name">አዲስ ቤተሰብ ክሊኒክ</div>
+          <div class="type">Clinic</div>
+          <div class="info">General checkup, lab, pharmacy · Kazanchis</div>
+          <div class="price">From Br 300.00</div>
+        </div>
+      </div>
+    </div>
+    <p style="margin-top:12px; font-family: var(--font-mono); font-size:0.62rem; color:var(--ink-soft); letter-spacing:0.05em; text-transform:uppercase;">Illustrative demo businesses — real operators replace these.</p>
+  </div>
+
+  <div class="split-cta">
+    <div class="split-card build">
+      <h3>Build a site</h3>
+      <div class="am-title">ድረ-ገጽ ይክፈቱ</div>
+      <p>Pick a business type, set services and staff, publish. The booking form goes live instantly. Telebirr deposits start flowing — no card, no bank, no branch.</p>
+      <a href="#" class="cta-link">Open your booking form →</a>
+    </div>
+    <div class="split-card browse">
+      <h3>Find a business</h3>
+      <div class="am-title">ንግድ ይፈልጉ</div>
+      <p>Search for Ethiopian businesses taking Telebirr bookings. Pick a service, pick a time, pay the deposit — the chair is yours when you arrive.</p>
+      <a href="#" class="cta-link">Browse businesses →</a>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      <div class="footer-top">
+        <div class="footer-brand">
+          <div class="am">ኢ-ገበያ</div>
+          <div class="lat">Egebeya</div>
+          <p>The Ethiopian booking platform. Build sites for local businesses, collect Telebirr deposits, solve no-show. Built in Addis Ababa.</p>
+        </div>
+        <div class="footer-cols">
+          <div class="footer-col"><h4>Product</h4><a href="#">Build a site</a><a href="#">Discover</a><a href="#">Pricing</a><a href="#">Owner log-in</a></div>
+          <div class="footer-col"><h4>Company</h4><a href="#">Addis Ababa, Ethiopia</a><a href="#">Telebirr integration</a><a href="#">Contact</a></div>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 Egebeya · Addis Ababa, Ethiopia</span>
+        <span>DEPOSIT CLEARS · ተከከለ</span>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

@@ -15,7 +15,7 @@ export const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
           checked={isControlled ? checked : undefined}
           defaultChecked={isControlled ? undefined : defaultChecked}
           className={cn(
-            'peer h-5 w-5 cursor-pointer appearance-none rounded border border-gray-300 bg-white transition-colors checked:border-[#1E3A8A] checked:bg-[#1E3A8A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E3A8A]/30 disabled:cursor-not-allowed disabled:opacity-50',
+            'peer h-5 w-5 cursor-pointer appearance-none rounded border border-ink-rule bg-surface transition-colors checked:border-primary checked:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-50',
             className,
           )}
           {...props}

@@ -1,0 +1,34 @@
+{
+  "title": "Choose Egebeya's visual world",
+  "question": "Kebele was the modernized kebele office form — rigorous but pale ('pale vampire'). The rebrand keeps its form DNA (rows, Ge'ez-numeral rails, stamp-as-record) and commits to more color and more warmth. Pick a world — landing first, then every sub-route follows the same world.",
+  "options": [
+    {
+      "id": "copper-souk",
+      "label": "Copper Souk · Deposit-as-Lit-Lantern",
+      "kicker": "ASSIGNED + SURVIVED",
+      "lineage": "hammered metalwork + night-market merit (Ethiopian cross-smithing <-> souk lantern grammar)",
+      "body": "The booking record is a hammered copper plate against a night-blue Addis alley. The deposit-paid record LITS the lantern; the amber flame is the action ink; numerals sit on hand-hammered rails. The kebele form-row ledger carries over as records over a night-blue counter. Warm where kebele was pale; committed color where kebele was restrained; the deposit-clears-booking truth is the lit lantern. Honest risk: dark ground needs the booker-first landing in a 'late-dusk Addis' register; full night-blue is reserved for operator/counter surfaces.",
+      "hero": "https://impeccable.style/worlds/cards/metal-forging-patina-copper-lantern-souk-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/metal-forging-patina-copper-lantern-souk.webp"
+    },
+    {
+      "id": "duka-signage",
+      "label": "Duka Signage · Hand-Painted Road-Sign Ledger",
+      "kicker": "ALTERNATE · GROUNDED",
+      "lineage": "Ethiopian hand-painted signage & duka shop boards, retuned operator-grade",
+      "body": "The booker's street is already a ledger of competing colors. Bright Telecom-green, signal-red, sun-yellow over a manila stucco ground; hand-lettered caps in a sign-painter face (not Plex); numerals ride as painted-shop tiles; the deposit stamp reads as a freshly painted stencil. Most committed color of the three; most Ethiopian; the strongest audience-id. Honest risk: the loudest world needs rigor to not become novelty — the operator dashboard must stay serious inside these colors, which is the hard part.",
+      "board": null
+    },
+    {
+      "id": "newsprint-receipt",
+      "label": "Newsprint Receipt · Deposit-as-Thermal-Print",
+      "kicker": "ALTERNATE · CANON-ADJACENT",
+      "lineage": "cash-register thermal receipt + newsprint broadsheet",
+      "body": "The deposit IS a printed receipt — black ink on warm newsprint, one single saturated spot color (red), mono receipt-tails as the focal object. The kebele form-row ledger maps one-to-one. Closest to the kebele predecessor, but warmer ground and one bold color instead of three muted ones. Honest risk: this is the Restrained color strategy dressed differently; it may not actually answer 'pale vampire' directly, and it's the safest of the three — safest also means least likely to feel like a fresh visual world.",
+      "board": null
+    }
+  ],
+  "reroll": true,
+  "canon": true,
+  "steer": true
+}

@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="am">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Egebeya · Receipt + Marketplace Hybrid</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Sans+Ethiopic:wght@100..900&family=Noto+Serif+Ethiopic:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --white: #FDF9EF;
+  --paper: #F4E8C1;
+  --paper-raised: #EDDFAE;
+  --paper-active: #E5D59A;
+  --ink: #1B2B5C;
+  --ink-soft: #5C6B8A;
+  --ink-faint: rgba(27, 43, 92, 0.12);
+  --ink-mid: rgba(27, 43, 92, 0.30);
+  --emerald: #0C8F5A;
+  --emerald-deep: #0A6E48;
+  --emerald-wash: #E6F4EE;
+  --amber: #C17D2A;
+  --amber-deep: #9C6420;
+  --font-am: "Noto Serif Ethiopic", "Noto Sans Ethiopic", serif;
+  --font-display: "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { overflow-x: clip; }
+body {
+  background: var(--white);
+  color: var(--ink);
+  font-family: var(--font-display);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: clip;
+}
+
+/* ── Nav: receipt structure, marketplace colors ── */
+.nav {
+  position: sticky; top: 0; z-index: 50;
+  background: rgba(253, 249, 239, 0.94); backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--ink-faint);
+  padding: 0 24px;
+}
+.nav-inner {
+  max-width: 1100px; margin: 0 auto;
+  display: flex; align-items: center; justify-content: space-between;
+  height: 56px;
+}
+.nav-wordmark { display: flex; align-items: baseline; gap: 8px; text-decoration: none; }
+.nav-wordmark .am  { font-family: var(--font-am); font-weight: 700; font-size: 1.3rem; color: var(--ink); }
+.nav-wordmark .lat { font-family: var(--font-mono); font-weight: 500; font-size: 0.6rem; color: var(--ink-soft); letter-spacing: 0.08em; text-transform: uppercase; }
+.nav-links { display: flex; gap: 24px; align-items: center; }
+.nav-links a {
+  color: var(--ink); text-decoration: none;
+  font-family: var(--font-mono); font-weight: 500; font-size: 0.78rem;
+  letter-spacing: 0.04em; text-transform: uppercase;
+  padding-bottom: 2px; border-bottom: 2px solid transparent;
+  transition: border-color 120ms;
+}
+.nav-links a:hover { border-bottom-color: var(--ink); }
+.nav-cta {
+  font-family: var(--font-mono); font-weight: 600; font-size: 0.75rem;
+  letter-spacing: 0.06em; text-transform: uppercase; text-decoration: none;
+  color: var(--white); background: var(--ink);
+  padding: 9px 22px; border-radius: 2px;
+}
+.nav-cta:hover { background: #152347; }
+
+/* ── Hero — receipt-panel layout from 02, marketplace colors ── */
+.hero {
+  max-width: 1100px; margin: 0 auto;
+  padding: 72px 24px 48px;
+}
+/* Receipt header bar */
+.hero-header {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 24px;
+  border-bottom: 1px solid var(--ink-faint); padding-bottom: 16px; margin-bottom: 32px;
+}
+.hero-receipt-top {
+  font-family: var(--font-mono); font-size: 0.65rem; color: var(--ink-soft);
+  letter-spacing: 0.06em; text-transform: uppercase; line-height: 1.6;
+}
+.hero-receipt-top span { display: block; }
+
+.hero-grid { display: grid; grid-template-columns: 1fr 360px; gap: 48px; }
+.hero-tag {
+  font-family: var(--font-mono); font-weight: 500; font-size: 0.7rem;
+  letter-spacing: 0.10em; text-transform: uppercase; color: var(--ink-soft);
+  margin-bottom: 20px;
+}
+.hero h1 {
+  font-family: var(--font-am); font-weight: 700;
+  font-size: clamp(2.5rem, 6vw, 4.5rem); line-height: 0.95; color: var(--ink);
+}
+.hero h1 span.lat {
+  display: block; font-family: var(--font-display); font-weight: 600;
+  font-size: clamp(1.1rem, 2.5vw, 1.65rem);
+  color: var(--ink-soft); margin-top: 8px; line-height: 1.3;
+}
+.hero-sub {
+  margin-top: 24px; font-size: 0.95rem; line-height: 1.65; color: var(--ink-soft);
+  max-width: 460px;
+}
+.hero-ctas { margin-top: 28px; display: flex; gap: 12px; flex-wrap: wrap; }
+.btn-fill {
+  font-family: var(--font-mono); font-weight: 600; font-size: 0.75rem;
+  letter-spacing: 0.06em; text-transform: uppercase; text-decoration: none;
+  background: var(--ink); color: var(--white); padding: 14px 28px;
+  border-radius: 2px;
+}
+.btn-fill:hover { background: #152347; }
+.btn-outline {
+  font-family: var(--font-mono); font-weight: 500; font-size: 0.72rem;
+  letter-spacing: 0.06em; text-transform: uppercase; text-decoration: none;
+  border: 1px solid var(--ink); color: var(--ink); padding: 14px 28px;
+  border-radius: 2px;
+}
+.btn-outline:hover { background: var(--paper); }
+.hero-note {
+  margin-top: 12px; font-family: var(--font-mono); font-size: 0.65rem;
+  color: var(--ink-soft); letter-spacing: 0.05em;
+}
+
+/* ── Receipt panel (right side) — from 02, marketplace palette ── */
+.receipt-panel {
+  background: var(--paper); border: 1px solid var(--ink); border-radius: 2px;
+  padding: 24px; font-family: var(--font-mono);
+}
+.receipt-panel h3 {
+  font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--ink-soft); margin-bottom: 16px;
+}
+.receipt-row {
+  display: flex; justify-content: space-between; align-items: baseline;
+  padding: 8px 0; border-bottom: 1px dotted var(--ink-faint);
+  font-size: 0.8rem;
+}
+.receipt-row .label { color: var(--ink-soft); font-size: 0.68rem; letter-spacing: 0.04em; text-transform: uppercase; }
+.receipt-row .value { font-weight: 600; color: var(--ink); }
+.receipt-row .value.spot { color: var(--emerald); }
+.receipt-stamp {
+  margin-top: 20px; border-top: 2px solid var(--ink); padding-top: 16px;
+  display: flex; align-items: center; gap: 16px;
+}
+.receipt-stamp-box {
+  width: 72px; height: 72px; border: 2px solid var(--ink); border-radius: 2px;
+  display: flex; align-items: center; justify-content: center; text-align: center;
+  font-family: var(--font-am); font-weight: 700; font-size: 1rem;
+  line-height: 1.1; color: var(--emerald);
+}
+.receipt-stamp-text { font-size: 0.68rem; color: var(--ink-soft); letter-spacing: 0.04em; line-height: 1.5; }
+
+/* ── Search bar — from 04, the marketplace element ── */
+.search-section {
+  max-width: 1100px; margin: 0 auto; padding: 0 24px 56px;
+}
+.search-section h2 {
+  font-family: var(--font-display); font-weight: 600;
+  font-size: clamp(1.25rem, 2.5vw, 1.6rem); margin-bottom: 8px; color: var(--ink);
+}
+.search-section h2 span { font-family: var(--font-am); font-weight: 700; color: var(--ink-soft); }
+.search-section .subheading { color: var(--ink-soft); font-size: 0.9rem; margin-bottom: 20px; }
+.search-bar {
+  max-width: 100%; display: flex; gap: 0;
+  border: 2px solid var(--ink); border-radius: 2px; overflow: hidden;
+}
+.search-bar input {
+  flex: 1; border: none; padding: 16px 20px; font-family: var(--font-display);
+  font-size: 1rem; color: var(--ink); outline: none; background: var(--white);
+}
+.search-bar input::placeholder { color: var(--ink-soft); }
+.search-bar button {
+  background: var(--ink); color: var(--white); border: none; padding: 16px 28px;
+  font-family: var(--font-mono); font-weight: 600; font-size: 0.8rem;
+  letter-spacing: 0.05em; text-transform: uppercase; cursor: pointer;
+}
+.search-bar button:hover { background: #152347; }
+.search-categories {
+  margin-top: 16px; display: flex; gap: 12px; flex-wrap: wrap;
+}
+.search-categories a {
+  color: var(--ink-soft); text-decoration: none; font-size: 0.82rem;
+  padding: 5px 14px; border: 1px solid var(--ink-faint); border-radius: 999px;
+  font-family: var(--font-display);
+  transition: all 120ms;
+}
+.search-categories a:hover { border-color: var(--emerald); color: var(--emerald); }
+
+/* ── Tariff table — from 02 ── */
+.tariff {
+  max-width: 1100px; margin: 0 auto; padding: 64px 24px;
+}
+.tariff-header {
+  border-top: 2px solid var(--ink); padding-top: 20px; margin-bottom: 28px;
+  display: flex; justify-content: space-between; align-items: baseline;
+}
+.tariff-header h2 {
+  font-family: var(--font-display); font-weight: 600;
+  font-size: clamp(1.5rem, 3vw, 2rem); letter-spacing: -0.02em; color: var(--ink);
+}
+.tariff-header .date {
+  font-family: var(--font-mono); font-size: 0.68rem; color: var(--ink-soft);
+  letter-spacing: 0.06em; text-transform: uppercase;
+}
+.tariff-table {
+  width: 100%; border-collapse: collapse;
+}
+.tariff-table th {
+  text-align: left; font-family: var(--font-mono); font-size: 0.65rem;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-soft);
+  padding: 8px 12px; border-bottom: 1px solid var(--ink);
+}
+.tariff-table td {
+  padding: 14px 12px; border-bottom: 1px solid var(--ink-faint);
+  font-family: var(--font-display); font-size: 0.95rem; color: var(--ink);
+}
+.tariff-table td.mono { font-family: var(--font-mono); font-weight: 600; font-size: 0.9rem; }
+.tariff-table td.am  { font-family: var(--font-am); font-size: 0.85rem; color: var(--ink-soft); }
+.tariff-table tr:hover td { background: var(--paper); }
+.tariff-note {
+  margin-top: 12px; font-family: var(--font-mono); font-size: 0.62rem;
+  color: var(--ink-soft); letter-spacing: 0.05em;
+}
+
+/* ── Queue preview strip — a receipt-style timeline ── */
+.queue-section {
+  max-width: 1100px; margin: 0 auto; padding: 0 24px 64px;
+}
+.queue-inner {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 48px;
+}
+.queue-intro h2 {
+  font-family: var(--font-display); font-weight: 600;
+  font-size: clamp(1.5rem, 3vw, 1.9rem); letter-spacing: -0.02em; color: var(--ink);
+  margin-bottom: 12px;
+}
+.queue-intro h2 span { font-family: var(--font-am); font-weight: 700; }
+.queue-intro p { color: var(--ink-soft); font-size: 0.95rem; line-height: 1.6; }
+.queue-preview {
+  background: var(--paper); border: 1px solid var(--ink); border-radius: 2px;
+  padding: 20px;
+}
+.queue-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 10px 0; border-bottom: 1px solid var(--ink-faint);
+  font-family: var(--font-mono); font-size: 0.85rem;
+}
+.queue-row:last-child { border-bottom: none; }
+.queue-row .no { font-weight: 600; color: var(--ink); width: 24px; }
+.queue-row .time { color: var(--ink-soft); min-width: 48px; }
+.queue-row .svc { flex: 1; font-family: var(--font-display); font-weight: 500; color: var(--ink); }
+.queue-row .status {
+  font-family: var(--font-mono); font-size: 0.65rem; font-weight: 600;
+  letter-spacing: 0.06em; text-transform: uppercase; padding: 3px 10px;
+  border: 1px solid var(--ink); border-radius: 2px;
+}
+.queue-row .status.done { color: var(--ink-soft); border-color: var(--ink-faint); }
+.queue-row .status.next { color: var(--emerald); border-color: var(--emerald); }
+.queue-row .status.wait { color: var(--amber); border-color: var(--amber); }
+
+/* ── CTA strip — from 02 ── */
+.cta-strip {
+  border-top: 2px solid var(--ink); border-bottom: 2px solid var(--ink);
+  padding: 48px 24px; text-align: center; background: var(--paper);
+}
+.cta-strip p {
+  font-family: var(--font-display); font-weight: 600;
+  font-size: clamp(1.25rem, 3vw, 1.75rem); max-width: 600px; margin: 0 auto 24px;
+  color: var(--ink); line-height: 1.3;
+}
+
+/* ── Footer — receipt structure, marketplace palette ── */
+.footer {
+  max-width: 1100px; margin: 0 auto; padding: 48px 24px;
+  border-top: 1px solid var(--ink-faint);
+}
+.footer-inner {
+  display: flex; justify-content: space-between; gap: 48px; flex-wrap: wrap;
+}
+.footer-brand { max-width: 300px; }
+.footer-brand .am { font-family: var(--font-am); font-weight: 700; font-size: 1.25rem; color: var(--ink); }
+.footer-brand .lat { font-family: var(--font-mono); font-size: 0.6rem; color: var(--ink-soft); letter-spacing: 0.08em; text-transform: uppercase; margin-top: 4px; }
+.footer-brand p { margin-top: 12px; font-size: 0.82rem; line-height: 1.6; color: var(--ink-soft); }
+.footer-cols { display: flex; gap: 40px; }
+.footer-col h4 { font-family: var(--font-mono); font-size: 0.6rem; letter-spacing: 0.10em; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 12px; }
+.footer-col a  { display: block; color: var(--ink); text-decoration: none; font-size: 0.85rem; padding: 3px 0; }
+.footer-col a:hover { text-decoration: underline; }
+.footer-bottom {
+  margin-top: 40px; padding-top: 16px;
+  border-top: 1px solid var(--ink-faint);
+  display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+  font-family: var(--font-mono); font-size: 0.62rem; color: var(--ink-soft);
+  letter-spacing: 0.06em; text-transform: uppercase;
+}
+
+@media (max-width: 768px) {
+  .nav-links { display: none; }
+  .hero-grid { grid-template-columns: 1fr; }
+  .receipt-panel { margin-top: 32px; }
+  .queue-inner { grid-template-columns: 1fr; }
+  .footer-cols { flex-direction: column; gap: 24px; }
+  .tariff-table { font-size: 0.8rem; }
+}
+</style>
+</head>
+<body>
+
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="#" class="nav-wordmark">
+        <span class="am">ኢ-ገበያ</span>
+        <span class="lat">Egebeya</span>
+      </a>
+      <div class="nav-links">
+        <a href="#">Businesses</a>
+        <a href="#">Pricing</a>
+        <a href="#">How it works</a>
+        <a href="#">Log in</a>
+      </div>
+      <a href="#" class="nav-cta">Take a number · ፩</a>
+    </div>
+  </nav>
+
+  <div class="hero">
+    <div class="hero-header">
+      <div class="hero-receipt-top">
+        <span>Egebeya · Booking Ledger</span>
+        <span>Issue #EGB-2026 · Addis Ababa</span>
+        <span>Deposit confirms before the chair is held</span>
+      </div>
+    </div>
+    <div class="hero-grid">
+      <div class="hero-text">
+        <div class="hero-tag">Fintech Platform · Ethiopia</div>
+        <h1>
+          ተወሰነ<br>በውሉ።
+          <span class="lat">Build a booking website for any local business, collect Telebirr deposits — no card, no bank, no branch.</span>
+        </h1>
+        <p class="hero-sub">
+          Egebeya is the receipt that says "this slot is held." A young Ethiopian picks a business — salon, plumber, clinic, barber — builds its site in minutes, and the deposit clears before the first customer arrives.
+        </p>
+        <div class="hero-ctas">
+          <a href="#" class="btn-fill">Open your booking form</a>
+          <a href="#" class="btn-outline">Today's tariff →</a>
+        </div>
+        <p class="hero-note">No card. No bank branch. Telebirr deposit, before the booking exists.</p>
+      </div>
+      <div class="receipt-panel">
+        <h3>Booking Record · ቅጽ</h3>
+        <div class="receipt-row"><span class="label">Business</span><span class="value">Lux Nails &amp; Spa</span></div>
+        <div class="receipt-row"><span class="label">Service</span><span class="value">Manicure · 00:45</span></div>
+        <div class="receipt-row"><span class="label">Staff</span><span class="value">Sara M.</span></div>
+        <div class="receipt-row"><span class="label">When</span><span class="value">Mon 27 ሐምሌ · 10:30</span></div>
+        <div class="receipt-row"><span class="label">Tariff</span><span class="value">Br 400.00</span></div>
+        <div class="receipt-row"><span class="label">Deposit</span><span class="value spot">Br 400.00 · CLEARED</span></div>
+        <div class="receipt-stamp">
+          <div class="receipt-stamp-box">ተከ<br>ከለ</div>
+          <div class="receipt-stamp-text">
+            DEPOSIT VERIFIED<br>
+            Ref: EGB-4721<br>
+            10:32 · ሐምሌ 27
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="search-section">
+    <h2>Find a business · <span>ንግድ ይፈልጉ</span></h2>
+    <p class="subheading">Every business on Egebeya takes Telebirr deposits. Search by name, area, or service.</p>
+    <div class="search-bar">
+      <input type="text" placeholder="Salons, clinics, barbers, plumbers in Addis…">
+      <button>Find · ፈልግ</button>
+    </div>
+    <div class="search-categories">
+      <a href="#">Salons · ሳሎን</a>
+      <a href="#">Clinics · ክሊኒክ</a>
+      <a href="#">Barbers · ፀጉር</a>
+      <a href="#">Plumbers · ውሃ</a>
+      <a href="#">Tutors · አስተማሪ</a>
+    </div>
+  </div>
+
+  <div class="tariff">
+    <div class="tariff-header">
+      <h2>Today's tariff · የዛሬ ዝርዝር</h2>
+      <span class="date">Every tenant publishes their own</span>
+    </div>
+    <table class="tariff-table">
+      <thead>
+        <tr><th style="width:40px">#</th><th>Service</th><th>Duration</th><th>Price</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="mono">፩</td><td>Manicure <span class="am">ጥፍር</span></td><td class="mono">00:45</td><td class="mono">Br 400.00</td></tr>
+        <tr><td class="mono">፪</td><td>Pedicure <span class="am">እግር</span></td><td class="mono">01:00</td><td class="mono">Br 500.00</td></tr>
+        <tr><td class="mono">፫</td><td>Haircut <span class="am">ፀጉር</span></td><td class="mono">00:30</td><td class="mono">Br 200.00</td></tr>
+        <tr><td class="mono">፬</td><td>Massage <span class="am">ቁርጥጥ</span></td><td class="mono">01:15</td><td class="mono">Br 1,200.00</td></tr>
+      </tbody>
+    </table>
+    <p class="tariff-note">Synthetic demonstration tariffs — your numbers replace these on day one.</p>
+  </div>
+
+  <div class="queue-section">
+    <div class="queue-inner">
+      <div class="queue-intro">
+        <h2>Walk in. See the queue. Take <span>ቁጥር</span>.</h2>
+        <p>Your customers see who's ahead of them — time and service only, never a name. The Telegram chase that took eight messages to confirm one chair becomes one confirmation row.</p>
+      </div>
+      <div class="queue-preview">
+        <div class="queue-row">
+          <span class="no">፭</span><span class="time">09:00</span><span class="svc">Manicure</span>
+          <span class="status done">ተፈጸመ · DONE</span>
+        </div>
+        <div class="queue-row">
+          <span class="no">፮</span><span class="time">10:30</span><span class="svc">Haircut</span>
+          <span class="status done">ተፈጸመ · DONE</span>
+        </div>
+        <div class="queue-row">
+          <span class="no">፯</span><span class="time">13:00</span><span class="svc">Pedicure</span>
+          <span class="status next">ቀጣይ · NEXT</span>
+        </div>
+        <div class="queue-row">
+          <span class="no">፰</span><span class="time">14:00</span><span class="svc">Massage</span>
+          <span class="status wait">በመጠበቅ · WAIT</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="cta-strip">
+    <p>The deposit is the receipt. The receipt is the booking. The booking is the chair.</p>
+    <a href="#" class="btn-fill">Take a number · ፩</a>
+  </div>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <div class="am">ኢ-ገበያ</div>
+        <div class="lat">Egebeya</div>
+        <p>The booking form that confirms before the chair is held. Built in Addis for Ethiopian service businesses.</p>
+      </div>
+      <div class="footer-cols">
+        <div class="footer-col">
+          <h4>Product</h4>
+          <a href="#">Build a site</a>
+          <a href="#">Businesses</a>
+          <a href="#">Pricing</a>
+          <a href="#">Owner log-in</a>
+        </div>
+        <div class="footer-col">
+          <h4>About</h4>
+          <a href="#">Addis Ababa, Ethiopia</a>
+          <a href="#">egebeya.et</a>
+          <a href="#">Telebirr integration</a>
+        </div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 Egebeya · Addis Ababa, Ethiopia</span>
+      <span>DEPOSIT CLEARS · ተከከለ</span>
+    </div>
+  </footer>
+</body>
+</html>

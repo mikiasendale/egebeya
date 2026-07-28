@@ -20,7 +20,7 @@ TableBody.displayName = 'TableBody';
 
 const TableRow = ({ className, ...props }: React.HTMLAttributes<HTMLTableRowElement>) => (
   <tr
-    className={cn('border-b border-gray-100 transition-colors hover:bg-gray-50 data-[state=selected]:bg-blue-50', className)}
+    className={cn('border-b border-ink-rule transition-colors hover:bg-surface-raised data-[state=selected]:bg-primary/5', className)}
     {...props}
   />
 );
@@ -29,7 +29,7 @@ TableRow.displayName = 'TableRow';
 const TableHead = ({ className, ...props }: React.ThHTMLAttributes<HTMLTableCellElement>) => (
   <th
     className={cn(
-      'h-11 px-4 text-left align-middle text-xs font-semibold uppercase tracking-wide text-gray-500',
+      'h-11 px-4 text-left align-middle text-xs font-semibold uppercase tracking-wide text-ink-soft',
       className,
     )}
     {...props}
@@ -38,7 +38,7 @@ const TableHead = ({ className, ...props }: React.ThHTMLAttributes<HTMLTableCell
 TableHead.displayName = 'TableHead';
 
 const TableCell = ({ className, ...props }: React.TdHTMLAttributes<HTMLTableCellElement>) => (
-  <td className={cn('px-4 py-3 align-middle text-gray-900', className)} {...props} />
+  <td className={cn('px-4 py-3 align-middle text-ink', className)} {...props} />
 );
 TableCell.displayName = 'TableCell';
 
