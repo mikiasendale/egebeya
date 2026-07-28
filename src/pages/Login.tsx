@@ -32,6 +32,7 @@ export function Login() {
         if (data.tenantId) localStorage.setItem('tenantId', data.tenantId);
         if (data.tenant?.slug) localStorage.setItem('tenantSlug', data.tenant.slug);
         if (data.role) localStorage.setItem('role', data.role);
+        localStorage.setItem('isSuperadmin', data.isSuperadmin ? 'true' : 'false');
         navigate('/dashboard');
       } else {
         setError(data.error || 'Failed to login');
