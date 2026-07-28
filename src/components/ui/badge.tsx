@@ -8,11 +8,11 @@ type BadgeProps = React.HTMLAttributes<HTMLSpanElement> & {
 };
 
 const variantClasses: Record<BadgeVariant, string> = {
-  default: 'border border-transparent bg-[#1E3A8A]/10 text-[#1E3A8A]',
-  success: 'border border-transparent bg-green-100 text-green-800',
-  secondary: 'border border-transparent bg-gray-100 text-gray-800',
-  destructive: 'border border-transparent bg-red-100 text-red-800',
-  outline: 'border border-gray-300 text-gray-700',
+  default: 'border border-transparent bg-primary/10 text-primary',
+  success: 'border border-transparent bg-success/10 text-success-deep',
+  secondary: 'border border-transparent bg-surface-raised text-ink-soft',
+  destructive: 'border border-transparent bg-accent/10 text-accent',
+  outline: 'border border-ink-rule text-ink',
 };
 
 export function Badge({ className, variant = 'default', ...props }: BadgeProps) {

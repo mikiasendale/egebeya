@@ -89,28 +89,29 @@ export function Discover() {
   }, [businesses, search, activeCategory]);
 
   function catBtnCls(isActive: boolean) {
-    return 'px-6 py-2 rounded-full font-medium whitespace-nowrap ' + (isActive ? 'bg-[#1E3A8A] text-white' : 'bg-white border border-gray-200 text-gray-700 hover:border-[#1E3A8A] hover:text-[#1E3A8A]');
+    return 'px-6 py-2 rounded-full font-medium whitespace-nowrap ' + (isActive ? 'bg-ink text-paper' : 'bg-paper-bleached border border-ink-rule text-ink-soft hover:border-ink hover:text-ink');
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      <div className="bg-[#1E3A8A]">
+    <div className="min-h-screen bg-paper flex flex-col" style={{ fontFamily: 'var(--font-body)' }}>
+      <div className="bg-ink">
         <Navbar />
         <div className="pt-24 pb-16 px-4 text-center max-w-3xl mx-auto">
-          <h1 className="text-4xl md:text-5xl font-extrabold text-white mb-6">Discover Local Businesses</h1>
-          <p className="text-xl text-blue-100 mb-8">Book appointments at the best salons, clinics, and service providers in Ethiopia.</p>
-          <div className="flex bg-white rounded-full p-2 shadow-lg max-w-2xl mx-auto">
+          <h1 className="text-4xl md:text-5xl font-extrabold text-paper mb-6">Discover Local Businesses</h1>
+          <p className="text-xl text-paper/70 mb-8">Book appointments at the best salons, clinics, and service providers in Ethiopia.</p>
+          <div className="flex bg-paper-bleached rounded-full p-2 max-w-2xl mx-auto border border-ink-rule">
             <input
               type="text"
               value={search}
               onChange={function(e) { setSearch(e.target.value); }}
               placeholder="Search for a business or service..."
-              className="flex-1 px-6 py-3 outline-none text-gray-800 rounded-l-full"
+              className="flex-1 px-6 py-3 outline-none text-ink rounded-l-full"
+              style={{ fontFamily: 'var(--font-body)' }}
             />
             <button
               type="button"
               onClick={function() { setSearch(''); }}
-              className="bg-[#F59E0B] text-white px-8 py-3 rounded-full font-bold hover:bg-amber-600 transition-colors"
+              className="bg-telebirr text-paper px-8 py-3 rounded-full font-bold hover:opacity-90 transition-colors"
             >Search </button>
           </div>
         </div>
@@ -136,19 +137,19 @@ export function Discover() {
         </div>
 
         {loading && (
-          <div className="text-center text-gray-500 py-16">Loading businesses...</div>
+          <div className="text-center text-ink-soft py-16">Loading businesses...</div>
         )}
 
         {!loading && error && (
-          <div className="text-center text-red-600 py-16">
+          <div className="text-center text-signal py-16">
             <p className="font-semibold mb-2">Could not load businesses</p>
-            <p className="text-sm text-gray-500">{String(error)} </p>
+            <p className="text-sm text-ink-soft">{String(error)} </p>
           </div>
         )}
 
         {!loading && !error && filteredBusinesses.length === 0 && (
-          <div className="text-center text-gray-500 py-16">
-            <p className="font-semibold text-gray-700 mb-2">No businesses match your search.</p>
+          <div className="text-center text-ink-soft py-16">
+            <p className="font-semibold text-ink mb-2">No businesses match your search.</p>
             <p className="text-sm">
               {businesses.length === 0
                 ? 'No tenants have listed themselves yet — be the first to publish your site.'
@@ -171,7 +172,7 @@ export function Discover() {
                 : `http://${business.slug}.egebeya.et`;
               return (
                 <a key={business.id} href={href} className="block group">
-                  <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 group-hover:shadow-lg transition-all transform group-hover:-translate-y-1">
+                  <div className="bg-paper-bleached rounded-2xl overflow-hidden border border-ink-rule group-hover:opacity-90 transition-all transform group-hover:-translate-y-1">
                     <div className="h-48 overflow-hidden relative">
                       {business.heroImage ? (
                         <img
@@ -180,9 +181,6 @@ export function Discover() {
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                         />
                       ) : (
-                        // Plain branded placeholder — no stock photo. Uses the
-                        // tenant's initials on a deterministic brand color so
-                        // each card is distinguishable without inventing art.
                         <div
                           className="w-full h-full flex items-center justify-center"
                           style={{ backgroundColor: placeholderColor(business.id) }}
@@ -193,32 +191,30 @@ export function Discover() {
                           </span>
                         </div>
                       )}
-                      <div className="absolute top-4 right-4 bg-white/90 backdrop-blur text-xs font-bold px-3 py-1 rounded-full text-[#1E3A8A]">
+                      <div className="absolute top-4 right-4 bg-paper-bleached/90 backdrop-blur text-xs font-bold px-3 py-1 rounded-full text-ink-soft">
                         {category}
                       </div>
                     </div>
                     <div className="p-6">
-                      <h3 className="text-xl font-bold text-gray-900 mb-2">{business.name} </h3>
-                      {/* Real city only — no fabricated "Addis Ababa" default.
-                          When omitted entirely when the tenant hasn't set one. */}
-                      <div className="flex items-center text-gray-500 text-sm min-h-[1.25rem]">
+                      <h3 className="text-xl font-bold text-ink mb-2">{business.name} </h3>
+                      <div className="flex items-center text-ink-soft text-sm min-h-[1.25rem]">
                         {business.city ? (
                           <span>{business.city}</span>
                         ) : business.isNew ? (
                           <>
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[0.65rem] font-bold uppercase tracking-wide bg-[#F59E0B]/15 text-[#B45309]">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[0.65rem] font-bold uppercase tracking-wide bg-telebirr/15 text-telebirr-deep">
                               New
                             </span>
-                            <span className="mx-2 text-gray-300">·</span>
-                            <span className="text-gray-400">No bookings yet</span>
+                            <span className="mx-2 text-ink-rule-dashed">·</span>
+                            <span className="text-ink-stamp">No bookings yet</span>
                           </>
                         ) : (
-                          <span className="text-gray-400">{business.slug}.egebeya.et</span>
+                          <span className="text-ink-stamp">{business.slug}.egebeya.et</span>
                         )}
                       </div>
                       {business.city && business.isNew && (
                         <div className="mt-2">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[0.65rem] font-bold uppercase tracking-wide bg-[#F59E0B]/15 text-[#B45309]">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[0.65rem] font-bold uppercase tracking-wide bg-telebirr/15 text-telebirr-deep">
                             New
                           </span>
                         </div>

@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="am">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Egebeya · Duka Signage Direction</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Sans+Ethiopic:wght@100..900&family=Noto+Serif+Ethiopic:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --red: #C41E3A;
+  --red-deep: #8B1425;
+  --black: #0F0F0F;
+  --sun: #FFB800;
+  --sun-deep: #CC9200;
+  --green: #00A651;
+  --stucco: #F2EFE9;
+  --stucco-warm: #E8E3D8;
+  --white: #FAFAFA;
+  --font-am: "Noto Serif Ethiopic", "Noto Sans Ethiopic", serif;
+  --font-display: "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { overflow-x: clip; }
+body {
+  background: var(--stucco);
+  color: var(--black);
+  font-family: var(--font-display);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: clip;
+}
+
+/* ── Top banner strip — like the painted metal sign header ── */
+.banner-top {
+  background: var(--red);
+  color: var(--sun);
+  text-align: center;
+  padding: 6px 16px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* ── Nav: chunky, painted-sign energy ── */
+.nav {
+  background: var(--black);
+  padding: 0 24px;
+  position: sticky; top: 0; z-index: 50;
+  border-bottom: 4px solid var(--red);
+}
+.nav-inner {
+  max-width: 1152px; margin: 0 auto;
+  display: flex; align-items: center; justify-content: space-between;
+  height: 56px;
+}
+.nav-wordmark { display: flex; align-items: baseline; gap: 8px; text-decoration: none; }
+.nav-wordmark .am   { font-family: var(--font-am); font-weight: 700; font-size: 1.35rem; color: var(--white); }
+.nav-wordmark .lat  { font-family: var(--font-display); font-weight: 700; font-size: 0.65rem; color: var(--sun); letter-spacing: 0.06em; text-transform: uppercase; }
+.nav-links { display: flex; gap: 28px; align-items: center; }
+.nav-links a {
+  color: var(--white); text-decoration: none; font-weight: 600; font-size: 0.85rem;
+  transition: color 120ms;
+}
+.nav-links a:hover { color: var(--sun); }
+.nav-cta {
+  background: var(--red); color: var(--white); text-decoration: none;
+  padding: 10px 24px; font-weight: 700; font-size: 0.85rem;
+}
+
+/* ── Hero — big painted billboard ── */
+.hero {
+  max-width: 1152px; margin: 0 auto;
+  padding: 80px 24px 64px;
+}
+.hero-tag {
+  font-family: var(--font-mono); font-weight: 600; font-size: 0.75rem;
+  letter-spacing: 0.10em; text-transform: uppercase; color: var(--red);
+  margin-bottom: 16px;
+}
+.hero h1 {
+  font-family: var(--font-am); font-weight: 700;
+  font-size: clamp(3rem, 8vw, 7rem); line-height: 0.95; color: var(--black);
+  margin-bottom: 8px;
+}
+.hero h1 span.lat {
+  display: block; font-family: var(--font-display); font-weight: 700;
+  font-size: clamp(1.5rem, 3.5vw, 2.75rem);
+  color: var(--red); margin-top: 8px;
+}
+.hero-sub {
+  max-width: 560px; margin-top: 28px;
+  font-size: 1.15rem; line-height: 1.6; color: #444;
+}
+.hero-ctas { margin-top: 36px; display: flex; gap: 16px; flex-wrap: wrap; }
+.btn-fill {
+  background: var(--red); color: var(--white); text-decoration: none;
+  padding: 16px 36px; font-weight: 700; font-size: 1rem;
+  font-family: var(--font-display); display: inline-flex; align-items: center; gap: 8px;
+}
+.btn-outline {
+  border: 2px solid var(--black); color: var(--black); text-decoration: none;
+  padding: 16px 36px; font-weight: 600; font-size: 0.9rem;
+  font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.04em;
+}
+.btn-outline:hover { background: var(--black); color: var(--stucco); }
+.btn-fill:hover { background: var(--red-deep); }
+
+/* ── Stats strip — painted on metal ── */
+.stats-strip {
+  background: var(--black); color: var(--stucco);
+  padding: 40px 24px;
+}
+.stats-inner {
+  max-width: 1152px; margin: 0 auto;
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px;
+  text-align: center;
+}
+.stat-num { font-family: var(--font-mono); font-size: clamp(2rem, 4vw, 3.5rem); font-weight: 700; color: var(--sun); }
+.stat-label { font-family: var(--font-display); font-size: 0.9rem; color: var(--stucco-warm); margin-top: 4px; }
+.stat-am { font-family: var(--font-am); font-size: 0.85rem; color: rgba(255,255,255,0.55); margin-top: 2px; }
+
+/* ── How it works — painted signboards ── */
+.how {
+  max-width: 1152px; margin: 0 auto;
+  padding: 80px 24px 72px;
+}
+.how-label {
+  font-family: var(--font-mono); font-weight: 600; font-size: 0.75rem;
+  letter-spacing: 0.10em; text-transform: uppercase; color: var(--red);
+  margin-bottom: 24px;
+}
+.how h2 {
+  font-family: var(--font-display); font-weight: 700;
+  font-size: clamp(2rem, 4vw, 3rem); line-height: 1.05; margin-bottom: 48px;
+}
+.how-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+.how-card {
+  background: var(--white); border: 2px solid var(--black); padding: 32px 24px;
+  position: relative;
+}
+.how-card::before {
+  content: ""; position: absolute; top: 0; left: 0; right: 0; height: 5px; background: var(--red);
+}
+.how-num {
+  font-family: var(--font-mono); font-weight: 700; font-size: 3rem;
+  color: var(--sun); line-height: 1; margin-bottom: 12px;
+}
+.how-card h3 { font-family: var(--font-display); font-weight: 700; font-size: 1.35rem; margin-bottom: 8px; color: var(--black); }
+.how-card p  { font-size: 0.9rem; line-height: 1.55; color: #555; }
+.how-card .am { font-family: var(--font-am); font-size: 0.85rem; color: var(--red); margin-top: 8px; font-weight: 700; }
+
+/* ── Trust bar ── */
+.trust-bar {
+  border-top: 4px solid var(--black); border-bottom: 4px solid var(--black);
+  padding: 28px 24px; text-align: center;
+}
+.trust-bar .inner {
+  max-width: 1152px; margin: 0 auto;
+  display: flex; align-items: center; justify-content: center; gap: 48px; flex-wrap: wrap;
+}
+.trust-item { display: flex; align-items: center; gap: 10px; }
+.trust-icon {
+  width: 44px; height: 44px; background: var(--black); color: var(--sun);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono); font-weight: 700; font-size: 1.2rem;
+}
+.trust-text { font-family: var(--font-display); font-weight: 600; font-size: 0.95rem; }
+.trust-am   { font-size: 0.75rem; color: #777; }
+
+/* ── Footer — painted at the bottom ── */
+.footer {
+  background: var(--black); color: var(--stucco);
+  padding: 64px 24px 40px;
+}
+.footer-inner { max-width: 1152px; margin: 0 auto; }
+.footer-top { display: flex; justify-content: space-between; gap: 48px; flex-wrap: wrap; margin-bottom: 48px; }
+.footer-brand { max-width: 320px; }
+.footer-brand .am { font-family: var(--font-am); font-weight: 700; font-size: 1.5rem; color: var(--white); }
+.footer-brand .lat { font-family: var(--font-display); font-weight: 600; font-size: 0.65rem; color: var(--sun); letter-spacing: 0.06em; text-transform: uppercase; margin-top: 4px; }
+.footer-brand p  { margin-top: 16px; font-size: 0.9rem; line-height: 1.6; color: rgba(255,255,255,0.65); }
+.footer-cols { display: flex; gap: 64px; }
+.footer-col h4 { font-family: var(--font-mono); font-weight: 600; font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--red); margin-bottom: 16px; }
+.footer-col a  { display: block; color: var(--stucco-warm); text-decoration: none; font-size: 0.9rem; padding: 4px 0; transition: color 120ms; }
+.footer-col a:hover { color: var(--sun); }
+.footer-bottom { border-top: 2px solid rgba(255,255,255,0.1); padding-top: 24px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 16px; font-family: var(--font-mono); font-size: 0.72rem; color: rgba(255,255,255,0.35); letter-spacing: 0.04em; }
+
+@media (max-width: 768px) {
+  .nav-links { display: none; }
+  .hero h1 { font-size: clamp(2.5rem, 10vw, 4rem); }
+  .how-grid, .stats-inner { grid-template-columns: 1fr; }
+  .footer-cols { flex-direction: column; gap: 32px; }
+}
+</style>
+</head>
+<body>
+  <div class="banner-top">Telecom Green · Sunburst Yellow · Painted Metal Red</div>
+
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="#" class="nav-wordmark">
+        <span class="am">ኢ-ገበያ</span>
+        <span class="lat">Egebeya</span>
+      </a>
+      <div class="nav-links">
+        <a href="#">Businesses · ንግድ</a>
+        <a href="#">Pricing · ዋጋ</a>
+        <a href="#">How it works</a>
+        <a href="#">Log in · ግባ</a>
+      </div>
+      <a href="#" class="nav-cta">Build your site · ድረ-ገጽ</a>
+    </div>
+  </nav>
+
+  <div class="hero">
+    <div class="hero-tag">Fintech Platform · Ethiopia · ኢትዮጵያ</div>
+    <h1>
+      ተወሰነ<br>በውሉ።
+      <span class="lat">The deposit confirms the booking.</span>
+    </h1>
+    <p class="hero-sub">
+      Egebeya gives every young Ethiopian the rails to build a booking website for any local business.
+      Salon, clinic, plumber, barber — pick one, build it, and start taking Telebirr deposits before the chair is even warm.
+    </p>
+    <div class="hero-ctas">
+      <a href="#" class="btn-fill">Open your booking form · 14 days free</a>
+      <a href="#" class="btn-outline">See how it works →</a>
+    </div>
+  </div>
+
+  <div class="stats-strip">
+    <div class="stats-inner">
+      <div><div class="stat-num">3min</div><div class="stat-label">To launch a site</div><div class="stat-am">ድረ-ገጽ ለመክፈት</div></div>
+      <div><div class="stat-num">Telecom</div><div class="stat-label">Telebirr deposit clears instantly</div><div class="stat-am">ቴሌቢር ቅጽበታዊ</div></div>
+      <div><div class="stat-num">0</div><div class="stat-label">Card needed. No bank. Just a phone.</div><div class="stat-am">ስልክ ብቻ</div></div>
+    </div>
+  </div>
+
+  <div class="how">
+    <div class="how-label">How Egebeya works · እንዴት</div>
+    <h2>Pick a local business.<br>Build its website.<br>Telebirr deposits start flowing.</h2>
+    <div class="how-grid">
+      <div class="how-card">
+        <div class="how-num">፩</div>
+        <h3>Pick a business</h3>
+        <p>Find a salon, clinic, barber, or any service near you that needs online booking. You don't build for yourself — you build for your neighborhood.</p>
+        <div class="am">ንግድ ምረጡ</div>
+      </div>
+      <div class="how-card">
+        <div class="how-num">፪</div>
+        <h3>Launch in minutes</h3>
+        <p>Services, staff, hours, pricing — set them once. Egebeya publishes a live booking form and a public business page instantly.</p>
+        <div class="am">ድረ-ገጽ ይክፈቱ</div>
+      </div>
+      <div class="how-card">
+        <div class="how-num">፫</div>
+        <h3>Earn with deposits</h3>
+        <p>Every booking takes a Telebirr deposit. The business owner sees cleared payments, not "maybe" replies. No-show solved.</p>
+        <div class="am">ቴሌቢር ገቢ</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="trust-bar">
+    <div class="inner">
+      <div class="trust-item">
+        <div class="trust-icon">T</div>
+        <div><div class="trust-text">Telebirr native</div><div class="trust-am">ቴሌቢር</div></div>
+      </div>
+      <div class="trust-item">
+        <div class="trust-icon">14</div>
+        <div><div class="trust-text">Days free trial</div><div class="trust-am">ነፃ ሙከራ</div></div>
+      </div>
+      <div class="trust-item">
+        <div class="trust-icon">ET</div>
+        <div><div class="trust-text">Built in Addis Ababa</div><div class="trust-am">አዲስ አበባ</div></div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      <div class="footer-top">
+        <div class="footer-brand">
+          <div class="am">ኢ-ገበያ</div>
+          <div class="lat">Egebeya</div>
+          <p>The platform that turns young Ethiopians into booking operators. Pick a business, build a site, collect Telebirr deposits — all from your phone.</p>
+        </div>
+        <div class="footer-cols">
+          <div class="footer-col">
+            <h4>Platform · መድረክ</h4>
+            <a href="#">Build a site</a>
+            <a href="#">Browse businesses</a>
+            <a href="#">Pricing</a>
+            <a href="#">Owner log-in</a>
+          </div>
+          <div class="footer-col">
+            <h4>About · ስለ</h4>
+            <a href="#">Made in Addis</a>
+            <a href="#">Telebirr integration</a>
+            <a href="#">How deposits work</a>
+          </div>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 Egebeya · Addis Ababa, Ethiopia</span>
+        <span>DEPOSIT CLEARS · ተከከለ</span>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

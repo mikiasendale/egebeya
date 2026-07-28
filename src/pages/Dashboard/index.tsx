@@ -44,13 +44,13 @@ export function Dashboard() {
   const navItems = role === 'staff' ? STAFF_NAV : ALL_NAV;
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-paper flex" style={{ fontFamily: 'var(--font-body)' }}>
       {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col hidden md:flex">
-        <div className="h-16 flex items-center px-6 border-b border-gray-200">
-          <svg className="h-8 w-auto text-[#1E3A8A]" viewBox="0 0 100 50" fill="currentColor">
-            <text x="50" y="20" fontSize="20" fontWeight="bold" textAnchor="middle" fill="currentColor">ኢ-ገበያ</text>
-            <text x="50" y="40" fontSize="16" fontWeight="bold" textAnchor="middle" fill="currentColor">Egebeya</text>
+      <aside className="w-64 bg-paper-bleached border-r border-ink-rule flex flex-col hidden md:flex">
+        <div className="h-16 flex items-center px-6 border-b border-ink-rule">
+          <svg className="h-8 w-auto text-ink" viewBox="0 0 100 50" fill="currentColor">
+            <text x="50" y="20" fontSize="20" fontWeight="bold" textAnchor="middle" fill="currentColor" fontFamily="'Noto Serif Ethiopic', serif">ኢ-ገበያ</text>
+            <text x="50" y="40" fontSize="16" fontWeight="bold" textAnchor="middle" fill="currentColor" fontFamily="'Bricolage Grotesque', system-ui, sans-serif">Egebeya</text>
           </svg>
         </div>
 
@@ -64,33 +64,33 @@ export function Dashboard() {
                 to={item.path}
                 className={`flex items-center px-3 py-2.5 text-sm font-medium rounded-md transition-colors ${
                   isActive
-                    ? 'bg-blue-50 text-[#1E3A8A]'
-                    : 'text-gray-700 hover:bg-gray-100'
+                    ? 'bg-ink/10 text-ink'
+                    : 'text-ink hover:bg-paper-raised'
                 }`}
               >
-                <Icon className={`mr-3 h-5 w-5 ${isActive ? 'text-[#1E3A8A]' : 'text-gray-400'}`} />
+                <Icon className={`mr-3 h-5 w-5 ${isActive ? 'text-ink' : 'text-ink-stamp'}`} />
                 {item.name}
-             </Link>
+              </Link>
             );
           })}
         </nav>
 
-        <div className="p-4 border-t border-gray-200">
+        <div className="p-4 border-t border-ink-rule">
           <button
             onClick={handleLogout}
-            className="flex w-full items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100"
+            className="flex w-full items-center px-3 py-2 text-sm font-medium text-ink rounded-md hover:bg-paper-raised"
           >
-            <LogOut className="mr-3 h-5 w-5 text-gray-400" />
+            <LogOut className="mr-3 h-5 w-5 text-ink-stamp" />
             Sign Out
-         </button>
-       </div>
-     </aside>
+          </button>
+        </div>
+      </aside>
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-h-screen overflow-hidden">
-        <header className="h-16 bg-white border-b border-gray-200 flex items-center px-6 md:px-8">
-          <h1 className="text-xl font-bold text-gray-900">Dashboard</h1>
-       </header>
+        <header className="h-16 bg-paper-bleached border-b border-ink-rule flex items-center px-6 md:px-8">
+          <h1 className="text-xl font-bold text-ink">Dashboard</h1>
+        </header>
 
         <div className="flex-1 p-6 md:p-8 overflow-y-auto">
           <Routes>
@@ -103,9 +103,9 @@ export function Dashboard() {
             <Route path="/settings" element={<SettingsComponent />} />
             <Route path="*" element={<Navigate to="/dashboard/bookings" replace />} />
           </Routes>
-       </div>
-     </main>
-   </div>
+        </div>
+      </main>
+    </div>
   );
 }
 
@@ -176,8 +176,8 @@ function Overview() {
     <StaffRedirect>
       <div className="space-y-6">
         {!onboardingComplete && (
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-            <h2 className="text-lg font-bold mb-4">Setup Guide</h2>
+          <div className="bg-paper-bleached p-6 rounded-xl border border-ink-rule">
+            <h2 className="text-lg font-bold text-ink mb-4">Setup Guide</h2>
             <div className="space-y-4">
               <SetupStep completed={true} title="Create account & business profile" />
               <SetupStep completed={counts.services > 0} title="Add your first service" />
@@ -188,17 +188,17 @@ function Overview() {
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-            <div className="text-sm font-medium text-gray-500 mb-1">Bookings</div>
-            <div className="text-3xl font-bold">{counts.bookings}</div>
+          <div className="bg-paper-bleached p-6 rounded-xl border border-ink-rule">
+            <div className="text-sm font-medium text-ink-soft mb-1">Bookings</div>
+            <div className="text-3xl font-bold text-ink">{counts.bookings}</div>
           </div>
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-            <div className="text-sm font-medium text-gray-500 mb-1">Active Services</div>
-            <div className="text-3xl font-bold">{counts.services}</div>
+          <div className="bg-paper-bleached p-6 rounded-xl border border-ink-rule">
+            <div className="text-sm font-medium text-ink-soft mb-1">Active Services</div>
+            <div className="text-3xl font-bold text-ink">{counts.services}</div>
           </div>
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-            <div className="text-sm font-medium text-gray-500 mb-1">Staff Members</div>
-            <div className="text-3xl font-bold">{counts.staff}</div>
+          <div className="bg-paper-bleached p-6 rounded-xl border border-ink-rule">
+            <div className="text-sm font-medium text-ink-soft mb-1">Staff Members</div>
+            <div className="text-3xl font-bold text-ink">{counts.staff}</div>
           </div>
         </div>
 
@@ -212,26 +212,26 @@ function Overview() {
 
 function QuickActions() {
   const actions: { name: string; to: string; icon: any; accent: string }[] = [
-    { name: 'Add Service', to: '/dashboard/services', icon: Plus, accent: 'bg-blue-50 text-[#1E3A8A]' },
-    { name: 'Add Staff', to: '/dashboard/staff', icon: CalendarPlus, accent: 'bg-emerald-50 text-emerald-700' },
+    { name: 'Add Service', to: '/dashboard/services', icon: Plus, accent: 'bg-ink/10 text-ink' },
+    { name: 'Add Staff', to: '/dashboard/staff', icon: CalendarPlus, accent: 'bg-telebirr/10 text-telebirr-deep' },
     { name: 'View Media', to: '/dashboard/media', icon: ImagePlus, accent: 'bg-amber-50 text-amber-700' },
   ];
   return (
     <section>
-      <h2 className="text-lg font-bold text-gray-900 mb-3">Quick Actions</h2>
+      <h2 className="text-lg font-bold text-ink mb-3">Quick Actions</h2>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {actions.map((a) => (
           <Link
             key={a.name}
             to={a.to}
-            className="flex items-center gap-3 bg-white border border-gray-200 rounded-lg px-4 py-4 shadow-sm hover:shadow-md hover:border-[#1E3A8A]/40 transition"
+            className="flex items-center gap-3 bg-paper-bleached border border-ink-rule rounded-lg px-4 py-4 hover:opacity-90 transition"
           >
             <span className={`inline-flex h-10 w-10 items-center justify-center rounded-full ${a.accent}`}>
               <a.icon className="h-5 w-5" />
             </span>
             <div>
-              <div className="text-sm font-semibold text-gray-900">{a.name}</div>
-              <div className="text-xs text-gray-500">Open the page →</div>
+              <div className="text-sm font-semibold text-ink">{a.name}</div>
+              <div className="text-xs text-ink-soft">Open the page →</div>
             </div>
           </Link>
         ))}
@@ -242,19 +242,19 @@ function QuickActions() {
 
 function RecentActivity({ items, loading }: { items: any[]; loading: boolean }) {
   return (
-    <section className="bg-white rounded-xl shadow-sm border border-gray-200">
-      <header className="px-6 py-4 border-b border-gray-200">
-        <h2 className="text-lg font-bold text-gray-900">Recent Activity</h2>
+    <section className="bg-paper-bleached rounded-xl border border-ink-rule">
+      <header className="px-6 py-4 border-b border-ink-rule">
+        <h2 className="text-lg font-bold text-ink">Recent Activity</h2>
       </header>
 
       {loading ? (
-        <div className="p-6 text-sm text-gray-500">Loading recent bookings…</div>
+        <div className="p-6 text-sm text-ink-soft">Loading recent bookings…</div>
       ) : items.length === 0 ? (
-        <div className="p-6 text-sm text-gray-500">
+        <div className="p-6 text-sm text-ink-soft">
           No recent activity.
         </div>
       ) : (
-        <ul role="list" className="divide-y divide-gray-100">
+        <ul role="list" className="divide-y divide-ink-rule">
           {items.map((b) => {
             const time = b.startTime ? format(new Date(b.startTime), 'HH:mm') : '--:--';
             const minutesAgo = b.startTime
@@ -269,19 +269,19 @@ function RecentActivity({ items, loading }: { items: any[]; loading: boolean }) 
                   : `Booked ${Math.round(minutesAgo / 60)}h ago`;
             return (
               <li key={b.id} className="flex items-center gap-4 px-6 py-3">
-                <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-blue-50 text-[#1E3A8A] font-semibold text-sm">
+                <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-ink/10 text-ink font-semibold text-sm">
                   {(b.customerName && b.customerName.charAt(0)) || '?'}
                 </span>
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-gray-900 truncate">
+                  <div className="text-sm font-medium text-ink truncate">
                     {b.customerName || 'Customer'}
-                    <span className="text-gray-400"> · {b.serviceName || 'Service'}</span>
+                    <span className="text-ink-stamp"> · {b.serviceName || 'Service'}</span>
                   </div>
-                  <div className="text-xs text-gray-500">
+                  <div className="text-xs text-ink-soft">
                     {ago}
                   </div>
                 </div>
-                <div className="text-sm font-medium text-gray-700">{time}</div>
+                <div className="text-sm font-medium text-ink">{time}</div>
               </li>
             );
           })}
@@ -294,10 +294,10 @@ function RecentActivity({ items, loading }: { items: any[]; loading: boolean }) 
 function SetupStep({ completed, title }: { completed: boolean; title: string }) {
   return (
     <div className="flex items-center space-x-3">
-      <div className={`w-6 h-6 rounded-full flex items-center justify-center ${completed ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'}`}>
+      <div className={`w-6 h-6 rounded-full flex items-center justify-center ${completed ? 'bg-telebirr/10 text-telebirr-deep' : 'bg-paper-raised text-ink-stamp'}`}>
         {completed ? '✓' : '•'}
       </div>
-      <span className={`font-medium ${completed ? 'text-gray-900 line-through opacity-50' : 'text-gray-900'}`}>{title}</span>
+      <span className={`font-medium ${completed ? 'text-ink line-through opacity-50' : 'text-ink'}`}>{title}</span>
     </div>
   );
 }

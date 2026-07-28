@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="am">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Egebeya · Copper Bazaar Direction</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Sans+Ethiopic:wght@100..900&family=Noto+Serif+Ethiopic:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --alley: #1A3345;
+  --alley-raised: #213D54;
+  --alley-soft: rgba(255,255,255,0.45);
+  --copper: #C47E4C;
+  --copper-glow: #E8A86C;
+  --amber: #D4952A;
+  --amber-wash: rgba(212, 149, 42, 0.12);
+  --cream: #F5F1E8;
+  --cream-raised: #EDE7D8;
+  --font-am: "Noto Serif Ethiopic", "Noto Sans Ethiopic", serif;
+  --font-display: "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { overflow-x: clip; }
+body {
+  background: var(--alley);
+  color: var(--cream);
+  font-family: var(--font-display);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: clip;
+}
+
+/* ── Geometric border pattern at the top ── */
+.geo-top {
+  height: 5px;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--copper) 0px, var(--copper) 8px,
+    var(--amber) 8px, var(--amber) 16px,
+    var(--cream) 16px, var(--cream) 24px,
+    var(--copper) 24px, var(--copper) 32px
+  );
+}
+
+/* ── Nav: on the dark alley ground ── */
+.nav {
+  position: sticky; top: 0; z-index: 50;
+  background: var(--alley);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  padding: 0 24px;
+}
+.nav-inner {
+  max-width: 1100px; margin: 0 auto;
+  display: flex; align-items: center; justify-content: space-between;
+  height: 56px;
+}
+.nav-wordmark { display: flex; align-items: baseline; gap: 8px; text-decoration: none; }
+.nav-wordmark .am  { font-family: var(--font-am); font-weight: 700; font-size: 1.3rem; color: var(--copper-glow); }
+.nav-wordmark .lat { font-family: var(--font-display); font-weight: 500; font-size: 0.65rem; color: var(--alley-soft); letter-spacing: 0.06em; text-transform: uppercase; }
+.nav-links { display: flex; gap: 28px; align-items: center; }
+.nav-links a {
+  color: var(--alley-soft); text-decoration: none; font-weight: 500; font-size: 0.85rem;
+  transition: color 120ms;
+}
+.nav-links a:hover { color: var(--copper-glow); }
+.nav-cta {
+  background: var(--copper); color: var(--alley); text-decoration: none;
+  padding: 10px 22px; font-weight: 600; font-size: 0.85rem;
+  font-family: var(--font-display);
+}
+.nav-cta:hover { background: var(--copper-glow); }
+
+/* ── Hero ── */
+.hero {
+  max-width: 1100px; margin: 0 auto;
+  padding: 88px 24px 72px;
+  text-align: center;
+}
+.hero-tag {
+  font-family: var(--font-mono); font-weight: 500; font-size: 0.68rem;
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--copper-glow);
+  margin-bottom: 24px;
+  display: inline-block; padding: 4px 16px;
+  border: 1px solid rgba(196, 126, 76, 0.3);
+}
+.hero h1 {
+  font-family: var(--font-am); font-weight: 700;
+  font-size: clamp(2.75rem, 7vw, 5.5rem); line-height: 0.92;
+  color: var(--cream);
+}
+.hero h1 span.lat {
+  display: block; font-family: var(--font-display); font-weight: 600;
+  font-size: clamp(1.1rem, 2.5vw, 1.6rem);
+  color: var(--copper-glow); margin-top: 10px; line-height: 1.35;
+}
+.hero-sub {
+  margin: 28px auto 0; max-width: 540px;
+  font-size: 1.05rem; line-height: 1.7; color: var(--alley-soft);
+}
+.hero-ctas { margin-top: 36px; display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+.btn-copper {
+  background: var(--copper); color: var(--alley); text-decoration: none;
+  padding: 16px 36px; font-weight: 600; font-size: 1rem;
+  font-family: var(--font-display);
+}
+.btn-copper:hover { background: var(--copper-glow); }
+.btn-ghost {
+  border: 1px solid rgba(196, 126, 76, 0.5); color: var(--copper-glow); text-decoration: none;
+  padding: 16px 36px; font-weight: 500; font-size: 0.9rem;
+  font-family: var(--font-display);
+}
+.btn-ghost:hover { background: rgba(196, 126, 76, 0.1); }
+.hero-note {
+  margin-top: 16px; font-family: var(--font-mono); font-size: 0.65rem;
+  color: var(--alley-soft); letter-spacing: 0.06em;
+}
+
+/* ── Geo divider ── */
+.geo-divider {
+  height: 2px;
+  background: repeating-linear-gradient(
+    90deg, var(--copper) 0px, var(--copper) 6px, transparent 6px, transparent 12px
+  );
+  opacity: 0.3;
+}
+
+/* ── Features — as illuminated panels ── */
+.features {
+  max-width: 1100px; margin: 0 auto;
+  padding: 80px 24px;
+}
+.features h2 {
+  text-align: center; font-family: var(--font-display); font-weight: 600;
+  font-size: clamp(1.75rem, 3.5vw, 2.5rem); margin-bottom: 48px; color: var(--cream);
+}
+.features h2 span { color: var(--copper-glow); font-family: var(--font-am); font-weight: 700; }
+.feat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
+.feat-card {
+  background: var(--alley-raised); border: 1px solid rgba(196, 126, 76, 0.15);
+  padding: 36px 28px;
+  transition: border-color 200ms;
+}
+.feat-card:hover { border-color: rgba(196, 126, 76, 0.45); }
+.feat-icon {
+  font-family: var(--font-am); font-weight: 700; font-size: 2rem;
+  color: var(--copper-glow); margin-bottom: 16px; line-height: 1;
+}
+.feat-card h3 { font-family: var(--font-display); font-weight: 600; font-size: 1.25rem; margin-bottom: 8px; color: var(--cream); }
+.feat-card p  { font-size: 0.9rem; line-height: 1.6; color: var(--alley-soft); }
+.feat-card .am { font-family: var(--font-am); font-size: 0.85rem; color: var(--copper-glow); margin-top: 8px; }
+
+/* ── Pricing cards ── */
+.pricing {
+  max-width: 1100px; margin: 0 auto;
+  padding: 80px 24px;
+}
+.pricing h2 {
+  text-align: center; font-family: var(--font-display); font-weight: 600;
+  font-size: clamp(1.75rem, 3.5vw, 2.25rem); margin-bottom: 48px; color: var(--cream);
+}
+.price-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; max-width: 800px; margin: 0 auto; }
+.price-card {
+  background: var(--alley-raised); border: 1px solid rgba(196, 126, 76, 0.15);
+  padding: 36px 28px;
+}
+.price-card.featured { border-color: var(--copper); background: rgba(196, 126, 76, 0.08); }
+.price-card h3 { font-family: var(--font-display); font-weight: 600; font-size: 1.3rem; }
+.price-card .am-title { font-family: var(--font-am); font-weight: 700; font-size: 1rem; color: var(--copper-glow); }
+.price-amount { font-family: var(--font-mono); font-weight: 700; font-size: 2rem; color: var(--copper-glow); margin: 16px 0 8px; }
+.price-period { font-size: 0.8rem; color: var(--alley-soft); }
+.price-features { list-style: none; display: flex; flex-direction: column; gap: 10px; margin: 20px 0; }
+.price-features li { font-size: 0.9rem; color: var(--cream); display: flex; align-items: center; gap: 10px; }
+.price-features li .dot { color: var(--copper-glow); font-weight: 700; }
+.price-card .btn-copper { display: block; text-align: center; padding: 14px; font-size: 0.9rem; }
+
+/* ── CTA section ── */
+.cta-section {
+  text-align: center; padding: 80px 24px;
+  background: var(--alley-raised);
+  border-top: 1px solid rgba(196, 126, 76, 0.2);
+  border-bottom: 1px solid rgba(196, 126, 76, 0.2);
+}
+.cta-section h2 {
+  font-family: var(--font-am); font-weight: 700;
+  font-size: clamp(2rem, 5vw, 3.5rem); color: var(--cream); margin-bottom: 16px;
+}
+.cta-section p { font-size: 1.05rem; color: var(--alley-soft); max-width: 500px; margin: 0 auto 28px; line-height: 1.6; }
+
+/* ── Footer ── */
+.footer {
+  max-width: 1100px; margin: 0 auto; padding: 64px 24px 40px;
+}
+.footer-top { display: flex; justify-content: space-between; gap: 48px; flex-wrap: wrap; margin-bottom: 40px; }
+.footer-brand { max-width: 300px; }
+.footer-brand .am { font-family: var(--font-am); font-weight: 700; font-size: 1.35rem; color: var(--copper-glow); }
+.footer-brand .lat { font-family: var(--font-display); font-weight: 500; font-size: 0.6rem; color: var(--alley-soft); letter-spacing: 0.08em; text-transform: uppercase; margin-top: 4px; }
+.footer-brand p { margin-top: 14px; font-size: 0.85rem; line-height: 1.6; color: var(--alley-soft); }
+.footer-cols { display: flex; gap: 48px; }
+.footer-col h4 { font-family: var(--font-mono); font-size: 0.62rem; letter-spacing: 0.10em; text-transform: uppercase; color: var(--copper-glow); margin-bottom: 14px; }
+.footer-col a  { display: block; color: var(--alley-soft); text-decoration: none; font-size: 0.85rem; padding: 3px 0; }
+.footer-col a:hover { color: var(--copper-glow); }
+.footer-bottom {
+  border-top: 1px solid rgba(196, 126, 76, 0.15);
+  padding-top: 20px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+  font-family: var(--font-mono); font-size: 0.62rem; color: var(--alley-soft);
+  letter-spacing: 0.06em; text-transform: uppercase;
+}
+
+@media (max-width: 768px) {
+  .nav-links { display: none; }
+  .feat-grid, .price-grid { grid-template-columns: 1fr; }
+  .hero { text-align: left; }
+  .hero-ctas { justify-content: flex-start; }
+  .footer-cols { flex-direction: column; gap: 24px; }
+}
+</style>
+</head>
+<body>
+  <div class="geo-top" aria-hidden="true"></div>
+
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="#" class="nav-wordmark">
+        <span class="am">ኢ-ገበያ</span>
+        <span class="lat">Egebeya</span>
+      </a>
+      <div class="nav-links">
+        <a href="#">Businesses · ንግድ</a>
+        <a href="#">Pricing · ዋጋ</a>
+        <a href="#">How it works</a>
+        <a href="#">Log in · ግባ</a>
+      </div>
+      <a href="#" class="nav-cta">Build your site</a>
+    </div>
+  </nav>
+
+  <div class="hero">
+    <div class="hero-tag">Booking Platform · Ethiopia · ኢትዮጵያ</div>
+    <h1>
+      ተወሰነ<br>በውሉ።
+      <span class="lat">Build, launch, and collect Telebirr deposits — for any local business.</span>
+    </h1>
+    <p class="hero-sub">
+      Egebeya is the booking ledger for Ethiopian commerce. A young builder picks a service — salon, plumber, clinic, barber — builds a site, and the deposit clears before the first customer arrives.
+    </p>
+    <div class="hero-ctas">
+      <a href="#" class="btn-copper">Open your booking form · 14 days free</a>
+      <a href="#" class="btn-ghost">Explore the platform →</a>
+    </div>
+    <p class="hero-note">No card. No bank branch. Telebirr deposit, before the booking exists.</p>
+  </div>
+
+  <div class="geo-divider" aria-hidden="true"></div>
+
+  <div class="features">
+    <h2>Why Egebeya · <span>ለምን</span></h2>
+    <div class="feat-grid">
+      <div class="feat-card">
+        <div class="feat-icon">፩</div>
+        <h3>Build for any business</h3>
+        <p>Salon, plumber, clinic, barber, tutor — if it takes bookings, Egebeya powers it. You build the site; the business runs it.</p>
+        <div class="am">ማንኛውም ንግድ</div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">፪</div>
+        <h3>Telebirr deposits, instantly</h3>
+        <p>The deposit clears before the slot is held. No cash at the counter. No "I'll pay tomorrow." The receipt IS the booking.</p>
+        <div class="am">ቴሌቢር ቅጽበታዊ</div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">፫</div>
+        <h3>No code, no card, no bank</h3>
+        <p>Your site publishes the moment you finish setup. No HTML, no hosting fees, no card required. Just a phone and a Telebirr account.</p>
+        <div class="am">ኮድ አያስፈልግም</div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">፬</div>
+        <h3>Built in Addis Ababa</h3>
+        <p>Egebeya understands Ethiopian time, Ethiopian names, Ethiopian queues. Not a translation of an American product — built here, for here.</p>
+        <div class="am">አዲስ አበባ</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="pricing">
+    <h2>Pricing · ዋጋ</h2>
+    <div class="price-grid">
+      <div class="price-card">
+        <h3>Basic <span class="am-title">ባዝ</span></h3>
+        <div class="price-amount">Br 0.00</div>
+        <div class="price-period">Free · ነፃ</div>
+        <ul class="price-features">
+          <li><span class="dot">፩</span> Website for your business</li>
+          <li><span class="dot">፪</span> Online booking</li>
+          <li><span class="dot">፫</span> Up to 2 staff</li>
+          <li><span class="dot">፬</span> Egebeya subdomain</li>
+        </ul>
+        <a href="#" class="btn-copper">Start Free Trial</a>
+      </div>
+      <div class="price-card featured">
+        <h3>Pro <span class="am-title">ፕሮ</span></h3>
+        <div class="price-amount">Br 500.00</div>
+        <div class="price-period">/ month · ወር</div>
+        <ul class="price-features">
+          <li><span class="dot">፩</span> Everything in Basic</li>
+          <li><span class="dot">፪</span> Unlimited staff</li>
+          <li><span class="dot">፫</span> Custom domain</li>
+          <li><span class="dot">፬</span> Advanced analytics</li>
+        </ul>
+        <a href="#" class="btn-copper">Start Pro Trial</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="cta-section">
+    <h2>ተወሰነ በውሉ።</h2>
+    <p>The deposit confirms the booking. The booking confirms the chair. No more "no-show."</p>
+    <a href="#" class="btn-copper">Take a number · ፩</a>
+  </div>
+
+  <footer class="footer">
+    <div class="footer-top">
+      <div class="footer-brand">
+        <div class="am">ኢ-ገበያ</div>
+        <div class="lat">Egebeya</div>
+        <p>The platform that turns young Ethiopians into booking operators. Telebirr deposits, Ethiopian time, Ethiopian businesses.</p>
+      </div>
+      <div class="footer-cols">
+        <div class="footer-col"><h4>Product</h4><a href="#">Build a site</a><a href="#">Businesses</a><a href="#">Pricing</a><a href="#">Owner log-in</a></div>
+        <div class="footer-col"><h4>About</h4><a href="#">Addis Ababa</a><a href="#">egebeya.et</a><a href="#">Telebirr</a></div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 Egebeya · Addis Ababa, Ethiopia</span>
+      <span>DEPOSIT CLEARS · ተከከለ</span>
+    </div>
+  </footer>
+</body>
+</html>

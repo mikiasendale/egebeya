@@ -5,8 +5,8 @@
      needs the explicit Ethiopian-receipt metaphor (e.g. a real printed
      receipt card). Continue to consume these via `var(--color-…)` or
      the generated utilities `bg-paper`, `text-ink`, `font-receipt`, etc. */
-  --color-paper: #F6F1E8;
-  --color-paper-bleached: #FBF8F2;
+  --color-paper: #F4E8C1;
+  --color-paper-bleached: #F9F3DE;
   --color-ink: #1A1411;
   --color-ink-soft: #6E5B4E;
   --color-ink-rule: rgba(26, 20, 17, 0.12);
@@ -16,6 +16,8 @@
   --color-telebirr: #0FA958;
   --color-telebirr-deep: #063F2D;
   --color-signal: #D33426;
+  --color-paper-raised: #E8D8A8;     /* paper hover / active row */
+  --color-ink-stamp: rgba(26, 20, 17, 0.45); /* faded ink for refs, numerals */
   /* counter-soft rule for inverted-band hairlines (PricingSection divider,
      Footer counter-soft top rule). The only non-kebele-named literal that
      earns a slot. */
@@ -28,8 +30,8 @@
      primitive stays for moments that want the explicit Ethiopian word. */
   --color-primary: #0FA958;          /* = telebirr; deposit / commit / book / success */
   --color-primary-deep: #063F2D;     /* = telebirr-deep; hover + headings on telebirr */
-  --color-surface: #F6F1E8;          /* = paper; page ground */
-  --color-surface-raised: #FBF8F2;   /* = paper-bleached; cards, inputs */
+  --color-surface: #F4E8C1;          /* = paper; page ground */
+  --color-surface-raised: #F9F3DE;   /* = paper-bleached; cards, inputs */
   --color-canvas: #3B2820;           /* = counter; espresso inverted band */
   --color-canvas-soft: #7A5C49;      /* = counter-soft; secondary text on canvas */
   --color-accent: #D33426;           /* = signal; warnings / errors / cancellations */
@@ -45,11 +47,14 @@
      `--rd-card` stays for backward compat with existing inline-style uses. */
   --radius-card: 2px;
   --rd-card: 2px;
+  --rd-stamp: 0px;
 
   --font-serif-ethiopic: "Noto Serif Ethiopic", serif;
   --font-display: "Bricolage Grotesque", system-ui, sans-serif;
   --font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-receipt: "JetBrains Mono", ui-monospace, "SFMono-Regular", monospace;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", monospace;
+  --font-ethiopic-label: "Noto Sans Ethiopic", system-ui, sans-serif;
 }
 
 html {
@@ -63,6 +68,127 @@ body {
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
+
+/* ─── FormRow — Ge'ez-numeral left rail, form label + value ─── */
+.form-row {
+  display: grid;
+  grid-template-columns: 2.5rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem 0.5rem;
+  border-bottom: 1px solid var(--color-ink-rule);
+  font-family: var(--font-body);
+}
+.form-row.is-active {
+  background-color: var(--color-paper-raised);
+  border-top: 1px solid var(--color-ink);
+  border-bottom: 1px solid var(--color-ink);
+}
+.form-row__index {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 0.95rem;
+  color: var(--color-ink-stamp);
+  text-align: center;
+}
+.form-row__label {
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-ink);
+}
+.form-row__value {
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  color: var(--color-ink);
+}
+
+/* ─── Surface graphite — espresso counter band (dashboard, counter-close) ─── */
+.surface-graphite {
+  background-color: var(--color-counter);
+  color: var(--color-paper);
+  color-scheme: dark;
+}
+
+/* ─── Stamp — mono caps, squared ─── */
+.stamp {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-ink);
+  padding: 0.25rem 0.45rem;
+  border: 1px solid var(--color-ink);
+  border-radius: var(--rd-stamp);
+  line-height: 1;
+}
+.stamp.positive {
+  color: var(--color-telebirr);
+  border-color: var(--color-telebirr);
+}
+.stamp.negative {
+  color: var(--color-signal);
+  border-color: var(--color-signal);
+}
+.stamp.on-canvas {
+  color: var(--color-paper);
+  border-color: rgba(244, 242, 236, 0.55);
+}
+
+/* ─── DepositStamp — rotated square with Ethiopic glyph ─── */
+.deposit-stamp {
+  display: inline-grid;
+  grid-template-rows: auto 1fr auto;
+  align-items: center;
+  justify-items: center;
+  text-align: center;
+  width: 5.5rem;
+  height: 5.5rem;
+  padding: 0.4rem 0.25rem;
+  border: 1.5px solid var(--color-ink);
+  border-radius: 2px;
+  color: var(--color-ink);
+  background: var(--color-paper);
+  position: relative;
+  transform: rotate(-2deg);
+}
+.deposit-stamp::before {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border: 1px solid var(--color-ink-rule);
+  border-radius: 2px;
+  pointer-events: none;
+}
+.deposit-stamp__ref {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  color: var(--color-ink-stamp);
+}
+.deposit-stamp__glyph {
+  font-family: var(--font-serif-ethiopic);
+  font-weight: 700;
+  font-size: 1.45rem;
+  line-height: 1;
+}
+.deposit-stamp__date {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.05em;
+  color: var(--color-ink-stamp);
+}
+@keyframes stamp-press {
+  0%   { transform: rotate(-2deg) scale(1.6); opacity: 0; }
+  60%  { transform: rotate(-2deg) scale(0.94); opacity: 1; }
+  100% { transform: rotate(-2deg) scale(1); opacity: 1; }
+}
+.stamp-press-in { animation: stamp-press 320ms cubic-bezier(0.2, 0.9, 0.25, 1) both; }
 
 /* Receipt rule: 1px solid hairline divider, semantic on receipt cards */
 .rule {
