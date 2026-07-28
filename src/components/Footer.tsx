@@ -1,49 +1,81 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 export function Footer() {
+  const { t } = useTranslation();
   const year = new Date().getFullYear();
   return (
     <footer
-      className="px-5 sm:px-8 lg:px-12 py-14"
-      style={{ backgroundColor: 'var(--color-counter)', color: 'var(--color-paper-bleached)' }}
+      className="surface-graphite px-5 sm:px-8 lg:px-12 py-14"
+      aria-label="Egebeya footer"
     >
       <div className="mx-auto max-w-6xl">
         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-10">
-          <div className="max-w-xs">
-            <div style={{ fontFamily: 'var(--font-serif-ethiopic)', fontWeight: 700, fontSize: '1.5rem' }}>
-              ኢ-ገበያ
+          <div className="max-w-sm">
+            <div className="inline-flex items-baseline gap-2">
+              <span
+                style={{
+                  fontFamily: 'var(--font-serif-ethiopic)',
+                  fontWeight: 700,
+                  fontSize: '1.5rem',
+                  color: 'var(--color-paper)',
+                  lineHeight: 1,
+                }}
+              >
+                ኢ-ገበያ
+              </span>
+              <span
+                style={{
+                  fontFamily: 'var(--font-display)',
+                  fontWeight: 600,
+                  fontSize: '0.7rem',
+                  color: 'rgba(244,242,236,0.55)',
+                  letterSpacing: '0.04em',
+                  textTransform: 'uppercase',
+                }}
+              >
+                Egebeya
+              </span>
             </div>
-            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '0.9rem', letterSpacing: '-0.02em', color: 'var(--color-counter-soft)' }}>
-              Egebeya
-            </div>
-            <p className="mt-4 text-sm" style={{ color: 'var(--color-counter-soft)' }}>
-              The deposit confirms it. Built in Addis for Ethiopian service businesses.
+            <p className="mt-4 text-sm" style={{ color: 'rgba(244,242,236,0.78)' }}>
+              {t('footer.tagline')}
             </p>
+            <div className="mt-5">
+              <span className="stamp on-canvas">ADDIS&nbsp;ABABA&nbsp;·&nbsp;ETHIOPIA</span>
+            </div>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-8 sm:gap-12">
-            <FooterCol title="Product">
-              <FooterLink href="/register">Take a number</FooterLink>
-              <FooterLink href="/discover">Businesses</FooterLink>
-              <FooterLink href="/login">Owner log-in</FooterLink>
+            <FooterCol title={`${t('footer.product')} · ምርት`}>
+              <FooterLink href="/register">{t('nav.takeNumber')} · ፩</FooterLink>
+              <FooterLink href="/discover">{t('nav.businesses')} · ንግድ</FooterLink>
+              <FooterLink href="/login">{t('nav.login')} · ግባ</FooterLink>
+              <FooterLink href="#pricing">{t('nav.pricing')} · ዋጋ</FooterLink>
             </FooterCol>
-            <FooterCol title="Site">
-              <FooterLink href="#tariff">Tariff</FooterLink>
+            <FooterCol title={`${t('footer.site')} · ድረ-ገጽ`}>
+              <FooterLink href="#tariff">{t('nav.tariff')} · ዝርዝር</FooterLink>
               <FooterLink href="https://egebeya.et">egebeya.et</FooterLink>
             </FooterCol>
-            <FooterCol title="العربية">
-              <FooterLink href="#" textSize="0.85rem">ኢ-ገበያ — the marketplace</FooterLink>
+            <FooterCol title={t('footer.language')}>
+              <FooterLink href="#" textSize="0.85rem">{t('footer.languageAmharicDesc')}</FooterLink>
+              <FooterLink href="#" textSize="0.85rem">{t('footer.languageAmharic')}</FooterLink>
             </FooterCol>
           </div>
         </div>
         <div
-          className="mt-10 pt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
-          style={{ borderTop: '1px solid var(--color-counter-soft)' }}
+          className="mt-10 pt-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+          style={{ borderTop: '1px solid var(--color-counter-rule)' }}
         >
-          <p className="m-0 text-xs" style={{ fontFamily: 'var(--font-receipt)', color: 'var(--color-counter-soft)', letterSpacing: '0.08em' }}>
-            © {year} Egebeya · Addis Ababa, Ethiopia
+          <p
+            className="m-0 text-xs"
+            style={{ color: 'rgba(244,242,236,0.55)', fontFamily: 'var(--font-mono)', letterSpacing: '0.06em' }}
+          >
+            © {year} Egebeya · ISSUE&nbsp;{year} · {t('footer.copyright')}
           </p>
-          <p className="m-0 text-xs" style={{ fontFamily: 'var(--font-receipt)', color: 'var(--color-counter-soft)', letterSpacing: '0.08em' }}>
-            Telebirr confidentially authorized · no-show is no-answer solved
+          <p
+            className="m-0 text-xs"
+            style={{ color: 'rgba(244,242,236,0.85)', fontFamily: 'var(--font-mono)', letterSpacing: '0.06em' }}
+          >
+            <span style={{ color: 'var(--color-telebirr)' }}>{t('footer.depositClears')}</span> · {t('footer.noShowSolved')}
           </p>
         </div>
       </div>
@@ -55,8 +87,15 @@ function FooterCol({ title, children }: { title: string; children: React.ReactNo
   return (
     <div>
       <div
-        className="uppercase text-[0.7rem] mb-3"
-        style={{ fontFamily: 'var(--font-receipt)', letterSpacing: '0.14em', color: 'var(--color-counter-soft)' }}
+        className="mb-3"
+        style={{
+          fontFamily: 'var(--font-mono)',
+          fontWeight: 600,
+          fontSize: '0.7rem',
+          letterSpacing: '0.08em',
+          textTransform: 'uppercase',
+          color: 'rgba(244,242,236,0.55)',
+        }}
       >
         {title}
       </div>
@@ -72,10 +111,11 @@ function FooterLink({ href, children, textSize }: { href: string; children: Reac
         href={href}
         className="no-underline"
         style={{
-          color: 'var(--color-paper-bleached)',
-          fontFamily: 'var(--font-body)',
-          fontSize: textSize || '0.95rem',
-          opacity: 0.92,
+          color: 'var(--color-paper)',
+          fontFamily: 'var(--font-display)',
+          fontWeight: 500,
+          fontSize: textSize || '0.9rem',
+          opacity: 0.95,
         }}
       >
         {children}

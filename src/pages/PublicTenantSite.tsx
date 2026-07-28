@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Routes, Route, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { PublicBooking } from './PublicBooking';
 import { Render } from '@measured/puck';
 import { config } from '../lib/puck.config';
@@ -12,11 +13,11 @@ export function PublicTenantSite({ hostname }: { hostname: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const subdomain = hostname.split('.')[0];
 
   useEffect(() => {
-    // Fetch tenant basic info (could be added to the /api/public/page response to save requests)
     fetch(`/api/public/page`, {
       headers: { 'X-Tenant-Slug': subdomain }
     })
@@ -36,53 +37,132 @@ export function PublicTenantSite({ hostname }: { hostname: string }) {
   }, [subdomain]);
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+    return (
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ backgroundColor: 'var(--color-paper)' }}
+      >
+        <span className="stamp">{t('publicTenant.loading')} · {t('publicTenant.loadingAm')}</span>
+      </div>
+    );
   }
 
   if (error || !tenant) {
     return (
-      <div className="min-h-screen flex items-center justify-center flex-col bg-gray-50">
-        <h1 className="text-4xl font-bold text-gray-900 mb-4">Business Not Found</h1>
-        <p className="text-gray-600 mb-8">The business you are looking for does not exist or has been moved.</p>
-        <a href="https://egebeya.et" className="text-[#1E3A8A] font-semibold hover:underline">
-          Visit Egebeya Directory
+      <div
+        className="min-h-screen flex flex-col items-center justify-center text-center px-5"
+        style={{ backgroundColor: 'var(--color-paper)' }}
+      >
+        <span
+          style={{
+            fontFamily: 'var(--font-serif-ethiopic)',
+            fontWeight: 700,
+            fontSize: '2.25rem',
+            color: 'var(--color-ink)',
+            lineHeight: 1,
+          }}
+        >
+          ኢ-ገበያ
+        </span>
+        <h1
+          className="m-0 mt-3"
+          style={{
+            fontFamily: 'var(--font-display)',
+            fontWeight: 600,
+            fontSize: '2rem',
+            letterSpacing: '-0.02em',
+            color: 'var(--color-ink)',
+          }}
+        >
+          Business Not Found · {t('publicTenant.notFoundAm')}
+        </h1>
+        <p className="mt-3 text-base" style={{ color: 'var(--color-ink-soft)' }}>
+          {t('publicTenant.notFoundDesc')}
+        </p>
+        <a
+          href="https://egebeya.et"
+          className="mt-6 no-underline"
+          style={{
+            fontFamily: 'var(--font-mono)',
+            letterSpacing: '0.06em',
+            color: 'var(--color-ink)',
+            textTransform: 'uppercase',
+            fontSize: '0.85rem',
+          }}
+        >
+          {t('publicTenant.visitDirectory')}
         </a>
       </div>
     );
   }
 
-  // If the Puck page starts with a Hero block (or contains one), assume it provides
-  // its own header/banner and skip the default header to avoid double headers.
   const hasHeroBlock = Array.isArray(pageData?.content?.blocks) &&
     pageData.content.blocks.some((b: any) => b?.type === 'Hero');
 
   const showDefaultHeader = !pageData || !hasHeroBlock;
 
   return (
-    <div className="min-h-screen font-sans bg-gray-50">
+    <div
+      className="min-h-screen"
+      style={{ backgroundColor: 'var(--color-paper)', fontFamily: 'var(--font-body)' }}
+    >
       <Helmet>
-        <title>{tenant.name} | Book Online</title>
+        <title>{tenant.name} | {t('publicTenant.bookOnline')}</title>
         {tenant.settings?.description && (
           <meta name="description" content={tenant.settings.description} />
         )}
       </Helmet>
 
-      {/* Default header only when no Puck page or the page has no Hero block */}
       {showDefaultHeader && (
-        <header className="bg-white border-b py-6 px-8 flex justify-between items-center shadow-sm">
-          <h1 className="text-2xl font-bold text-[#1E3A8A] cursor-pointer" onClick={() => navigate('/')}>{tenant.name}</h1>
-          <button onClick={() => navigate('/book')} className="bg-[#1E3A8A] text-white px-6 py-2 rounded-md font-medium hover:bg-blue-800">Book Now</button>
+        <header
+          className="flex justify-between items-center px-5 sm:px-8 lg:px-12 py-5"
+          style={{ borderBottom: '1px solid var(--color-ink)' }}
+        >
+          <h1
+            className="m-0 cursor-pointer text-xl sm:text-2xl"
+            onClick={() => navigate('/')}
+            style={{ fontFamily: 'var(--font-display)', fontWeight: 600, color: 'var(--color-ink)', letterSpacing: '-0.015em' }}
+          >
+            {tenant.name}
+          </h1>
+          <button
+            onClick={() => navigate('/book')}
+            className="font-semibold"
+            style={{
+              backgroundColor: 'var(--color-ink)',
+              color: 'var(--color-paper)',
+              fontFamily: 'var(--font-display)',
+              borderRadius: 'var(--rd-card)',
+              padding: '0.625rem 1.5rem',
+              border: 'none',
+              cursor: 'pointer',
+              letterSpacing: '0.01em',
+              fontSize: '0.85rem',
+            }}
+          >
+            Book Now · {t('publicTenant.bookNowAm')}
+          </button>
         </header>
       )}
 
-      {/* Floating "Book Now" button so the action is always accessible, even when
-          the Puck page overrides the header with its own Hero block. */}
       {pageData && hasHeroBlock && (
         <button
           onClick={() => navigate('/book')}
-          className="fixed bottom-6 right-6 z-50 bg-[#1E3A8A] text-white px-5 py-3 rounded-full font-medium shadow-lg hover:bg-blue-800 transition"
+          className="fixed bottom-6 right-6 z-50"
+          style={{
+            backgroundColor: 'var(--color-ink)',
+            color: 'var(--color-paper)',
+            fontFamily: 'var(--font-display)',
+            fontWeight: 600,
+            borderRadius: 'var(--rd-card)',
+            padding: '0.75rem 1.25rem',
+            border: 'none',
+            cursor: 'pointer',
+            letterSpacing: '0.01em',
+            fontSize: '0.9rem',
+          }}
         >
-          Book Now
+          Book Now · {t('publicTenant.bookNowAm')}
         </button>
       )}
 
@@ -91,9 +171,39 @@ export function PublicTenantSite({ hostname }: { hostname: string }) {
           pageData ? (
             <Render config={config} data={pageData} />
           ) : (
-            <main className="max-w-4xl mx-auto py-12 px-4 text-center">
-              <h2 className="text-4xl font-extrabold text-gray-900 mb-4">Welcome to {tenant.name}</h2>
-              <p className="text-xl text-gray-600">This business hasn't published their website yet.</p>
+            <main className="max-w-4xl mx-auto py-16 px-4 text-center">
+              <span className="stamp" aria-hidden>{t('publicTenant.newTenant')}</span>
+              <h2
+                className="mt-4 mb-3 m-0"
+                style={{
+                  fontFamily: 'var(--font-display)',
+                  fontWeight: 600,
+                  fontSize: 'clamp(1.75rem, 4vw, 2.5rem)',
+                  color: 'var(--color-ink)',
+                  letterSpacing: '-0.025em',
+                }}
+              >
+                {t('publicTenant.welcomeTo')} {tenant.name}
+              </h2>
+              <p className="text-lg" style={{ color: 'var(--color-ink-soft)' }}>
+                {t('publicTenant.notPublished')}
+              </p>
+              <button
+                onClick={() => navigate('/book')}
+                className="mt-6"
+                style={{
+                  backgroundColor: 'var(--color-ink)',
+                  color: 'var(--color-paper)',
+                  fontFamily: 'var(--font-display)',
+                  fontWeight: 600,
+                  borderRadius: 'var(--rd-card)',
+                  padding: '0.75rem 1.75rem',
+                  border: 'none',
+                  cursor: 'pointer',
+                }}
+              >
+                Book Now · {t('publicTenant.bookNowAm')}
+              </button>
             </main>
           )
         } />

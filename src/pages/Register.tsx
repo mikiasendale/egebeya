@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 
 // Ethiopian phone numbers are +251 followed by 9 digits (e.g. +251911234567).
 export const PHONE_REGEX = /^\+251\d{9}$/;
@@ -14,7 +14,8 @@ export function Register() {
     password: '',
     businessName: '',
     slug: '',
-    city: ''
+    city: '',
+    consent: false,
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -24,6 +25,10 @@ export function Register() {
     if (error) return;
     if (!PHONE_REGEX.test(formData.phone.trim())) {
       setError(PHONE_ERROR_MESSAGE);
+      return;
+    }
+    if (!formData.consent) {
+      setError('You must agree to the Privacy Policy and Terms of Service to register.');
       return;
     }
     setLoading(true);
@@ -228,7 +233,35 @@ export function Register() {
                 }
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-[#1E3A8A] focus:border-[#1E3A8A] sm:text-sm"
               />
-           </div>
+            </div>
+
+            <div>
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  id="consent"
+                  type="checkbox"
+                  required
+                  checked={formData.consent}
+                  onChange={(e) => setFormData({ ...formData, consent: e.target.checked })}
+                  className="mt-1 h-4 w-4 rounded border-gray-300 text-[#1E3A8A] focus:ring-[#1E3A8A]"
+                />
+                <div className="text-sm text-gray-700">
+                  <p className="font-medium">
+                    I agree to the{' '}
+                    <Link to="/privacy" className="underline hover:no-underline" target="_blank" rel="noopener noreferrer">
+                      Privacy Policy
+                    </Link>{' '}
+                    and{' '}
+                    <Link to="/terms" className="underline hover:no-underline" target="_blank" rel="noopener noreferrer">
+                      Terms of Service
+                    </Link>.
+                  </p>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Your consent is recorded with a timestamp. You can request data export or deletion at any time from your account settings.
+                  </p>
+                </div>
+              </label>
+            </div>
 
             <div>
               <button
@@ -237,9 +270,9 @@ export function Register() {
                 className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#F59E0B] hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#F59E0B] disabled:opacity-50"
               >
                 {loading ? 'Creating account...' : 'Start 14-day free trial'}
-             </button>
-           </div>
-         </form>
+              </button>
+            </div>
+          </form>
        </div>
      </div>
    </div>

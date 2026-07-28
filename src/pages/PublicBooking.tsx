@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format } from 'date-fns';
+import { useTranslation } from 'react-i18next';
 import { DayPicker } from 'react-day-picker';
 import 'react-day-picker/dist/style.css';
 import { EthiopianDayPicker } from '../components/EthiopianDayPicker';
@@ -34,6 +35,9 @@ interface QueueItem {
  * purely the committed visual world.
  */
 export function PublicBooking({ tenant, subdomain }: { tenant: any, subdomain: string }) {
+  // ---- i18n ----
+  const { t } = useTranslation();
+
   // ---- State (preserved) ----
   const [step, setStep] = useState(1);
   const [services, setServices] = useState<any[]>([]);
@@ -51,6 +55,81 @@ export function PublicBooking({ tenant, subdomain }: { tenant: any, subdomain: s
   // The customer name captured at submission time, threaded to the printed
   // receipt's success display. Set by handleSubmit.
   const [confirmedCustomerName, setConfirmedCustomerName] = useState('');
+
+  // ---- Cloudflare Turnstile (bot check on the customer-info step) ----
+  // Loaded from /api/public/turnstile-config; when the operator has not
+  // configured Turnstile (no site key), the widget stays hidden and the
+  // submit button is enabled without a token — the server mirrors this and
+  // skips enforcement when the secret isn't set.
+  const [turnstileSiteKey, setTurnstileSiteKey] = useState<string | null>(null);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const widgetRef = useRef<HTMLDivElement | null>(null);
+  // Render-run guard so we don't double-inject the widget when React re-runs
+  // the effect in StrictMode. Cloudflare remembers the rendered state by
+  // the container element's existing children.
+  const turnstileRendered = useRef(false);
+
+  useEffect(() => {
+    fetch('/api/public/turnstile-config')
+      .then((r) => (r.ok ? r.json() : { siteKey: null }))
+      .then((data: { siteKey: string | null }) => setTurnstileSiteKey(data.siteKey))
+      .catch(() => setTurnstileSiteKey(null));
+  }, []);
+
+  // Inject Cloudflare's Turnstile script once, only on the step that needs
+  // it. StrictMode re-mount could call render twice; per Cloudflare docs
+  // repeat calls are safe but we still gate to keep the DOM deterministic.
+  const turnstileId = useRef<string | null>(null);
+  useEffect(() => {
+    if (step !== 4 || !turnstileSiteKey || turnstileRendered.current || !widgetRef.current) return;
+    turnstileRendered.current = true;
+
+    // Load the script if it isn't already on the page.
+    const scriptId = 'cf-turnstile-script';
+    if (!document.getElementById(scriptId)) {
+      const s = document.createElement('script');
+      s.id = scriptId;
+      s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+      s.async = true;
+      s.defer = true;
+      document.head.appendChild(s);
+    }
+
+    // Expose a stable global token setter keyed by the rendered widget id.
+    const cbName = '__turnstileCb_' + Math.random().toString(36).slice(2, 10);
+    (window as any)[cbName] = (token: string) => setTurnstileToken(token);
+
+    const renderWhenReady = () => {
+      const ts = (window as any).turnstile;
+      if (!ts || !widgetRef.current) {
+        // Script not loaded yet — retry shortly.
+        setTimeout(renderWhenReady, 80);
+        return;
+      }
+      turnstileId.current = ts.render(widgetRef.current, {
+        sitekey: turnstileSiteKey,
+        callback: (token: string) => (window as any)[cbName](token),
+        'expired-callback': () => setTurnstileToken(null),
+        'error-callback': () => setTurnstileToken(null),
+        theme: 'light',
+      });
+    };
+    renderWhenReady();
+
+    return () => {
+      // Best-effort cleanup: forget the token on unmount and remove the
+      // global callback, but leave the lazy-loaded <script> tag so the next
+      // visit can re-render without re-fetching it.
+      setTurnstileToken(null);
+      delete (window as any)[cbName];
+      const ts = (window as any).turnstile;
+      if (ts && turnstileId.current && typeof ts.remove === 'function') {
+        try { ts.remove(turnstileId.current); } catch {}
+      }
+      turnstileId.current = null;
+      turnstileRendered.current = false;
+    };
+  }, [step, turnstileSiteKey]);
 
   // ---- Effects (preserved logic) ----
   useEffect(() => {
@@ -95,6 +174,13 @@ export function PublicBooking({ tenant, subdomain }: { tenant: any, subdomain: s
 
   const onSubmit = async (data: BookingFormData) => {
     if (!selectedService || !selectedStaff || !selectedDate || !selectedTime) return;
+    // Bot-check: if the widget rendered (i.e. site key is configured), the
+    // customer MUST have a Turnstile token before the POST fires. The
+    // backend independently re-verifies the token server-side.
+    if (turnstileSiteKey && !turnstileToken) {
+      showToast('Bot check required', 'Please complete the verification checkbox first.', 'destructive');
+      return;
+    }
     setIsSubmitting(true);
     const dateStr = format(selectedDate, 'yyyy-MM-dd');
     const start_time = `${dateStr}T${selectedTime}:00+03:00`;
@@ -102,11 +188,28 @@ export function PublicBooking({ tenant, subdomain }: { tenant: any, subdomain: s
       const res = await fetch('/api/public/bookings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Tenant-Slug': subdomain },
-        body: JSON.stringify({ staff_id: selectedStaff.id, service_id: selectedService.id, start_time, ...data }),
+        body: JSON.stringify({
+          staff_id: selectedStaff.id,
+          service_id: selectedService.id,
+          start_time,
+          turnstile_token: turnstileToken || undefined,
+          ...data,
+        }),
       });
       if (!res.ok) {
         const errData = await res.json();
-        showToast('Booking failed', errData.error || 'Failed to book appointment', 'destructive');
+        const reason = errData?.code === 'TURNSTILE_MISSING'
+          ? 'Please complete the bot check and try again.'
+          : errData?.code === 'TURNSTILE_INVALID'
+            ? 'Bot check failed — please retry the verification.'
+            : errData?.error || 'Failed to book appointment';
+        showToast('Booking failed', reason, 'destructive');
+        // On any Turnstile failure reset the widget so the customer
+        // can re-verify (single-use tokens can't be replayed).
+        if (errData?.code?.startsWith?.('TURNSTILE') && (window as any).turnstile && turnstileId.current) {
+          try { (window as any).turnstile.reset(turnstileId.current); } catch {}
+          setTurnstileToken(null);
+        }
       } else {
         const resultData = await res.json();
         setConfirmedCustomerName(data.customer_name || '--');
@@ -154,10 +257,10 @@ export function PublicBooking({ tenant, subdomain }: { tenant: any, subdomain: s
   // ---- Success state = the receipt, printed ----
   if (success) {
     const confirmed = bookingResult?.status === 'confirmed';
-    const heading = confirmed ? 'ተከታታይ — confirmed' : 'ቆይ። waiting for the deposit';
+    const heading = confirmed ? t('booking.successHeading') : t('booking.successHeadingPending');
     const sub = confirmed
-      ? 'Your Telebirr deposit cleared. Your number is held.'
-      : 'We are waiting for the mobile-money payment to land. Your slot is reserved meanwhile — you will be notified.';
+      ? t('booking.successConfirmed')
+      : t('booking.successPending');
     return (
       <div style={page.bg} className="min-h-[80vh] px-5 sm:px-8 lg:px-12 py-12 sm:py-16">
         <div className="mx-auto max-w-xl">
@@ -165,17 +268,17 @@ export function PublicBooking({ tenant, subdomain }: { tenant: any, subdomain: s
             <div className="p-6 sm:p-8">
               <div className="pt-2 pb-3 border-b border-[var(--color-ink-rule)]">
                 <div className="uppercase text-xs" style={{ ...page.monoSoft, color: 'var(--color-telebirr-deep)' }}>
-                  Telebirr · receipt
+                  {t('booking.receipt')}
                 </div>
                 <div className="mt-2" style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '2rem', color: 'var(--color-ink)' }}>
                   {heading}
                 </div>
                 <div className="receipt-print-in mt-4" style={page.mono}>
-                  {tenant?.name} · {selectedService?.name} · with {selectedStaff?.name}
+                  {tenant?.name} · {selectedService?.name} · {t('booking.with')} {selectedStaff?.name}
                   <br />
-                  {selectedDate ? format(selectedDate, 'EEE d MMM yyyy') : ''} at {selectedTime} (Addis)
+                  {selectedDate ? format(selectedDate, 'EEE d MMM yyyy') : ''} {t('booking.at')} {selectedTime} {t('booking.addis')}
                   <br />
-                  customer · {confirmedCustomerName}
+                  {t('booking.customerLabel')} · {confirmedCustomerName}
                 </div>
               </div>
               <p className="mt-4 text-base" style={{ color: 'var(--color-ink-soft)' }}>
@@ -183,11 +286,11 @@ export function PublicBooking({ tenant, subdomain }: { tenant: any, subdomain: s
               </p>
               {bookingResult?.paymentStatus && (
                 <div className="mt-3 text-xs" style={page.monoSoft}>
-                  payment: <span style={{ color: 'var(--color-ink)' }}>{bookingResult.paymentStatus}</span>
+                  {t('booking.payment')}: <span style={{ color: 'var(--color-ink)' }}>{bookingResult.paymentStatus}</span>
                 </div>
               )}
               <button onClick={() => (window.location.href = '/')} className="mt-6 inline-flex items-center justify-center px-6 py-3" style={page.btnOutline}>
-                back to the directory
+                {t('booking.backToDirectory')}
               </button>
             </div>
           </div>
@@ -203,21 +306,21 @@ export function PublicBooking({ tenant, subdomain }: { tenant: any, subdomain: s
         {/* Header rule with the row count */}
         <div className="flex items-baseline justify-between pb-3 border-b-2 border-[var(--color-ink)]">
           <span className="text-xl sm:text-2xl" style={{ fontFamily: 'var(--font-display)', fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--color-ink)' }}>
-            Take a number.
-            <span style={{ fontFamily: 'var(--font-serif-ethiopic)', marginLeft: '0.4rem' }}>ቁጥር&hairsp;ይዘው።</span>
+            {t('booking.takeNumber')}
+            <span style={{ fontFamily: 'var(--font-serif-ethiopic)', marginLeft: '0.4rem' }}>{t('booking.takeNumberAm')}</span>
           </span>
           <span className="text-xs uppercase" style={page.monoSoft}>
-            step {step} of 4
+            {t('booking.step')} {step} {t('booking.of')} 4
           </span>
         </div>
 
         {/* Receipt flourish header for the section (masthead of a single receipt) */}
         <div className="mt-6 flex items-center justify-between">
           <span className="uppercase text-[0.7rem]" style={{ ...page.monoSoft, color: 'var(--color-telebirr-deep)' }}>
-            Booking receipt · {tenant?.name || subdomain}
+            {t('booking.bookingReceipt')} · {tenant?.name || subdomain}
           </span>
           <span className="text-[0.7rem] uppercase" style={page.monoSoft}>
-            ref pending
+            {t('booking.refPending')}
           </span>
         </div>
 
@@ -226,10 +329,10 @@ export function PublicBooking({ tenant, subdomain }: { tenant: any, subdomain: s
           <div className="receipt-rule-top" style={{ ...page.card, maxHeight: '60vh', overflowY: 'auto' }}>
             <div className="p-5 sm:p-6">
               {step === 1 && (
-                <Section title="01 — Service" subtitle="What do you need today?">
+                <Section title={t('booking.step1Title')} subtitle={t('booking.step1Subtitle')}>
                   <div className="mt-2">
                     {services.length === 0 && (
-                      <p style={page.monoSoft}>Loading services…</p>
+                      <p style={page.monoSoft}>{t('booking.loadingServices')}</p>
                     )}
                     {services.map((service) => (
                       <button
@@ -243,7 +346,7 @@ export function PublicBooking({ tenant, subdomain }: { tenant: any, subdomain: s
                             {service.name}
                           </div>
                           <div className="text-xs mt-1" style={page.monoSoft}>
-                            {service.durationMinutes} min · staff of choice
+                            {service.durationMinutes} {t('booking.min')} · {t('booking.staffOfChoice')}
                           </div>
                         </div>
                         <div style={{ fontFamily: 'var(--font-receipt)', fontWeight: 700, fontSize: '1rem', color: 'var(--color-ink)' }}>
@@ -257,10 +360,10 @@ export function PublicBooking({ tenant, subdomain }: { tenant: any, subdomain: s
               )}
 
               {step === 2 && (
-                <Section title="02 — Staff" subtitle="Who does it best?" onBack={() => setStep(1)}>
+                <Section title={t('booking.step2Title')} subtitle={t('booking.step2Subtitle')} onBack={() => setStep(1)}>
                   <div className="mt-2">
                     {staff.length === 0 && (
-                      <p style={page.monoSoft}>Loading staff…</p>
+                      <p style={page.monoSoft}>{t('booking.loadingStaff')}</p>
                     )}
                     {staff.map((member) => (
                       <button
@@ -290,7 +393,7 @@ export function PublicBooking({ tenant, subdomain }: { tenant: any, subdomain: s
               )}
 
               {step === 3 && (
-                <Section title="03 — Date & time" subtitle="Addis time · Ethiopian calendar available" onBack={() => setStep(2)}>
+                <Section title={t('booking.step3Title')} subtitle={t('booking.step3Subtitle')} onBack={() => setStep(2)}>
                   <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div style={{ border: '1px solid var(--color-ink-rule)', backgroundColor: 'var(--color-paper)', borderRadius: 'var(--rd-card)' }} className="p-2 flex justify-center">
                       {tenant?.settings?.calendar_display === 'ethiopian' ? (
@@ -305,7 +408,7 @@ export function PublicBooking({ tenant, subdomain }: { tenant: any, subdomain: s
                     </div>
                     <div style={{ border: '1px solid var(--color-ink-rule)', backgroundColor: 'var(--color-paper)', borderRadius: 'var(--rd-card)' }} className="p-3 max-h-[300px] overflow-y-auto">
                       <div className="text-xs uppercase mb-3" style={page.monoSoft}>
-                        Available times — Addis
+                        {t('booking.availableTimes')}
                       </div>
                       {slots.length > 0 ? (
                         <div className="grid grid-cols-2 gap-2">
@@ -329,7 +432,7 @@ export function PublicBooking({ tenant, subdomain }: { tenant: any, subdomain: s
                           ))}
                         </div>
                       ) : (
-                        <p style={page.monoSoft}>No availability on this date.</p>
+                        <p style={page.monoSoft}>{t('booking.noAvailability')}</p>
                       )}
                     </div>
                   </div>
@@ -337,20 +440,20 @@ export function PublicBooking({ tenant, subdomain }: { tenant: any, subdomain: s
               )}
 
               {step === 4 && (
-                <Section title="04 — Your details" subtitle="Fill in the receipt — Telebirr comes next." onBack={() => setStep(3)}>
+                <Section title={t('booking.step4Title')} subtitle={t('booking.step4Subtitle')} onBack={() => setStep(3)}>
                   <div
                     className="mt-3 p-3 border-t border-b border-dashed border-[var(--color-ink-rule-dashed)]"
                     style={{ fontFamily: 'var(--font-receipt)', color: 'var(--color-ink-soft)', letterSpacing: '0.04em' }}
                   >
-                    service · <span style={{ color: 'var(--color-ink)' }}>{selectedService?.name}</span><br />
-                    staff · <span style={{ color: 'var(--color-ink)' }}>{selectedStaff?.name}</span><br />
-                    when · <span style={{ color: 'var(--color-ink)' }}>{selectedDate ? format(selectedDate, 'EEE d MMM yyyy') : ''} at {selectedTime}</span> (Addis)<br />
-                    tariff · <span style={{ color: 'var(--color-ink)' }}>Br {(selectedService?.price / 100 || 0).toLocaleString()}</span>
+                    {t('booking.service')} · <span style={{ color: 'var(--color-ink)' }}>{selectedService?.name}</span><br />
+                    {t('booking.staff')} · <span style={{ color: 'var(--color-ink)' }}>{selectedStaff?.name}</span><br />
+                    {t('booking.when')} · <span style={{ color: 'var(--color-ink)' }}>{selectedDate ? format(selectedDate, 'EEE d MMM yyyy') : ''} {t('booking.at')} {selectedTime}</span> {t('booking.addis')}<br />
+                    {t('booking.tariff')} · <span style={{ color: 'var(--color-ink)' }}>Br {(selectedService?.price / 100 || 0).toLocaleString()}</span>
                   </div>
 
                   <form onSubmit={handleSubmit(onSubmit)} className="mt-4 space-y-4">
                     <div>
-                      <label className="block text-xs uppercase" style={page.monoSoft}>Full name</label>
+                      <label className="block text-xs uppercase" style={page.monoSoft}>{t('booking.fullName')}</label>
                       <input
                         {...register('customer_name')}
                         className="mt-1 block w-full receipt-input"
@@ -361,20 +464,23 @@ export function PublicBooking({ tenant, subdomain }: { tenant: any, subdomain: s
                       )}
                     </div>
                     <div>
-                      <label className="block text-xs uppercase" style={page.monoSoft}>Phone (with +251)</label>
+                      <label className="block text-xs uppercase" style={page.monoSoft}>{t('booking.phone')}</label>
                       <input
                         type="tel"
                         {...register('customer_phone')}
-                        placeholder="e.g. +251911234567"
+                        placeholder={t('booking.phonePlaceholder')}
                         className="mt-1 block w-full receipt-input"
                         style={{ borderBottom: '1px dashed var(--color-ink-rule-dashed)' }}
                       />
                       {errors.customer_phone && (
                         <div className="mt-1 text-xs" style={{ color: 'var(--color-signal)' }}>{errors.customer_phone.message}</div>
                       )}
+                      <p className="mt-1.5 text-[0.65rem] uppercase" style={{ ...page.monoSoft, color: 'var(--color-ink-soft)', letterSpacing: '0.06em' }}>
+                        {t('booking.phoneConsent')}
+                      </p>
                     </div>
                     <div>
-                      <label className="block text-xs uppercase" style={page.monoSoft}>Email (optional)</label>
+                      <label className="block text-xs uppercase" style={page.monoSoft}>{t('booking.email')}</label>
                       <input
                         type="email"
                         {...register('customer_email')}
@@ -385,18 +491,31 @@ export function PublicBooking({ tenant, subdomain }: { tenant: any, subdomain: s
                         <div className="mt-1 text-xs" style={{ color: 'var(--color-signal)' }}>{errors.customer_email.message}</div>
                       )}
                     </div>
+
+                    {turnstileSiteKey && (
+                      <div>
+                        <label className="block text-xs uppercase" style={page.monoSoft}>{t('booking.verifyHuman')}</label>
+                        <div ref={widgetRef} className="mt-2" data-turnstile-theme="light" />
+                        {!turnstileToken && (
+                          <p className="mt-1 text-xs" style={page.monoSoft}>
+                            {t('booking.turnstileHelp')}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
                     <button
                       type="submit"
-                      disabled={isSubmitting}
-                      className="w-full inline-flex items-center justify-center px-6 py-4 mt-2"
+                      disabled={isSubmitting || (!!turnstileSiteKey && !turnstileToken)}
+                      className="w-full inline-flex items-center justify-center px-6 py-4 mt-2 disabled:opacity-60 disabled:cursor-not-allowed"
                       style={page.btnTelebirr}
                     >
-                      {isSubmitting ? 'Confirming…' : 'Take my number — confirm'}
+                      {isSubmitting ? t('booking.confirming') : t('booking.confirm')}
                     </button>
                     <p className="text-xs" style={page.monoSoft}>
                       {tenant?.settings?.require_payment_upfront === true
-                        ? 'Telebirr deposit Br ' + ((selectedService?.price / 100) || 0).toLocaleString() + ' confirms your slot.'
-                        : 'You are confirmed immediately — no deposit required.'}
+                        ? `${t('booking.depositNotice').replace('{price}', ((selectedService?.price / 100) || 0).toLocaleString())}`
+                        : t('booking.noDepositNotice')}
                     </p>
                   </form>
                 </Section>
@@ -409,15 +528,15 @@ export function PublicBooking({ tenant, subdomain }: { tenant: any, subdomain: s
             <div className="p-5 sm:p-6">
               <div className="pt-2 pb-3 border-b border-[var(--color-ink-rule)]">
                 <div className="uppercase text-xs" style={{ ...page.monoSoft, color: 'var(--color-telebirr-deep)' }}>
-                  Today&rsquo;s queue · Addis time
+                  {t('booking.todayQueue')} · {t('booking.queueSubtitle')}
                 </div>
                 <div className="mt-1" style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1.1rem', color: 'var(--color-ink)' }}>
-                  {selectedDate ? format(selectedDate, 'EEE d MMM') : ''} · {queue.length} booked
+                  {selectedDate ? format(selectedDate, 'EEE d MMM') : ''} · {queue.length} {t('booking.queueCount')}
                 </div>
               </div>
               {queue.length === 0 ? (
                 <p className="mt-4 text-sm" style={page.monoSoft}>
-                  No appointments for this date yet — your number could be next.
+                  {t('booking.noAppointments')}
                 </p>
               ) : (
                 <ol className="m-0 p-0 list-none">
@@ -445,7 +564,7 @@ export function PublicBooking({ tenant, subdomain }: { tenant: any, subdomain: s
                           <span>{q.serviceName || 'service'}</span>
                         </div>
                         <div className="text-xs" style={page.monoSoft}>
-                          Customer {String(i + 1).padStart(2, '0')}
+                          {t('booking.customer')} {String(i + 1).padStart(2, '0')}
                         </div>
                       </div>
                       <span
@@ -458,14 +577,14 @@ export function PublicBooking({ tenant, subdomain }: { tenant: any, subdomain: s
                             : 'var(--color-ink-soft)',
                         }}
                       >
-                        {q.status === 'confirmed' ? 'booked' : q.status}
+                        {q.status === 'confirmed' ? t('booking.booked') : q.status}
                       </span>
                     </li>
                   ))}
                 </ol>
               )}
               <p className="mt-3 text-xs" style={page.monoSoft}>
-                For privacy, customer names are never shown — only time and service.
+                {t('booking.queuePrivacy')}
               </p>
             </div>
           </div>
@@ -486,6 +605,7 @@ function Section({
   onBack?: () => void;
   children: React.ReactNode;
 }) {
+  const { t } = useTranslation();
   return (
     <div>
       <div className="flex items-baseline justify-between pb-2 border-b border-[var(--color-ink-rule)]">
@@ -505,7 +625,7 @@ function Section({
             className="text-xs uppercase no-underline"
             style={{ fontFamily: 'var(--font-receipt)', color: 'var(--color-ink-soft)', letterSpacing: '0.1em', background: 'transparent', border: 'none', cursor: 'pointer' }}
           >
-            ← back
+            {t('booking.back')}
           </button>
         )}
       </div>
