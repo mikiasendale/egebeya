@@ -7,6 +7,7 @@ export const tenants = sqliteTable('tenants', {
   domain: text('domain').unique(), // for custom domains
   category: text('category'), // salon, clinic, pharmacy, spa, other
   isListed: integer('is_listed', { mode: 'boolean' }).default(true),
+  isSuspended: integer('is_suspended', { mode: 'boolean' }).default(false),
   settings: text('settings', { mode: 'json' }),
   createdAt: integer('created_at').notNull(),
 });
@@ -19,6 +20,9 @@ export const users = sqliteTable('users', {
   email: text('email').notNull().unique(), // required for password reset links
   passwordHash: text('password_hash').notNull(),
   role: text('role').notNull(), // owner, staff, admin
+  isSuperadmin: integer('is_superadmin', { mode: 'boolean' }).default(false),
+  consentGivenAt: integer('consent_given_at'),
+  tokenVersion: integer('token_version').default(0).notNull(),
   createdAt: integer('created_at').notNull(),
 });
 

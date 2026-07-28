@@ -21,6 +21,26 @@ import { Privacy } from './pages/Privacy';
 import { Terms } from './pages/Terms';
 import { Toaster } from './components/ui/toaster';
 
+function AdminGuard() {
+  const isSuperadmin = typeof window !== 'undefined' && localStorage.getItem('isSuperadmin') === 'true';
+  if (!isSuperadmin) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="mx-auto max-w-xl text-center px-6">
+          <h1 className="text-2xl font-bold text-gray-900">Access Denied</h1>
+          <p className="mt-3 text-sm text-gray-600">
+            You don't have superadmin access to this page. Sign in with an account that has superadmin privileges.
+          </p>
+          <a href="/login?next=/admin" className="mt-6 inline-block rounded-md bg-[#1E3A8A] px-4 py-2 text-sm font-medium text-white hover:bg-blue-800">
+            Sign in
+          </a>
+        </div>
+      </div>
+    );
+  }
+  return <Admin />;
+}
+
 export default function App() {
   const hostname = window.location.hostname;
 
@@ -60,7 +80,7 @@ export default function App() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/setup" element={<SetupWizard />} />
-        <Route path="/admin" element={<Admin />} />
+        <Route path="/admin" element={<AdminGuard />} />
         <Route path="/dashboard/*" element={<Dashboard />} />
         <Route path="/privacy" element={<Privacy />} />
         <Route path="/terms" element={<Terms />} />

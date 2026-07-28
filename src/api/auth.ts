@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { db } from '../db';
 import { users, tenants, passwordResets, plans, tenantSubscriptions } from '../db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import crypto from 'crypto';
 import { sendMail } from '../../server/lib/mailer';
 import rateLimit from 'express-rate-limit';
@@ -47,13 +47,19 @@ router.post('/check-slug', async (req, res) => {
 
 router.post('/register', async (req, res) => {
   try {
-    const { name, phone, password, businessName, slug, email, city } = req.body;
+    const { name, phone, password, businessName, slug, email, city, consent } = req.body;
 
     // Email is now required and must be unique — it is the address the
     // forgot-password flow sends the reset link to.
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email).trim())) {
       return res.status(400).json({ error: 'A valid email is required' });
     }
+
+    // Require consent to Privacy Policy and Terms of Service
+    if (!consent || consent !== true) {
+      return res.status(400).json({ error: 'You must agree to the Privacy Policy and Terms of Service to register.' });
+    }
+    const consentGivenAt = Date.now();
 
     // Phone must be a valid Ethiopian (+251XXXXXXXXX) number so that
     // downstream SMS / Telebirr push notifications have a real recipient.
@@ -98,45 +104,52 @@ router.post('/register', async (req, res) => {
     const trimmedCity = typeof city === 'string' && city.trim() ? city.trim() : null;
     const initialSettings = trimmedCity ? { city: trimmedCity } : {};
 
-    // Create tenant
-    await db.insert(tenants).values({
-      id: tenantId,
-      name: businessName,
-      slug: normalizedSlug,
-      settings: initialSettings,
-      createdAt: Date.now()
+    // Create tenant + user + subscription in a single transaction so that
+    // any failure mid-registration rolls back cleanly, preventing orphaned
+    // tenant rows. See server/tests/auth.test.ts for the proof.
+    await db.transaction(async (tx) => {
+      await tx.insert(tenants).values({
+        id: tenantId,
+        name: businessName,
+        slug: normalizedSlug,
+        settings: initialSettings,
+        createdAt: Date.now()
+      });
+
+      await tx.insert(users).values({
+        id: userId,
+        tenantId: tenantId,
+        name,
+        phone: normalizedPhone,
+        email: normalizedEmail,
+        passwordHash,
+        role: 'owner',
+        consentGivenAt,
+        createdAt: Date.now()
+      });
+
+      // Provision a default trial subscription on the cheapest plan so the
+      // tenant can immediately use owner-only features (services, staff, etc.)
+      let plan = await tx.select().from(plans).where(eq(plans.name, 'Basic')).get();
+      if (!plan) {
+        plan = { id: crypto.randomUUID(), name: 'Basic', price: 0, maxStaff: 2, customDomainAllowed: false } as any;
+        await tx.insert(plans).values(plan);
+      }
+      await tx.insert(tenantSubscriptions).values({
+        id: crypto.randomUUID(),
+        tenantId,
+        planId: plan.id,
+        status: 'trial',
+        trialEndsAt: Date.now() + 14 * 24 * 3600 * 1000,
+        startsAt: Date.now(),
+      });
     });
 
-    // Create owner user
-    await db.insert(users).values({
-      id: userId,
-      tenantId: tenantId,
-      name,
-      phone: normalizedPhone,
-      email: normalizedEmail,
-      passwordHash,
-      role: 'owner',
-      createdAt: Date.now()
-    });
-
-    // Provision a default trial subscription on the cheapest plan so the
-    // tenant can immediately use owner-only features (services, staff, etc.)
-    let plan = await db.select().from(plans).where(eq(plans.name, 'Basic')).get();
-    if (!plan) {
-      plan = { id: crypto.randomUUID(), name: 'Basic', price: 0, maxStaff: 2, customDomainAllowed: false } as any;
-      await db.insert(plans).values(plan);
-    }
-    await db.insert(tenantSubscriptions).values({
-      id: crypto.randomUUID(),
-      tenantId,
-      planId: plan.id,
-      status: 'trial',
-      trialEndsAt: Date.now() + 14 * 24 * 3600 * 1000,
-      startsAt: Date.now(),
-    });
+    const userRecord = await db.select({ tokenVersion: users.tokenVersion }).from(users).where(eq(users.id, userId)).get();
+    const tokenVersion = userRecord?.tokenVersion ?? 0;
 
     const token = jwt.sign({ userId, tenantId, role: 'owner' }, JWT_SECRET, { expiresIn: '15m' });
-    const refreshToken = jwt.sign({ userId, tenantId }, REFRESH_SECRET, { expiresIn: '7d' });
+    const refreshToken = jwt.sign({ userId, tenantId, tokenVersion }, REFRESH_SECRET, { expiresIn: '7d' });
     
     res.json({
       token,
@@ -176,13 +189,17 @@ router.post('/login', async (req, res) => {
       ? await db.select().from(tenants).where(eq(tenants.id, user.tenantId)).get()
       : null;
 
+    const tokenVersion = (user as any).tokenVersion ?? 0;
+    const isSuperadmin = !!(user as any).isSuperadmin;
+
     const token = jwt.sign({ userId: user.id, tenantId: user.tenantId, role: user.role }, JWT_SECRET, { expiresIn: '15m' });
-    const refreshToken = jwt.sign({ userId: user.id, tenantId: user.tenantId }, REFRESH_SECRET, { expiresIn: '7d' });
+    const refreshToken = jwt.sign({ userId: user.id, tenantId: user.tenantId, tokenVersion }, REFRESH_SECRET, { expiresIn: '7d' });
 
     res.json({
       token,
       refreshToken,
       role: user.role,
+      isSuperadmin,
       tenantId: user.tenantId,
       tenant: tenant ? { id: tenant.id, name: tenant.name, slug: tenant.slug } : null,
     });
@@ -198,10 +215,14 @@ router.post('/refresh', async (req, res) => {
     if (!refreshToken) return res.status(401).json({ error: 'Refresh token required' });
 
     jwt.verify(refreshToken, REFRESH_SECRET, async (err: any, payload: any) => {
-      if (err) return res.status(403).json({ error: 'Invalid refresh token' });
+      if (err) return res.status(403).json({ error: 'Invalid or expired refresh token' });
 
       const user = await db.select().from(users).where(eq(users.id, payload.userId)).get();
       if (!user) return res.status(404).json({ error: 'User not found' });
+
+      if (typeof payload.tokenVersion !== 'number' || payload.tokenVersion !== (user as any).tokenVersion) {
+        return res.status(403).json({ error: 'Refresh token has been revoked' });
+      }
 
       const newToken = jwt.sign({ userId: user.id, tenantId: user.tenantId, role: user.role }, JWT_SECRET, { expiresIn: '15m' });
       res.json({ token: newToken });
@@ -279,13 +300,41 @@ router.post('/reset-password', async (req, res) => {
     }
 
     const passwordHash = await bcrypt.hash(newPassword, 10);
-    await db.update(users).set({ passwordHash }).where(eq(users.id, resetRecord.userId));
+    // Increment token_version so every previously-issued refresh token for
+    // this user is immediately invalidated after the password changes.
+    await db.update(users).set({
+      passwordHash,
+      tokenVersion: ((user as any).tokenVersion ?? 0) + 1,
+    }).where(eq(users.id, resetRecord.userId));
     await db.delete(passwordResets).where(eq(passwordResets.userId, resetRecord.userId));
 
     res.json({ success: true, message: 'Password has been updated' });
   } catch (error) {
     console.error('Reset password error:', error);
     res.status(500).json({ error: 'Failed to reset password' });
+  }
+});
+
+router.post('/logout', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+    const token = authHeader.slice(7);
+
+    jwt.verify(token, JWT_SECRET, async (err: any, payload: any) => {
+      if (err) return res.status(401).json({ error: 'Invalid token' });
+
+      await db.update(users)
+        .set({ tokenVersion: sql`token_version + 1` })
+        .where(eq(users.id, payload.userId));
+
+      res.json({ success: true });
+    });
+  } catch (error) {
+    console.error('Logout error:', error);
+    res.status(500).json({ error: 'Failed to logout' });
   }
 });
 

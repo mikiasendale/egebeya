@@ -150,6 +150,14 @@ export async function ensureSchemaMigrations(): Promise<Record<string, string[]>
       column: 'consent_given_at',
       sql: `ALTER TABLE users ADD COLUMN consent_given_at INTEGER`,
     },
+    {
+      // is_superadmin — platform-level admin flag for the internal /admin panel.
+      // Only ever set manually in the DB for the operator's own account, never
+      // via signup. Default false so every existing user stays non-admin.
+      table: 'users',
+      column: 'is_superadmin',
+      sql: `ALTER TABLE users ADD COLUMN is_superadmin INTEGER NOT NULL DEFAULT 0`,
+    },
   ];
 
   for (const m of migrations) {
