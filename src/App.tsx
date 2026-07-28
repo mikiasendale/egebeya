@@ -16,6 +16,9 @@ import { SetupWizard } from './pages/SetupWizard';
 import { ForgotPassword } from './pages/ForgotPassword';
 import { ResetPassword } from './pages/ResetPassword';
 import { NotFound } from './pages/NotFound';
+import { Admin } from './pages/Admin';
+import { Privacy } from './pages/Privacy';
+import { Terms } from './pages/Terms';
 import { Toaster } from './components/ui/toaster';
 
 export default function App() {
@@ -57,7 +60,10 @@ export default function App() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/setup" element={<SetupWizard />} />
+        <Route path="/admin" element={<Admin />} />
         <Route path="/dashboard/*" element={<Dashboard />} />
+        <Route path="/privacy" element={<Privacy />} />
+        <Route path="/terms" element={<Terms />} />
         <Route path="/404" element={<NotFound />} />
         <Route path="*" element={<NotFound />} />
     </Routes>
