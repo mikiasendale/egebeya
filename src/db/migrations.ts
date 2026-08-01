@@ -17,6 +17,8 @@
  */
 
 import { db } from './index';
+import { plans, tenantSubscriptions } from './schema';
+import { eq } from 'drizzle-orm';
 
 type TableInfo = { name: string; cid: number; type: string; notnull: 0 | 1; pk: number };
 
@@ -64,6 +66,20 @@ export async function ensureSchemaMigrations(): Promise<Record<string, string[]>
   const added: Record<string, string[]> = {};
 
   const migrations: Array<{ table: string; column: string; sql: string }> = [
+    // `site_config` — the Website Builder's mode + published Code-Mode HTML.
+    // Declared in schema.ts but must also be created here for existing DBs.
+    {
+      table: 'site_config',
+      column: 'id',
+      sql: `
+        CREATE TABLE IF NOT EXISTS site_config (
+          tenant_id TEXT PRIMARY KEY REFERENCES tenants(id),
+          builder_mode TEXT NOT NULL DEFAULT 'puck',
+          published_code_html TEXT,
+          updated_at INTEGER NOT NULL
+        )
+      `,
+    },
     // `isSuspended` was added after launch. Default false so existing tenants
     // continue to serve; the admin route is the only writer.
     {
@@ -172,5 +188,38 @@ export async function ensureSchemaMigrations(): Promise<Record<string, string[]>
     }
   }
 
+  await normalizePlanRows();
+
   return added;
+}
+
+/**
+ * Canonicalise plan rows. Older seeds created 'Basic'/'Pro' (title-case)
+ * alongside the canonical 'free'/'pro' — duplicate rows break the Pro gate
+ * and the upgrade flow. This:
+ *   1. ensures exactly one 'free' and one 'pro' row exist,
+ *   2. re-points subscriptions off legacy 'Basic'/'Pro' rows to canonical,
+ *   3. deletes the legacy rows.
+ * Idempotent — safe on every boot.
+ */
+async function normalizePlanRows(): Promise<void> {
+  try {
+    const all = await db.select().from(plans).all();
+
+    const canonicalFree = all.find((p) => p.name === 'free');
+    const canonicalPro = all.find((p) => p.name === 'pro');
+    const legacyFree = all.find((p) => p.name === 'Basic');
+    const legacyPro = all.find((p) => p.name === 'Pro');
+
+    if (canonicalFree && legacyFree) {
+      await db.update(tenantSubscriptions).set({ planId: canonicalFree.id }).where(eq(tenantSubscriptions.planId, legacyFree.id));
+      await db.delete(plans).where(eq(plans.id, legacyFree.id)).catch(() => {});
+    }
+    if (canonicalPro && legacyPro) {
+      await db.update(tenantSubscriptions).set({ planId: canonicalPro.id }).where(eq(tenantSubscriptions.planId, legacyPro.id));
+      await db.delete(plans).where(eq(plans.id, legacyPro.id)).catch(() => {});
+    }
+  } catch (err) {
+    console.warn('[migrations] normalizePlanRows skipped:', (err as Error)?.message);
+  }
 }

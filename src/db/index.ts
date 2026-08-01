@@ -3,7 +3,7 @@ import { createClient } from '@libsql/client';
 import * as schema from './schema';
 
 const client = createClient({
-  url: 'file:sqlite.db',
+  url: process.env.DATABASE_URL || 'file:sqlite.db',
   // Give BEGIN IMMEDIATE up to 5s to wait for a holder of the write lock
   // (this is how two concurrent bookings serialize into one success + one
   // 409 — without busy_timeout, the second transaction would fail with

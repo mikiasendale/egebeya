@@ -155,3 +155,39 @@ export const media = sqliteTable('media', {
   size: integer('size').notNull(),
   createdAt: integer('created_at').notNull(),
 });
+
+// Website Builder state: builder mode ('puck' | 'code') + published Code-Mode
+// HTML. Created by migrations.ts (CREATE TABLE IF NOT EXISTS) on boot.
+export const siteConfig = sqliteTable('site_config', {
+  tenantId: text('tenant_id').references(() => tenants.id).primaryKey(),
+  builderMode: text('builder_mode').notNull().default('puck'),
+  publishedCodeHtml: text('published_code_html'),
+  updatedAt: integer('updated_at').notNull(),
+});
+
+export const securityEvents = sqliteTable('security_events', {
+  id: text('id').primaryKey(),
+  eventType: text('event_type').notNull(),
+  tenantId: text('tenant_id'),
+  ip: text('ip'),
+  result: text('result').notNull().default('failure'),
+  details: text('details', { mode: 'json' }),
+  createdAt: integer('created_at').notNull(),
+});
+
+// Matches the CREATE TABLE shipped in src/db/migrations.ts. The
+// (provider, event_id) unique index makes duplicate webhook replays a
+// race-free detection.
+export const processedWebhookEvents = sqliteTable('processed_webhook_events', {
+  id: text('id').primaryKey(),
+  provider: text('provider').notNull(),
+  eventId: text('event_id').notNull(),
+  txRef: text('tx_ref'),
+  paymentId: text('payment_id'),
+  action: text('action').notNull(),
+  raw: text('raw'),
+  receivedAt: integer('received_at').notNull(),
+}, (table) => ([
+  uniqueIndex('processed_webhook_events_provider_event_unique')
+    .on(table.provider, table.eventId),
+]));
