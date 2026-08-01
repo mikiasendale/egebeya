@@ -12,12 +12,48 @@ import { validateProductionEnv } from './src/lib/envGuards';
 import { jwtSecret, refreshSecret } from './src/api/middleware/auth';
 
 const app = express();
-const PORT = 3000;
+const PORT = Number(process.env.PORT || 3000);
+// Dev binds loopback only (the Vite dev server is not hardened for LAN
+// exposure); production binds all interfaces. Override with HOST.
+const HOST = process.env.HOST || (process.env.NODE_ENV === 'production' ? '0.0.0.0' : '127.0.0.1');
 
-// Security headers. CSP stays disabled for the Sandpack/Puck editor (it needs
-// unsafe-inline/eval); the public tenant surfaces get a Strict CSP via
-// server/middleware/csp.ts.
-app.use(helmet({ contentSecurityPolicy: false }));
+// Trust the first proxy hop so req.ip / rate-limit keys resolve real client
+// IPs behind a CDN/reverse proxy in production.
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1);
+}
+
+// Security headers. CSP is relaxed (but bounded) only where the
+// Sandpack/Puck editor forces unsafe-eval/inline; public tenant surfaces get
+// a Strict CSP via server/middleware/csp.ts. In dev, CSP stays off so Vite
+// HMR works. Override with CSP_DISABLED=true if the editor needs more room.
+const SPA_CSP = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https:",
+  "font-src 'self' data: https:",
+  "connect-src 'self' ws: wss:",
+  "frame-src 'self' blob: data: https:",
+  "object-src 'none'",
+  "base-uri 'self'",
+].join('; ');
+app.use(helmet({
+  contentSecurityPolicy:
+    process.env.NODE_ENV === 'production' && process.env.CSP_DISABLED !== 'true'
+      ? { directives: {
+          'default-src': ["'self'"],
+          'script-src': ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+          'style-src': ["'self'", "'unsafe-inline'"],
+          'img-src': ["'self'", 'data:', 'blob:', 'https:'],
+          'font-src': ["'self'", 'data:', 'https:'],
+          'connect-src': ["'self'", 'ws:', 'wss:'],
+          'frame-src': ["'self'", 'blob:', 'data:', 'https:'],
+          'object-src': ["'none'"],
+          'base-uri': ["'self'"],
+        } }
+      : false,
+}));
 
 // CORS restricted to local dev, the egebeya.et platform/subdomains, and an
 // explicit ALLOWED_ORIGINS allowlist (env, comma-separated). No wildcard.
@@ -122,8 +158,8 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+  app.listen(PORT, HOST, () => {
+    console.log(`Server running on http://${HOST}:${PORT}`);
   });
 }
 

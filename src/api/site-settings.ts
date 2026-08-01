@@ -6,6 +6,7 @@ import { requireProPlan } from './pro-site';
 import { requireAuth } from './middleware/auth';
 import { csrfProtection } from './middleware/csrf';
 import { tenantWriteLimiter } from '../../server/middleware/rateLimiter';
+import { sanitizePublishedCode } from '../lib/sanitizePublishedCode';
 
 const router = Router();
 
@@ -41,10 +42,9 @@ router.get('/site', async (req: any, res) => {
 
 // PATCH /api/tenant/site — update builder_mode and/or published_code_html.
 //
-// NOTE: published code HTML is stored as-is here. The published-code SERVING
-// path does not exist yet; when it ships it MUST sanitize server-side and be
-// served under the Strict CSP from server/middleware/csp.ts. See the audit
-// remediation notes.
+// SECURITY: published HTML is re-sanitized SERVER-SIDE before persisting
+// (DOMPurify via jsdom). The client-side sanitizer is a convenience, not the
+// boundary — a malicious/broken client that bypasses it cannot store raw XSS.
 router.patch('/site', async (req: any, res) => {
   try {
     const plan = await requireProPlan(req, res);
@@ -56,8 +56,21 @@ router.patch('/site', async (req: any, res) => {
     if (builderMode !== undefined && builderMode !== 'puck' && builderMode !== 'code') {
       return res.status(400).json({ error: 'builderMode must be "puck" or "code"' });
     }
-    if (publishedCodeHtml !== undefined && publishedCodeHtml !== null && typeof publishedCodeHtml !== 'string') {
-      return res.status(400).json({ error: 'publishedCodeHtml must be a string or null' });
+
+    let safeHtml: string | null = null;
+    if (publishedCodeHtml !== undefined) {
+      if (publishedCodeHtml === null) {
+        safeHtml = null;
+      } else if (typeof publishedCodeHtml === 'string') {
+        try {
+          safeHtml = await sanitizePublishedCode(publishedCodeHtml);
+        } catch (sanitizeErr) {
+          console.error('[site-settings] sanitize failed, refusing to store raw HTML:', sanitizeErr);
+          return res.status(400).json({ error: 'Published HTML could not be sanitized.' });
+        }
+      } else {
+        return res.status(400).json({ error: 'publishedCodeHtml must be a string or null' });
+      }
     }
 
     const now = Date.now();
@@ -68,14 +81,14 @@ router.patch('/site', async (req: any, res) => {
     if (existing) {
       const updates: Record<string, any> = { updatedAt: now };
       if (builderMode !== undefined) updates.builderMode = builderMode;
-      if (publishedCodeHtml !== undefined) updates.publishedCodeHtml = publishedCodeHtml;
+      if (publishedCodeHtml !== undefined) updates.publishedCodeHtml = safeHtml;
       await db.update(siteConfig).set(updates)
         .where(eq(siteConfig.tenantId, tenantId));
     } else {
       await db.insert(siteConfig).values({
         tenantId,
         builderMode: builderMode ?? 'puck',
-        publishedCodeHtml: publishedCodeHtml ?? null,
+        publishedCodeHtml: publishedCodeHtml !== undefined ? safeHtml : null,
         updatedAt: now,
       });
     }

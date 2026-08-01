@@ -23,5 +23,10 @@ const STRICT_CSP = [
 export function strictCsp(_req: Request, res: Response, next: NextFunction) {
   res.setHeader('Content-Security-Policy', STRICT_CSP);
   res.setHeader('X-Content-Type-Options', 'nosniff');
+  // HSTS — force HTTPS for these surfaces so SSL-stripping can't downgrade
+  // first visits. Applied here (and globally via helmet) for defence in depth.
+  if (process.env.NODE_ENV === 'production') {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
   next();
 }

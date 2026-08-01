@@ -128,7 +128,11 @@ router.post('/webhook', webhookLimiter, async (req, res) => {
         receivedAt: Date.now(),
       });
     } catch (insertErr: any) {
-      if (String(insertErr?.code || '').includes('SQLITE_CONSTRAINT') || String(insertErr?.message || '').includes('UNIQUE')) {
+      // libsql nests the error code on `err.cause.code` — check both surfaces so
+      // a concurrent duplicate returns 200 `duplicate:true` instead of a 500.
+      const code = String(insertErr?.code ?? insertErr?.cause?.code ?? '');
+      const message = String(insertErr?.message ?? insertErr?.cause?.message ?? '');
+      if (code.includes('SQLITE_CONSTRAINT') || message.includes('UNIQUE')) {
         return res.json({ success: true, duplicate: true });
       }
       throw insertErr;

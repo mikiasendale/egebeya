@@ -11,6 +11,26 @@ const router = Router();
 // rejected immediately.
 router.use(requireAuth());
 
+// Data-minimisation: staff users see booking existence/time/service but NOT
+// customer PII (phone, email). Owners see the full record.
+function bookingProjection(role: string) {
+  const cols: Record<string, any> = {
+    id: appointments.id,
+    customerName: appointments.customerName,
+    startTime: appointments.startTime,
+    endTime: appointments.endTime,
+    status: appointments.status,
+    staffName: staff.name,
+    serviceName: services.name,
+    servicePrice: services.price,
+  };
+  if (role !== 'staff') {
+    cols.customerPhone = appointments.customerPhone;
+    cols.customerEmail = appointments.customerEmail;
+  }
+  return cols;
+}
+
 router.get('/', async (req, res) => {
   const { tenantId, role, userId } = (req as any).user;
   const { date, staff_id } = req.query;
@@ -35,18 +55,7 @@ router.get('/', async (req, res) => {
       filters.push(lte(appointments.startTime, endOfDay));
     }
 
-    const results = await db.select({
-      id: appointments.id,
-      customerName: appointments.customerName,
-      customerPhone: appointments.customerPhone,
-      customerEmail: appointments.customerEmail,
-      startTime: appointments.startTime,
-      endTime: appointments.endTime,
-      status: appointments.status,
-      staffName: staff.name,
-      serviceName: services.name,
-      servicePrice: services.price
-    })
+    const results = await db.select(bookingProjection(role))
     .from(appointments)
     .leftJoin(staff, eq(appointments.staffId, staff.id))
     .leftJoin(services, eq(appointments.serviceId, services.id))
@@ -80,22 +89,11 @@ router.put('/:id/status', async (req, res) => {
 });
 
 router.get('/:id', async (req, res) => {
-  const { tenantId } = (req as any).user;
+  const { tenantId, role } = (req as any).user;
   const { id } = req.params;
 
   try {
-    const result = await db.select({
-      id: appointments.id,
-      customerName: appointments.customerName,
-      customerPhone: appointments.customerPhone,
-      customerEmail: appointments.customerEmail,
-      startTime: appointments.startTime,
-      endTime: appointments.endTime,
-      status: appointments.status,
-      staffName: staff.name,
-      serviceName: services.name,
-      servicePrice: services.price
-    })
+    const result = await db.select(bookingProjection(role))
     .from(appointments)
     .leftJoin(staff, eq(appointments.staffId, staff.id))
     .leftJoin(services, eq(appointments.serviceId, services.id))

@@ -38,10 +38,8 @@ export default defineConfig({
     fileParallelism: false,
     env: {
       NODE_ENV: 'test',
-      // The suite supplies the required secrets so the middleware never falls
-      // back or throws during tests (see server/tests/_setup.ts).
-      JWT_SECRET: 'test-jwt-secret-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
-      REFRESH_SECRET: 'test-refresh-secret-yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy',
+      // Required secrets are injected/generated at runtime in
+      // server/tests/_setup.ts — never hardcoded here.
     },
     setupFiles: ['./server/tests/_setup.ts'],
   },

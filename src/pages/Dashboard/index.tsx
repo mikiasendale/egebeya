@@ -7,7 +7,7 @@ import {
 import { format } from 'date-fns';
 import { Bookings } from './Bookings';
 
-import { WebsiteEditor } from './WebsiteEditor';
+import { WebsiteBuilder } from './WebsiteBuilder';
 
 import { Settings as SettingsComponent } from './Settings';
 
@@ -17,6 +17,7 @@ import { MediaLibraryPage } from './MediaLibraryPage';
 import { authFetch } from '../../lib/api';
 import { getRole, useRole, isStaff } from '../../lib/auth';
 import { StaffRedirect } from './StaffRedirect';
+import { BuilderModeProvider, useBuilderMode } from './BuilderModeContext';
 
 const STAFF_NAV = [{ name: 'Bookings', path: '/dashboard/bookings', icon: Calendar }];
 
@@ -25,15 +26,30 @@ const ALL_NAV = [
   { name: 'Bookings', path: '/dashboard/bookings', icon: Calendar },
   { name: 'Services', path: '/dashboard/services', icon: Scissors },
   { name: 'Staff', path: '/dashboard/staff', icon: Users },
-  { name: 'Website Editor', path: '/dashboard/website', icon: Globe },
+  { name: 'Website Builder', path: '/dashboard/website-builder', icon: Globe },
   { name: 'Media Library', path: '/dashboard/media', icon: Image },
   { name: 'Settings', path: '/dashboard/settings', icon: Settings },
 ];
 
 export function Dashboard() {
+  return (
+    <BuilderModeProvider>
+      <DashboardInner />
+    </BuilderModeProvider>
+  );
+}
+
+function DashboardInner() {
   const navigate = useNavigate();
   const location = useLocation();
   const role = useRole();
+  const { mode: builderMode } = useBuilderMode();
+  const [sidebarHovered, setSidebarHovered] = useState(false);
+
+  // In Code Mode the sidebar auto-minimizes to icon-only (60px) and expands on
+  // hover, overlaying the content, so the code editor gets maximum space.
+  const isCodeMode = builderMode === 'code';
+  const sidebarExpanded = isCodeMode ? sidebarHovered : true;
 
   // Stub logout
   const handleLogout = async () => {
@@ -51,16 +67,23 @@ export function Dashboard() {
 
   return (
     <div className="min-h-screen bg-paper flex" style={{ fontFamily: 'var(--font-body)' }}>
-      {/* Sidebar */}
-      <aside className="w-64 bg-paper-bleached border-r border-ink-rule flex flex-col hidden md:flex">
-        <div className="h-16 flex items-center px-6 border-b border-ink-rule">
+      {/* Sidebar — collapsible (60px) in Code Mode, expanded on hover */}
+      <aside
+        onMouseEnter={() => isCodeMode && setSidebarHovered(true)}
+        onMouseLeave={() => isCodeMode && setSidebarHovered(false)}
+        className={`bg-paper-bleached border-r border-ink-rule flex-col hidden md:flex transition-[width] duration-200 ease-in-out overflow-hidden ${
+          isCodeMode ? 'fixed left-0 top-0 bottom-0 z-40' : 'w-64'
+        }`}
+        style={isCodeMode ? { width: sidebarExpanded ? 250 : 60 } : undefined}
+      >
+        <div className={`h-16 flex items-center border-b border-ink-rule ${sidebarExpanded ? 'px-6' : 'justify-center'}`}>
           <svg className="h-8 w-auto text-ink" viewBox="0 0 100 50" fill="currentColor">
             <text x="50" y="20" fontSize="20" fontWeight="bold" textAnchor="middle" fill="currentColor" fontFamily="'Noto Serif Ethiopic', serif">ኢ-ገበያ</text>
             <text x="50" y="40" fontSize="16" fontWeight="bold" textAnchor="middle" fill="currentColor" fontFamily="'Bricolage Grotesque', system-ui, sans-serif">Egebeya</text>
           </svg>
         </div>
 
-        <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+        <nav className={`flex-1 py-6 space-y-1 overflow-y-auto ${sidebarExpanded ? 'px-4' : 'px-2'}`}>
           {navItems.map((item) => {
             const isActive = location.pathname === item.path || (location.pathname === '/dashboard/' && item.path === '/dashboard');
             const Icon = item.icon;
@@ -68,32 +91,38 @@ export function Dashboard() {
               <Link
                 key={item.name}
                 to={item.path}
-                className={`flex items-center px-3 py-2.5 text-sm font-medium rounded-md transition-colors ${
+                title={!sidebarExpanded ? item.name : undefined}
+                className={`flex items-center rounded-md transition-colors ${
+                  sidebarExpanded ? 'px-3 py-2.5 text-sm font-medium' : 'justify-center py-2.5'
+                } ${
                   isActive
                     ? 'bg-ink/10 text-ink'
                     : 'text-ink hover:bg-paper-raised'
                 }`}
               >
-                <Icon className={`mr-3 h-5 w-5 ${isActive ? 'text-ink' : 'text-ink-stamp'}`} />
-                {item.name}
+                <Icon className={`h-5 w-5 ${isActive ? 'text-ink' : 'text-ink-stamp'} ${sidebarExpanded ? 'mr-3' : ''}`} />
+                {sidebarExpanded && item.name}
               </Link>
             );
           })}
         </nav>
 
-        <div className="p-4 border-t border-ink-rule">
+        <div className={`border-t border-ink-rule ${sidebarExpanded ? 'p-4' : 'p-2'}`}>
           <button
             onClick={handleLogout}
-            className="flex w-full items-center px-3 py-2 text-sm font-medium text-ink rounded-md hover:bg-paper-raised"
+            title={!sidebarExpanded ? 'Sign Out' : undefined}
+            className={`flex items-center rounded-md hover:bg-paper-raised transition-colors ${
+              sidebarExpanded ? 'w-full px-3 py-2 text-sm font-medium text-ink' : 'w-full justify-center py-2 text-ink'
+            }`}
           >
-            <LogOut className="mr-3 h-5 w-5 text-ink-stamp" />
-            Sign Out
+            <LogOut className="h-5 w-5 text-ink-stamp" />
+            {sidebarExpanded && <span className="ml-3">Sign Out</span>}
           </button>
         </div>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col min-h-screen overflow-hidden">
+      <main className={`flex-1 flex flex-col min-h-screen overflow-hidden ${isCodeMode ? 'md:ml-[60px]' : ''}`}>
         <header className="h-16 bg-paper-bleached border-b border-ink-rule flex items-center px-6 md:px-8">
           <h1 className="text-xl font-bold text-ink">Dashboard</h1>
         </header>
@@ -104,7 +133,10 @@ export function Dashboard() {
             <Route path="/bookings" element={<Bookings />} />
             <Route path="/services" element={<ServicesPage />} />
             <Route path="/staff" element={<StaffPage />} />
-            <Route path="/website" element={<WebsiteEditor />} />
+            <Route path="/website-builder" element={<WebsiteBuilder />} />
+            {/* Legacy editor routes redirect to the unified builder */}
+            <Route path="/website" element={<Navigate to="/dashboard/website-builder" replace />} />
+            <Route path="/code" element={<Navigate to="/dashboard/website-builder" replace />} />
             <Route path="/media" element={<MediaLibraryPage />} />
             <Route path="/settings" element={<SettingsComponent />} />
             <Route path="*" element={<Navigate to="/dashboard/bookings" replace />} />

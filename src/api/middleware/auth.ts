@@ -4,24 +4,19 @@ import { db } from '../../db';
 import { users } from '../../db/schema';
 import { eq } from 'drizzle-orm';
 
-// Fixed keys used ONLY under NODE_ENV=test so the suite runs without
-// configuration. Every other environment MUST supply JWT_SECRET /
-// REFRESH_SECRET or the process refuses to start (enforced here AND at boot
-// in server.ts).
-const TEST_JWT_SECRET = 'test-jwt-secret';
-const TEST_REFRESH_SECRET = 'test-refresh-secret';
-
+// JWT/REFRESH secrets are NEVER hardcoded in source — not even test-mode
+// literals. The test runner injects them via vitest env / _setup.ts (runtime
+// generated); any other environment must supply them or the process refuses
+// to start (enforced here AND at boot in server.ts).
 export function jwtSecret(): string {
   const s = process.env.JWT_SECRET;
   if (s) return s;
-  if (process.env.NODE_ENV === 'test') return TEST_JWT_SECRET;
   throw new Error('JWT_SECRET is required. Set JWT_SECRET in your environment.');
 }
 
 export function refreshSecret(): string {
   const s = process.env.REFRESH_SECRET;
   if (s) return s;
-  if (process.env.NODE_ENV === 'test') return TEST_REFRESH_SECRET;
   throw new Error('REFRESH_SECRET is required. Set REFRESH_SECRET in your environment.');
 }
 

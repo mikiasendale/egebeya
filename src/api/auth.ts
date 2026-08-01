@@ -225,7 +225,6 @@ router.post('/login', authLimiter, async (req, res) => {
         tenantId: user.tenantId,
         tenantSlug: tenant?.slug ?? null,
         name: user.name,
-        phone: user.phone,
       },
     });
   } catch (error) {
@@ -277,8 +276,6 @@ router.get('/me', requireAuth(), async (req: any, res) => {
         tenantId: user.tenantId,
         tenantSlug: tenant?.slug ?? null,
         name: user.name,
-        phone: user.phone,
-        email: user.email,
       },
     });
   } catch (error) {

@@ -62,62 +62,69 @@ export async function requireProPlan(req: any, res: any) {
 
 /**
  * POST /api/tenant/subscription/upgrade — move the tenant onto the Pro plan
- * with a fresh 14-day trial. Idempotent. This is the dev/trial upgrade path;
- * real production billing must route through the payment gateway first.
+ * with a fresh 14-day trial. Idempotent.
+ *
+ * SECURITY: this is a DEV/TEST-ONLY trial path. There is no payment
+ * verification, so it MUST NOT be reachable in production. It is only
+ * mounted when NOT in production, or when ENABLE_TEST_ENDPOINTS=true (for
+ * staging). Real production billing must route through the Chapa payment
+ * gateway before granting Pro.
  */
-router.post('/subscription/upgrade', async (req, res) => {
-  const { tenantId } = (req as any).user;
-  try {
-    const allPlans = await db.select().from(plans).all();
-    const proPlan = allPlans.find((p) => (p.name ?? '').toLowerCase() === 'pro');
-    if (!proPlan) {
-      return res.status(500).json({ error: 'Pro plan is not configured on this platform.' });
-    }
+if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_TEST_ENDPOINTS === 'true') {
+  router.post('/subscription/upgrade', async (req, res) => {
+    const { tenantId } = (req as any).user;
+    try {
+      const allPlans = await db.select().from(plans).all();
+      const proPlan = allPlans.find((p) => (p.name ?? '').toLowerCase() === 'pro');
+      if (!proPlan) {
+        return res.status(500).json({ error: 'Pro plan is not configured on this platform.' });
+      }
 
-    const existing = await db.select().from(tenantSubscriptions)
-      .where(eq(tenantSubscriptions.tenantId, tenantId)).get();
+      const existing = await db.select().from(tenantSubscriptions)
+        .where(eq(tenantSubscriptions.tenantId, tenantId)).get();
 
-    const now = Date.now();
-    const trialEndsAt = now + 14 * 24 * 3600 * 1000;
+      const now = Date.now();
+      const trialEndsAt = now + 14 * 24 * 3600 * 1000;
 
-    if (existing) {
-      const alreadyProTrial = existing.planId === proPlan.id && existing.status === 'trial';
-      if (!alreadyProTrial) {
-        await db.update(tenantSubscriptions).set({
+      if (existing) {
+        const alreadyProTrial = existing.planId === proPlan.id && existing.status === 'trial';
+        if (!alreadyProTrial) {
+          await db.update(tenantSubscriptions).set({
+            planId: proPlan.id,
+            status: 'trial',
+            trialEndsAt,
+            startsAt: now,
+          }).where(eq(tenantSubscriptions.tenantId, tenantId));
+        }
+      } else {
+        await db.insert(tenantSubscriptions).values({
+          id: crypto.randomUUID(),
+          tenantId,
           planId: proPlan.id,
           status: 'trial',
           trialEndsAt,
           startsAt: now,
-        }).where(eq(tenantSubscriptions.tenantId, tenantId));
+        });
       }
-    } else {
-      await db.insert(tenantSubscriptions).values({
-        id: crypto.randomUUID(),
-        tenantId,
-        planId: proPlan.id,
-        status: 'trial',
-        trialEndsAt,
-        startsAt: now,
+
+      const subscription = await db.select().from(tenantSubscriptions)
+        .where(eq(tenantSubscriptions.tenantId, tenantId)).get();
+      const plan = subscription?.planId
+        ? await db.select().from(plans).where(eq(plans.id, subscription.planId)).get()
+        : null;
+
+      res.json({
+        success: true,
+        unchanged: existing?.planId === proPlan.id && existing.status === 'trial',
+        plan,
+        subscription,
       });
+    } catch (error) {
+      console.error('Upgrade error:', error);
+      res.status(500).json({ error: 'Failed to upgrade subscription' });
     }
-
-    const subscription = await db.select().from(tenantSubscriptions)
-      .where(eq(tenantSubscriptions.tenantId, tenantId)).get();
-    const plan = subscription?.planId
-      ? await db.select().from(plans).where(eq(plans.id, subscription.planId)).get()
-      : null;
-
-    res.json({
-      success: true,
-      unchanged: existing?.planId === proPlan.id && existing.status === 'trial',
-      plan,
-      subscription,
-    });
-  } catch (error) {
-    console.error('Upgrade error:', error);
-    res.status(500).json({ error: 'Failed to upgrade subscription' });
-  }
-});
+  });
+}
 
 /**
  * Read every file under TEMPLATE_DIR (recursively) into a { path: content }

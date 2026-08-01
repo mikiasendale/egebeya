@@ -390,7 +390,12 @@ const BookingSchema = z.object({
   start_time: z.string().datetime({ offset: true }),
   customer_name: z.string().min(1),
   customer_phone: z.string().min(1),
-  customer_email: z.string().email().optional().or(z.literal('')),
+  // Empty string is normalised to undefined so it is stored as NULL (never
+  // '' ) and never sent to Chapa as a blank email.
+  customer_email: z
+    .union([z.string().email('Invalid email'), z.literal('')])
+    .optional()
+    .transform((v) => (v === '' || v === undefined ? undefined : v)),
 });
 
 async function assertSlotAllowed(tenant: any, startTimeMs: number): Promise<{ code: string; error: string } | null> {

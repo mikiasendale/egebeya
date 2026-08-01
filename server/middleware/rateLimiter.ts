@@ -23,10 +23,11 @@
 import rateLimit from 'express-rate-limit';
 import { logSecurityEvent, ipFromRequest } from '../lib/securityLog';
 
-// Rate limiting is disabled under vitest (NODE_ENV=test) so a shared test IP
-// hammering auth/booking endpoints doesn't trip a 429 and flake the suite.
-// The production server and any real deployment enforce every limiter.
-const isTestEnv = () => process.env.NODE_ENV === 'test';
+// Rate limiting is disabled ONLY under vitest — detected by the VITEST
+// marker that vitest sets automatically. Checking `process.env.VITEST ===
+// 'true'` (rather than NODE_ENV alone) means a deployment accidentally set to
+// `NODE_ENV=test` still enforces every limiter.
+const isTestEnv = () => process.env.NODE_ENV === 'test' && process.env.VITEST === 'true';
 
 /**
  * Strict limiter for auth surfaces — login, register, forgot/reset
