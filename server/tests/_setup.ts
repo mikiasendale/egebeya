@@ -46,8 +46,13 @@ if (!process.env.REFRESH_SECRET) {
 // Always run in test mode so the Chapa SDK skips signing-key checks and
 // the webhook test's `webhook.test.ts` can stub the live verify call.
 process.env.NODE_ENV = 'test';
-// Test-mode Chapa secret — HMR fallback used by `getWebhookSecret()` and
-// `initChapa()` when NODE_ENV !== production.
+// Test-mode Chapa keys. initChapa()/getWebhookSecret() now REQUIRE these in
+// every environment, so the suite injects documented test values. The
+// webhook spec deliberately `delete`s CHAPA_SECRET_KEY to prove the init
+// fails closed without it.
+if (!process.env.CHAPA_SECRET_KEY) {
+  process.env.CHAPA_SECRET_KEY = 'CHASECK_TEST-g3pDAuHMdioBphvmSN0ETveYu5KPaDD5';
+}
 if (!process.env.CHAPA_WEBHOOK_SECRET) {
   process.env.CHAPA_WEBHOOK_SECRET = 'CyNDCzoXF7JsaPig6GErkdT0';
 }

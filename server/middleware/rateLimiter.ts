@@ -23,6 +23,11 @@
 import rateLimit from 'express-rate-limit';
 import { logSecurityEvent, ipFromRequest } from '../lib/securityLog';
 
+// Rate limiting is disabled under vitest (NODE_ENV=test) so a shared test IP
+// hammering auth/booking endpoints doesn't trip a 429 and flake the suite.
+// The production server and any real deployment enforce every limiter.
+const isTestEnv = () => process.env.NODE_ENV === 'test';
+
 /**
  * Strict limiter for auth surfaces — login, register, forgot/reset
  * password. These are the most attractive brute-force / credential-
@@ -30,9 +35,10 @@ import { logSecurityEvent, ipFromRequest } from '../lib/securityLog';
  */
 export const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 20,
+  max: 10, // 10 attempts / 15 min / IP
   standardHeaders: true,
   legacyHeaders: false,
+  skip: isTestEnv,
   message: {
     error: 'Too many auth attempts, please try again later.',
     code: 'RATE_LIMITED_AUTH',
@@ -48,6 +54,31 @@ export const authLimiter = rateLimit({
 });
 
 /**
+ * Discover directory — a public, tenant-agnostic listing that is cheap to
+ * scrape. 60 req/min/IP keeps a scraper honest while leaving real visitors
+ * alone.
+ */
+export const discoverLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: isTestEnv,
+  message: {
+    error: 'Too many requests, please slow down.',
+    code: 'RATE_LIMITED_DISCOVER',
+  },
+  handler: (req, res, _next, options) => {
+    logSecurityEvent({
+      type: 'rate_limit',
+      ip: ipFromRequest(req),
+      details: { surface: 'discover', message: options.message },
+    });
+    res.status(429).json(options.message);
+  },
+});
+
+/**
  * Even stricter limiter for OTP/verify-style endpoints if/when we add
  * them (telebirr push, SMS-OTP). Reserved here so we don't accidentally
  * reuse the looser auth preset on something a script can blast at 20/15min.
@@ -57,6 +88,7 @@ export const otpLimiter = rateLimit({
   max: 5,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: isTestEnv,
   message: {
     error: 'Too many verification attempts, please try again later.',
     code: 'RATE_LIMITED_OTP',
@@ -83,6 +115,7 @@ export const bookingWriteLimiter = rateLimit({
   max: 30,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: isTestEnv,
   message: {
     error: 'Too many booking attempts from this address, please try again later.',
     code: 'RATE_LIMITED_BOOKING',
@@ -110,6 +143,7 @@ export const publicReadLimiter = rateLimit({
   max: 300,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: isTestEnv,
   message: {
     error: 'Too many requests, please slow down.',
     code: 'RATE_LIMITED_PUBLIC_READ',
@@ -141,6 +175,7 @@ export const webhookLimiter = rateLimit({
   max: 60,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: isTestEnv,
   message: {
     error: 'Too many webhook deliveries from this address.',
     code: 'RATE_LIMITED_WEBHOOK',
@@ -169,7 +204,7 @@ export const tenantWriteLimiter = rateLimit({
   max: 200,
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS',
+  skip: (req) => isTestEnv() || req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS',
   message: {
     error: 'Too many write requests, please slow down.',
     code: 'RATE_LIMITED_TENANT_WRITE',
@@ -203,6 +238,7 @@ export const uploadLimiter = rateLimit({
   max: 20,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: isTestEnv,
   message: {
     error: 'Too many uploads, please try again later.',
     code: 'RATE_LIMITED_UPLOAD',
@@ -233,7 +269,7 @@ export const adminWriteLimiter = rateLimit({
   max: 60,
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS',
+  skip: (req) => isTestEnv() || req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS',
   message: {
     error: 'Too many admin actions, please slow down.',
     code: 'RATE_LIMITED_ADMIN',

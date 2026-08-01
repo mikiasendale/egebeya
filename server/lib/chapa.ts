@@ -5,12 +5,13 @@ let cached: Chapa | null = null;
 export function initChapa(): Chapa {
   if (cached) return cached;
 
-  let secretKey = process.env.CHAPA_SECRET_KEY;
+  // CHAPA_SECRET_KEY is MANDATORY in every environment. The old code silently
+  // fell back to a hardcoded test key — a misconfigured deploy could hit
+  // Chapa with an unexpected key or (worse) the value was guessable. Fail
+  // loudly instead.
+  const secretKey = process.env.CHAPA_SECRET_KEY;
   if (!secretKey) {
-    if (process.env.NODE_ENV === 'production') {
-      throw new Error('CHAPA_SECRET_KEY is required in production');
-    }
-    secretKey = 'CHASECK_TEST-g3pDAuHMdioBphvmSN0ETveYu5KPaDD5';
+    throw new Error('CHAPA_SECRET_KEY is required. Set it in your environment (test key CHASECK_TEST-… in dev).');
   }
 
   cached = new Chapa({
@@ -68,7 +69,7 @@ export async function authorizeDirectCharge(reference: string): Promise<Authoriz
   const chapa = initChapa();
   const response = await chapa.authorizeDirectCharge({
     reference,
-    client: '',
+    client: 'egebeya',
     type: 'telebirr',
   });
 
@@ -110,17 +111,13 @@ export function generateTxRef(prefix?: string): string {
 
 /**
  * Shared webhook secret used to verify HMAC-SHA256 signatures on POST
- * /api/payments/webhook. In production the env var is required; in dev we
- * fall back to Chapa's documented test encryption key so local tests pass
- * without configuration.
+ * /api/payments/webhook. MANDATORY in every environment — a webhook that is
+ * accepted without a verifiable signature can be forged.
  */
 export function getWebhookSecret(): string {
   const secret = process.env.CHAPA_WEBHOOK_SECRET;
   if (!secret) {
-    if (process.env.NODE_ENV === 'production') {
-      throw new Error('CHAPA_WEBHOOK_SECRET is required in production');
-    }
-    return 'CyNDCzoXF7JsaPig6GErkdT0';
+    throw new Error('CHAPA_WEBHOOK_SECRET is required. Set it in your environment.');
   }
   return secret;
 }
