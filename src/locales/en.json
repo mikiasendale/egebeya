@@ -15,8 +15,7 @@
   },
   "lead": {
     "headingAm": "ተወሰነ በውሉ፣",
-    "subheading": "No-show used to mean no answer.",
-    "subheadingEmphasis": "Now it means deposit paid.",
+    "subheading": "the booking is confirmed before the chair is held.",
     "description": "Egebeya (ኢ-ገበያ) takes a Telebirr deposit before the slot exists. Built for Ethiopian salons, clinics, barbershops — where ቁጥር means your turn is guaranteed.",
     "cta": "Open your booking form",
     "ctaFree": "14 days free",
@@ -26,6 +25,10 @@
     "addisAbaba": "Addis Ababa",
     "issue": "ISSUE",
     "depositClears": "DEPOSIT CLEARS"
+  },
+  "specimen": {
+    "label": "SPECIMEN",
+    "labelAm": "ምሳሌ"
   },
   "trustBar": {
     "ledger": "LIVE LEDGER",
@@ -40,7 +43,6 @@
   "proofForm": {
     "title": "Booking record",
     "ref": "REF",
-    "illustrative": "illustrative — not a live record",
     "business": "business",
     "service": "service",
     "staff": "staff",
@@ -53,18 +55,17 @@
     "awaitingDeposit": "AWAITING DEPOSIT",
     "verified": "Telebirr deposit verified — the booking row is held.",
     "pressStamp": "Press the stamp to see how the deposit clears the slot.",
-    "pressStampShort": "press the stamp"
+    "pressStampShort": "press the stamp",
+    "refund": "Refunded automatically if the business cancels."
   },
   "tariffSection": {
     "heading": "Today's tariff.",
     "headingAm": "የዛሬ ዋጋ።",
     "everyTenant": "every business publishes their own — prices update at 06:00 EAT",
-    "lastUpdated": "last updated · today, 06:00 EAT",
     "location": "Bole, Addis Ababa",
     "locationAm": "ቦሌ፣ አዲስ አበባ",
     "book": "BOOK",
     "bookAm": "ተይዟል",
-    "synthetic": "Synthetic demonstration tariffs — your numbers replace these on day one.",
     "staffOfChoice": "staff of choice",
     "min": "min"
   },
@@ -81,12 +82,11 @@
   "queueSection": {
     "heading": "Walk in. See the queue. Take",
     "headingAm": "ቁጥር",
-    "description": "Your customers see who's ahead of them — time and service only, never a name. The Telegram chase that took eight messages to confirm one chair becomes one confirmation row.",
+    "description": "Your customers see who's ahead of them — time and service only, never a name. The Telegram back-and-forth that took eight messages to confirm one chair becomes one confirmation row.",
     "live": "Live",
     "todayQueue": "TODAY'S QUEUE",
     "day": "ቀን",
     "booked": "booked",
-    "illustrative": "illustrative — not a live screen",
     "nowServing": "NOW SERVING",
     "nowServingAm": "በአገልግሎት",
     "addis": "ADDIS TIME",
@@ -126,8 +126,8 @@
       "Online booking",
       "Up to 10 staff",
       "Custom domain",
-      "Advanced analytics",
-      "AI marketing",
+      "See which staff earns you the most",
+      "Auto-remind no-show customers",
       "Priority support"
     ]
   },

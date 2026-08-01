@@ -105,6 +105,28 @@ body {
   color: var(--color-ink);
 }
 
+/* Ticket form rows — the record swipes in from the left rail on load, row by row */
+.ticket-card .form-row {
+  animation: ticket-row-in 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.ticket-card .form-row:nth-child(1) { animation-delay: 60ms; }
+.ticket-card .form-row:nth-child(2) { animation-delay: 120ms; }
+.ticket-card .form-row:nth-child(3) { animation-delay: 180ms; }
+.ticket-card .form-row:nth-child(4) { animation-delay: 240ms; }
+.ticket-card .form-row:nth-child(5) { animation-delay: 300ms; }
+.ticket-card .form-row:nth-child(6) { animation-delay: 360ms; }
+.ticket-card .form-row:nth-child(7) { animation-delay: 420ms; }
+@keyframes ticket-row-in {
+  from {
+    transform: translateX(-14px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
 /* ─── Surface graphite — espresso counter band (dashboard, counter-close) ─── */
 .surface-graphite {
   background-color: var(--color-counter);
@@ -129,6 +151,11 @@ body {
 }
 .stamp.positive {
   color: var(--color-telebirr);
+  border-color: var(--color-telebirr);
+}
+.stamp.fill {
+  background-color: var(--color-telebirr);
+  color: var(--color-paper-bleached);
   border-color: var(--color-telebirr);
 }
 .stamp.negative {
@@ -211,12 +238,24 @@ body {
   border-radius: 2px;
 }
 
-/* ─── Perforation tear — the receipt roll torn between ledger pages ─── */
+/* ─── Perforation tear — the receipt roll torn between ledger pages ───
+   Drawn as a dashed gradient so it can scale in: the tear draws itself
+   left-to-right the first time it enters the viewport. */
 .perf-tear {
   position: relative;
-  border-top: 1px dashed var(--color-ink-rule-dashed);
-  height: 0;
+  height: 1px;
+  background-image: repeating-linear-gradient(
+    90deg,
+    var(--color-ink-rule-dashed) 0 3px,
+    transparent 3px 7px
+  );
   margin: 0;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 500ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.perf-tear.is-tearing {
+  transform: scaleX(1);
 }
 .perf-tear::before,
 .perf-tear::after {
@@ -275,7 +314,6 @@ body {
   .stamp.pulse { animation: none; }
   .stamp-bleed-in { animation: none; }
 }
-
 /* Press-the-stamp affordance: the deposit stamp sits lower when pressed */
 .deposit-stamp-btn .deposit-stamp {
   transition: transform 120ms ease-out;
@@ -291,31 +329,140 @@ body {
   .stamp-press-in { animation: none; }
 }
 
-/* Banknote security thread — a 1px dashed telebirr filament down the card */
-.security-thread {
+/* SPECIMEN — the one ambient paper cue on demo surfaces: a faint diagonal
+   label stamped across the card. Replaces per-card captions; never stacked
+   with other paper effects (one cue per surface). */
+.specimen {
   position: absolute;
-  top: 10px;
-  bottom: 10px;
-  right: 6px;
-  width: 1px;
-  border-left: 1px dashed var(--color-telebirr);
-  opacity: 0.55;
-  pointer-events: none;
-}
-
-/* Faint green watermark behind the form label (EGB-01) */
-.ticket-watermark {
-  position: absolute;
-  top: 2px;
-  left: 8px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-6deg);
   font-family: var(--font-mono);
-  font-weight: 700;
-  font-size: 2.75rem;
-  letter-spacing: 0.16em;
-  color: var(--color-telebirr);
-  opacity: 0.07;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--color-ink-stamp);
+  border: 1px dashed var(--color-ink-stamp);
+  padding: 0.3rem 0.8rem;
+  opacity: 0.5;
   pointer-events: none;
   user-select: none;
+  white-space: nowrap;
+}
+
+/* ─── Buttons — counter-world press mechanics ───
+   Ink-filled, telebirr-filled, ink-outline, and ghost-on-graphite.
+   Every press: lift on hover, settle 1px on active, 150ms. */
+.btn-ink {
+  background-color: var(--color-ink);
+  color: var(--color-paper);
+  transition: transform 150ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 150ms ease-out;
+  box-shadow: 0 1px 0 rgba(26, 20, 17, 0.45);
+}
+.btn-ink:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 0 rgba(26, 20, 17, 0.3), 0 10px 22px -10px rgba(26, 20, 17, 0.4);
+}
+.btn-ink:active {
+  transform: translateY(1px);
+  box-shadow: 0 1px 0 rgba(26, 20, 17, 0.45);
+}
+
+.btn-telebirr {
+  background-color: var(--color-telebirr);
+  color: var(--color-paper);
+  transition: background-color 180ms ease-out, transform 150ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 150ms ease-out;
+  box-shadow: 0 1px 0 rgba(6, 63, 45, 0.45);
+}
+.btn-telebirr:hover {
+  background-color: var(--color-telebirr-deep);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 0 rgba(6, 63, 45, 0.3), 0 10px 22px -10px rgba(6, 63, 45, 0.45);
+}
+.btn-telebirr:active {
+  transform: translateY(1px);
+}
+
+.btn-outline {
+  border: 1px solid var(--color-ink);
+  color: var(--color-ink);
+  transition: background-color 180ms ease-out, color 180ms ease-out, transform 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.btn-outline:hover {
+  background-color: var(--color-telebirr-deep);
+  border-color: var(--color-telebirr-deep);
+  color: var(--color-paper-bleached);
+}
+.btn-outline:active {
+  transform: translateY(1px);
+}
+
+.btn-ghost-light {
+  border: 1px solid rgba(244, 242, 236, 0.45);
+  color: var(--color-paper);
+  transition: border-color 180ms ease-out, background-color 180ms ease-out, color 180ms ease-out, transform 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.btn-ghost-light:hover {
+  border-color: var(--color-paper);
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+}
+.btn-ghost-light:active {
+  transform: translateY(1px);
+}
+
+/* Arrow that slides forward when its button is hovered */
+.btn-arrow {
+  display: inline-block;
+  transition: transform 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.btn-ink:hover .btn-arrow,
+.btn-telebirr:hover .btn-arrow,
+.btn-outline:hover .btn-arrow,
+.btn-ghost-light:hover .btn-arrow {
+  transform: translateX(3px);
+}
+
+/* Ticket card physicality: a slight desk tilt + soft lift. The dashed tear
+   line lives only at the bottom (the stub) — nothing else tears.
+   The top + left edges carry a telebirr marker line (a 2px green rule
+   overprinting the ink border); hovering the card straightens it. */
+.ticket-card {
+  transform: rotate(0.75deg);
+  box-shadow:
+    inset 2px 0 0 0 var(--color-telebirr),
+    inset 0 2px 0 0 var(--color-telebirr),
+    0 18px 40px -22px rgba(26, 20, 17, 0.35),
+    0 2px 8px rgba(26, 20, 17, 0.1);
+  transition: transform 240ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.ticket-card:hover,
+.ticket-card:focus-within {
+  transform: rotate(0deg);
+}
+@media (max-width: 640px) {
+  .ticket-card {
+    transform: rotate(0.4deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ticket-card {
+    transition: none;
+  }
+}
+
+/* Balance remaining flashes green once when the deposit clears */
+@keyframes balance-flash {
+  0%   { color: var(--color-telebirr-deep); }
+  60%  { color: var(--color-telebirr); }
+  100% { color: var(--color-ink); }
+}
+.balance-flash {
+  animation: balance-flash 700ms ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .balance-flash { animation: none; }
 }
 
 /* Tear-off ticket stub: dashed tear line + barcode + reference */
@@ -393,6 +540,10 @@ button:hover .num-roller {
 @media (prefers-reduced-motion: reduce) {
   a:hover .num-roller,
   button:hover .num-roller { animation: none; }
+  .perf-tear { transform: scaleX(1); transition: none; }
+  .btn-ink, .btn-telebirr, .btn-outline, .btn-ghost-light, .btn-arrow { transition: none; }
+  .btn-ink:hover, .btn-telebirr:hover, .btn-outline:hover, .btn-ghost-light:hover { transform: none; }
+  .ticket-card .form-row { animation: none; }
 }
 
 /* Receipt top rule: telebirr 2px green band above a payment card */

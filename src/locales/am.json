@@ -15,8 +15,7 @@
   },
   "lead": {
     "headingAm": "ተወሰነ በውሉ፣",
-    "subheading": "No-show used to mean no answer.",
-    "subheadingEmphasis": "Now it means deposit paid.",
+    "subheading": "the booking is confirmed before the chair is held.",
     "description": "Egebeya (ኢ-ገበያ) የቴሌቢር ተቀማጭ የሚወስድ የቀጠሮ ስርዓት ነው — ቦታው ከመኖሩ በፊት። ለኢትዮጵያ ሳሎኖች፣ ክሊኒኮች፣ ፀጉር ቤቶች የተሰራ።",
     "cta": "የቀጠሮ ቅጽዎን ይክፈቱ",
     "ctaFree": "14 ቀን ነፃ",
@@ -26,6 +25,10 @@
     "addisAbaba": "አዲስ አበባ",
     "issue": "ISSUE",
     "depositClears": "DEPOSIT CLEARS"
+  },
+  "specimen": {
+    "label": "SPECIMEN",
+    "labelAm": "ምሳሌ"
   },
   "trustBar": {
     "ledger": "LIVE LEDGER",
@@ -40,7 +43,6 @@
   "proofForm": {
     "title": "የቀጠሮ መዝገብ",
     "ref": "REF",
-    "illustrative": "ምሳሌ — የቀጥታ መረጃ አይደለም",
     "business": "business",
     "service": "service",
     "staff": "staff",
@@ -53,18 +55,17 @@
     "awaitingDeposit": "በመጠበቅ",
     "verified": "የቴሌቢር ተቀማጭ ተረጋግጧል — የቀጠሮው ቦታ ተይዟል።",
     "pressStamp": "ማህተሙን ይጫኑ — ተቀማጩ ቦታውን እንዴት እንደሚይዝ ለማየት።",
-    "pressStampShort": "ይጫኑ"
+    "pressStampShort": "ይጫኑ",
+    "refund": "ንግዱ ቢሰርዝ በራስ-ሰር ይመለሳል።"
   },
   "tariffSection": {
     "heading": "Today's tariff.",
     "headingAm": "የዛሬ ዋጋ።",
     "everyTenant": "each business publishes their own — prices update at 06:00 EAT",
-    "lastUpdated": "last updated · today, 06:00 EAT",
     "location": "Bole, Addis Ababa",
     "locationAm": "ቦሌ፣ አዲስ አበባ",
     "book": "BOOK",
     "bookAm": "ተይዟል",
-    "synthetic": "Synthetic demonstration tariffs — your numbers replace these on day one.",
     "staffOfChoice": "staff of choice",
     "min": "ደቂቃ"
   },
@@ -81,12 +82,11 @@
   "queueSection": {
     "heading": "Walk in. See the queue. Take",
     "headingAm": "ቁጥር",
-    "description": "Your customers see who's ahead of them — time and service only, never a name. The Telegram chase that took eight messages to confirm one chair becomes one confirmation row.",
+    "description": "Your customers see who's ahead of them — time and service only, never a name. The Telegram back-and-forth that took eight messages to confirm one chair becomes one confirmation row.",
     "live": "Live",
     "todayQueue": "የዛሬ ወረፋ",
     "day": "ቀን",
     "booked": "የተያዙ",
-    "illustrative": "ምሳሌ — የቀጥታ ማሳያ አይደለም",
     "nowServing": "NOW SERVING",
     "nowServingAm": "በአገልግሎት",
     "addis": "ADDIS TIME",
@@ -126,8 +126,8 @@
       "Online booking",
       "Up to 10 staff",
       "Custom domain",
-      "Advanced analytics",
-      "AI marketing",
+      "See which staff earns you the most",
+      "Auto-remind no-show customers",
       "Priority support"
     ]
   },

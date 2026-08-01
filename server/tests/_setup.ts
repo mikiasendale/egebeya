@@ -11,10 +11,8 @@
  * machine (which is exactly what a CI runner is).
  *
  * The `.env` file is OPTIONAL in CI. When the file is missing (e.g. a
- * sandboxed runner) every test still passes because the in-code
- * fallbacks (`JWT_SECRET || 'supersecret_fallback'`, the Chapa test
- * webhook secret `'CyNDCzoXF7JsaPig6GErkdT0'`) align with what we
- * use here in `setupDevScope()` below.
+ * sandboxed runner) this setup generates RUNTIME-ONLY random secrets for the
+ * test process — no secret values are committed as source literals anywhere.
  *
  * After env is loaded, this runs `ensureSchemaMigrations()` from
  * `src/db/migrations` — the same idempotent ALTER TABLE / CREATE TABLE
@@ -26,6 +24,7 @@
 import { config as loadEnv } from 'dotenv';
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 
 const root = process.cwd();
 const envPath = path.join(root, '.env');
@@ -33,28 +32,21 @@ if (fs.existsSync(envPath)) {
   loadEnv({ path: envPath });
 }
 
-// When `.env` is absent (CI without secrets) we still want a deterministic
-// JWT secret so token-for-token endpoints behave consistently across runs.
-// We seed a random-but-stable string of the right length, scoped to the
-// test process lifetime.
+// Test-mode secrets are generated at runtime and scoped to the process — they
+// are NEVER committed as literals. If the CI runner supplies real test keys
+// via env, those are used instead.
+process.env.NODE_ENV = 'test';
 if (!process.env.JWT_SECRET) {
-  process.env.JWT_SECRET = 'test-jwt-secret-'.padEnd(43, 'x');
+  process.env.JWT_SECRET = crypto.randomBytes(32).toString('hex');
 }
 if (!process.env.REFRESH_SECRET) {
-  process.env.REFRESH_SECRET = 'test-refresh-secret-'.padEnd(43, 'y');
+  process.env.REFRESH_SECRET = crypto.randomBytes(32).toString('hex');
 }
-// Always run in test mode so the Chapa SDK skips signing-key checks and
-// the webhook test's `webhook.test.ts` can stub the live verify call.
-process.env.NODE_ENV = 'test';
-// Test-mode Chapa keys. initChapa()/getWebhookSecret() now REQUIRE these in
-// every environment, so the suite injects documented test values. The
-// webhook spec deliberately `delete`s CHAPA_SECRET_KEY to prove the init
-// fails closed without it.
 if (!process.env.CHAPA_SECRET_KEY) {
-  process.env.CHAPA_SECRET_KEY = 'CHASECK_TEST-g3pDAuHMdioBphvmSN0ETveYu5KPaDD5';
+  process.env.CHAPA_SECRET_KEY = `CHASECK_TEST-${crypto.randomBytes(12).toString('hex')}`;
 }
 if (!process.env.CHAPA_WEBHOOK_SECRET) {
-  process.env.CHAPA_WEBHOOK_SECRET = 'CyNDCzoXF7JsaPig6GErkdT0';
+  process.env.CHAPA_WEBHOOK_SECRET = crypto.randomBytes(24).toString('hex');
 }
 
 // Now that the DB is available, make sure the schema is up-to-date. This

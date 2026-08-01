@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
@@ -49,10 +49,33 @@ export function Landing() {
 
 /* ── Perforation — the receipt roll tears between ledger pages ── */
 function PerfTear() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [tearing, setTearing] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (typeof IntersectionObserver === 'undefined') {
+      setTearing(true);
+      return;
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            setTearing(true);
+            io.disconnect();
+          }
+        });
+      },
+      { threshold: 0.3 }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
   return (
     <div className="px-5 sm:px-8 lg:px-12" aria-hidden>
       <div className="mx-auto max-w-6xl">
-        <div className="perf-tear" />
+        <div ref={ref} className={`perf-tear${tearing ? ' is-tearing' : ''}`} />
       </div>
     </div>
   );
@@ -152,20 +175,9 @@ function Lead({ stamped, onStamp }: { stamped: boolean; onStamp: () => void }) {
                 letterSpacing: '-0.01em',
               }}
             >
-              {t('lead.headingAm')}&nbsp;<span style={{ color: 'var(--color-telebirr)' }}>በውሉ</span>፣<br />
+              {t('lead.headingAm')}&nbsp;<span style={{ color: 'var(--color-telebirr)' }}>በውሉ</span><br />
               <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, letterSpacing: '-0.025em' }}>
                 {t('lead.subheading')}
-              </span>
-              <br />
-              <span
-                style={{
-                  fontFamily: 'var(--font-display)',
-                  fontWeight: 600,
-                  letterSpacing: '-0.025em',
-                  color: 'var(--color-telebirr)',
-                }}
-              >
-                {t('lead.subheadingEmphasis')}
               </span>
             </h1>
             <p
@@ -179,23 +191,20 @@ function Lead({ stamped, onStamp }: { stamped: boolean; onStamp: () => void }) {
             <div className="mt-9 flex flex-col sm:flex-row sm:items-stretch gap-3 max-w-2xl">
               <a
                 href="/register"
-                className="inline-flex items-center justify-center px-6 py-4 text-center font-semibold no-underline"
+                className="btn-ink inline-flex items-center justify-center px-6 py-4 text-center font-semibold no-underline"
                 style={{
-                  backgroundColor: 'var(--color-ink)',
-                  color: 'var(--color-paper)',
                   fontFamily: 'var(--font-display)',
                   borderRadius: 'var(--rd-card)',
                   letterSpacing: '0.01em',
                 }}
               >
                 {t('lead.cta')} · {t('lead.ctaFree')}
+                <span aria-hidden className="btn-arrow ml-2">→</span>
               </a>
               <a
                 href="#tariff"
-                className="inline-flex items-center justify-center px-6 py-4 text-center no-underline"
+                className="btn-outline inline-flex items-center justify-center px-6 py-4 text-center no-underline"
                 style={{
-                  border: '1px solid var(--color-ink)',
-                  color: 'var(--color-ink)',
                   fontFamily: 'var(--font-mono)',
                   borderRadius: 'var(--rd-card)',
                   letterSpacing: '0.06em',
@@ -203,7 +212,7 @@ function Lead({ stamped, onStamp }: { stamped: boolean; onStamp: () => void }) {
                   fontSize: '0.85rem',
                 }}
               >
-                {t('lead.ctaTariff')}&nbsp;<span aria-hidden className="ml-2">→</span>
+                {t('lead.ctaTariff')}&nbsp;<span aria-hidden className="btn-arrow ml-2">→</span>
               </a>
             </div>
             <p
@@ -228,17 +237,15 @@ function ProofForm({ stamped, onStamp }: { stamped: boolean; onStamp: () => void
   const { t } = useTranslation();
   return (
     <div
-      className="relative p-6 sm:p-7"
+      className="ticket-card relative p-6 sm:p-7"
       style={{
         backgroundColor: 'var(--color-paper)',
         border: '1px solid var(--color-ink)',
         borderRadius: 'var(--rd-card)',
       }}
     >
-      {/* Faint green watermark — the form number behind the label, banknote-style */}
-      <div className="ticket-watermark" aria-hidden>EGB-01</div>
-      {/* Security thread: a dashed telebirr filament running down the card */}
-      <span className="security-thread" aria-hidden />
+      {/* SPECIMEN — the shared faint diagonal label; the one paper cue on this surface */}
+      <Specimen />
       <div
         className="flex items-baseline justify-between gap-3 pb-3"
         style={{ borderBottom: '1px solid var(--color-ink-rule)' }}
@@ -257,7 +264,6 @@ function ProofForm({ stamped, onStamp }: { stamped: boolean; onStamp: () => void
           style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem', color: 'var(--color-ink-stamp)', letterSpacing: '0.06em' }}
         >
           <div>{t('proofForm.ref')}&nbsp;{ISSUE_NO}</div>
-          <div className="mt-0.5" style={{ color: 'var(--color-ink-soft)' }}>{t('proofForm.illustrative')}</div>
         </div>
       </div>
 
@@ -278,7 +284,9 @@ function ProofForm({ stamped, onStamp }: { stamped: boolean; onStamp: () => void
             <div className="form-row__label">{t('proofForm.balance')}</div>
             <div className="text-xs" style={{ color: 'var(--color-ink-soft)', fontFamily: 'var(--font-mono)' }}>{t('proofForm.paidAtChair')}</div>
           </div>
-          <div className="form-row__value" style={{ color: 'var(--color-ink)', fontWeight: 600 }}>Br&nbsp;0.00</div>
+          <div className="form-row__value" style={{ color: 'var(--color-ink)', fontWeight: 600 }}>
+            <span key={String(stamped)} className={stamped ? 'balance-flash' : undefined}>Br&nbsp;0.00</span>
+          </div>
         </li>
       </ol>
 
@@ -315,7 +323,7 @@ function ProofForm({ stamped, onStamp }: { stamped: boolean; onStamp: () => void
         <div className="flex-1 min-w-0">
           <div
             key={String(stamped)}
-            className={`stamp ${stamped ? 'positive stamp-bleed-in' : ''}`}
+            className={`stamp ${stamped ? 'fill stamp-bleed-in' : ''}`}
             style={stamped ? undefined : { borderColor: 'var(--color-ink)' }}
           >
             {stamped ? `${t('proofForm.cleared')} · ተከከለ` : `${t('proofForm.awaitingDeposit')} · በመጠበቅ`}
@@ -328,12 +336,23 @@ function ProofForm({ stamped, onStamp }: { stamped: boolean; onStamp: () => void
               ? t('proofForm.verified')
               : t('proofForm.pressStamp')}
           </p>
+          <p
+            className="mt-1.5 m-0 text-xs"
+            style={{ color: 'var(--color-ink-stamp)', fontFamily: 'var(--font-mono)', letterSpacing: '0.04em' }}
+          >
+            {t('proofForm.refund')}
+          </p>
         </div>
       </div>
 
-      {/* Tear-off stub — the perforated bottom of the ticket with its barcode */}
+      {/* Tear-off stub — the perforated bottom of the ticket with the live reference */}
       <div className="ticket-stub mt-5 pt-4 flex flex-col sm:flex-row sm:items-end gap-4">
-        <Barcode refNo={ISSUE_NO} />
+        <div
+          className="text-sm min-w-0 break-all"
+          style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-ink)', letterSpacing: '0.1em' }}
+        >
+          {t('proofForm.ref')}&nbsp;{ISSUE_NO}
+        </div>
         <div className="sm:ml-auto sm:text-right min-w-0">
           <span className="stamp" aria-hidden>STUB&nbsp;·&nbsp;KEEP&nbsp;THIS</span>
           <div
@@ -348,36 +367,29 @@ function ProofForm({ stamped, onStamp }: { stamped: boolean; onStamp: () => void
   );
 }
 
-/* ── Barcode — a data mark, not a decoration: bars encode the reference ── */
-const BARCODE_BARS = [2, 1, 3, 1, 1, 2, 1, 1, 3, 2, 1, 1, 2, 3, 1, 1, 1, 2, 2, 1, 3, 1, 1, 2, 1, 2, 1, 1, 3, 1, 2, 2];
-
-function Barcode({ refNo }: { refNo: string }) {
-  const gap = 2;
-  const barUnit = 1.4;
-  let x = 0;
-  const rects = BARCODE_BARS.map((w, i) => {
-    const r = (
-      <rect key={i} x={x} y={0} width={w * barUnit} height={30} style={{ fill: 'var(--color-ink)' }} />
-    );
-    x += (w + gap) * barUnit;
-    return r;
-  });
-  const guard = <rect x={-1} y={0} width={3.2} height={34} style={{ fill: 'var(--color-ink)' }} />;
+/* ── Specimen — the shared faint diagonal label on demo surfaces ── */
+function Specimen() {
+  const { t } = useTranslation();
   return (
-    <svg
-      width={x}
-      height={34}
-      viewBox={`-3 0 ${x + 4} 34`}
-      role="img"
-      aria-label={`Illustrative barcode for reference ${refNo}`}
-      className="flex-shrink-0"
-      style={{ display: 'block' }}
-    >
-      {guard}
-      {rects}
-      <rect x={x - 1} y={0} width={3.2} height={34} style={{ fill: 'var(--color-ink)' }} />
-    </svg>
+    <span className="specimen" aria-hidden>
+      {t('specimen.label')}&nbsp;·&nbsp;{t('specimen.labelAm')}
+    </span>
   );
+}
+
+/* ── StatusStamp — one pill, three states: confirmed / pending / waiting ── */
+function StatusStamp({
+  tone,
+  children,
+}: {
+  tone: 'confirmed' | 'pending' | 'waiting';
+  children: React.ReactNode;
+}) {
+  const cls =
+    tone === 'confirmed' ? 'stamp fill'
+    : tone === 'pending' ? 'stamp positive pulse'
+    : 'stamp warm';
+  return <span className={cls}>{children}</span>;
 }
 
 function StaticRow({
@@ -456,19 +468,14 @@ function TariffSection() {
           </div>
           <div className="flex flex-col items-start sm:items-end gap-2">
             <span className="stamp" aria-hidden>{t('tariffSection.location')}&nbsp;·&nbsp;{t('tariffSection.locationAm')}</span>
-            <span
-              className="text-xs"
-              style={{ color: 'var(--color-ink-stamp)', fontFamily: 'var(--font-mono)', letterSpacing: '0.05em' }}
-            >
-              {t('tariffSection.lastUpdated')}
-            </span>
           </div>
         </header>
 
         <div
-          className="p-3 sm:p-5"
+          className="relative p-3 sm:p-5"
           style={{ border: '1px solid var(--color-ink)', borderRadius: 'var(--rd-card)', backgroundColor: 'var(--color-paper)' }}
         >
+          <Specimen />
           <ul className="m-0 p-0 list-none" role="list">
             {SERVICES_DEMO.map((s) => (
               <li
@@ -513,12 +520,6 @@ function TariffSection() {
               </li>
             ))}
           </ul>
-          <p
-            className="mt-3 m-0 text-xs"
-            style={{ color: 'var(--color-ink-stamp)', fontFamily: 'var(--font-mono)', letterSpacing: '0.05em' }}
-          >
-            {t('tariffSection.synthetic')}
-          </p>
         </div>
       </div>
     </section>
@@ -560,9 +561,10 @@ function QueueSection() {
 
           <div className="lg:col-span-7">
             <div
-              className="p-4 sm:p-5"
+              className="relative p-4 sm:p-5"
               style={{ border: '1px solid var(--color-ink)', borderRadius: 'var(--rd-card)', backgroundColor: 'var(--color-paper)' }}
             >
+              <Specimen />
               <div
                 className="flex items-baseline justify-between gap-3 pb-3"
                 style={{ borderBottom: '1px solid var(--color-ink-rule)' }}
@@ -575,12 +577,6 @@ function QueueSection() {
                   >
                     Mon 27 ሐምሌ · 4 {t('queueSection.booked')}
                   </div>
-                </div>
-                <div
-                  className="text-right text-[0.7rem]"
-                  style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-ink-stamp)', letterSpacing: '0.08em' }}
-                >
-                  {t('queueSection.illustrative')}
                 </div>
               </div>
 
@@ -623,13 +619,6 @@ function QueueSection() {
                   const done = q.status === 'DONE';
                   const serving = q.status === 'SERVING';
                   const next = q.status === 'NEXT';
-                  const statusClass = done
-                    ? undefined
-                    : serving
-                      ? 'positive'
-                      : next
-                        ? 'positive pulse'
-                        : 'warm';
                   return (
                     <li
                       key={q.no}
@@ -661,12 +650,18 @@ function QueueSection() {
                           {t('queueSection.with')} {q.staff} · {t('queueSection.staffLabel')}
                         </div>
                       </div>
-                      <span
-                        className={`stamp ${statusClass || ''}`}
-                        style={done ? { borderColor: 'var(--color-ink-rule-dashed)', color: 'var(--color-ink-stamp)' } : undefined}
-                      >
-                        {q.statusAm} · {q.status}
-                      </span>
+                      {done ? (
+                        <span
+                          className="stamp"
+                          style={{ borderColor: 'var(--color-ink-rule-dashed)', color: 'var(--color-ink-stamp)' }}
+                        >
+                          {q.statusAm} · {q.status}
+                        </span>
+                      ) : (
+                        <StatusStamp tone={serving ? 'confirmed' : next ? 'pending' : 'waiting'}>
+                          {q.statusAm} · {q.status}
+                        </StatusStamp>
+                      )}
                     </li>
                   );
                 })}
@@ -730,22 +725,19 @@ function OperatorColumn() {
       <div className="mt-8 flex flex-col sm:flex-row gap-3">
         <a
           href="/register"
-          className="inline-flex items-center justify-center px-6 py-4 text-center font-semibold no-underline"
+          className="btn-telebirr inline-flex items-center justify-center px-6 py-4 text-center font-semibold no-underline"
           style={{
-            backgroundColor: 'var(--color-telebirr)',
-            color: 'var(--color-paper)',
             fontFamily: 'var(--font-display)',
             borderRadius: 'var(--rd-card)',
           }}
         >
           {t('counterClose.ownerCta')} · 14 days free
+          <span aria-hidden className="btn-arrow ml-2">→</span>
         </a>
         <a
           href="/login"
-          className="inline-flex items-center justify-center px-6 py-4 text-center no-underline"
+          className="btn-ghost-light inline-flex items-center justify-center px-6 py-4 text-center no-underline"
           style={{
-            border: '1px solid rgba(244,242,236,0.45)',
-            color: 'var(--color-paper)',
             fontFamily: 'var(--font-mono)',
             borderRadius: 'var(--rd-card)',
             letterSpacing: '0.06em',
@@ -806,10 +798,8 @@ function CustomerColumn() {
       <div className="mt-8">
         <a
           href="/discover"
-          className="inline-flex items-center justify-center px-6 py-4 text-center no-underline"
+          className="btn-ghost-light inline-flex items-center justify-center px-6 py-4 text-center no-underline"
           style={{
-            border: '1px solid rgba(244,242,236,0.45)',
-            color: 'var(--color-paper)',
             fontFamily: 'var(--font-mono)',
             borderRadius: 'var(--rd-card)',
             letterSpacing: '0.06em',
@@ -818,6 +808,7 @@ function CustomerColumn() {
           }}
         >
           {t('counterClose.customerCta')} · ፈልግ
+          <span aria-hidden className="btn-arrow ml-2">→</span>
         </a>
       </div>
     </div>
@@ -923,9 +914,8 @@ function SearchSection() {
           />
           <button
             type="submit"
+            className="btn-ink"
             style={{
-              background: 'var(--color-ink)',
-              color: 'var(--color-paper)',
               border: 'none',
               padding: '16px 28px',
               fontFamily: 'var(--font-mono)',
@@ -936,7 +926,7 @@ function SearchSection() {
               cursor: 'pointer',
             }}
           >
-            Find · ፈልግ
+            Find · ፈልግ<span aria-hidden className="btn-arrow ml-2">→</span>
           </button>
         </form>
         <div

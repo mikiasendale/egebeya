@@ -322,8 +322,8 @@ async function seed() {
   }
 
   console.log('Seed completed successfully!');
-  console.log(`Test account: +251911234567 / password123 (slug: luxnails, no payment)`);
-  console.log(`Test account: 0900123456 → ${normalizePhone('0900123456')} / password123 (slug: testpayment, requires Chapa payment upfront)`);
+  console.log(`Test account: +251911234567 (slug: luxnails, no payment) — password is set in server/seed.ts`);
+  console.log(`Test account: 0900123456 → ${normalizePhone('0900123456')} (slug: testpayment, requires Chapa payment upfront) — password is set in server/seed.ts`);
   console.log(`Test site: http://luxnails.egebeya.et (Add to your hosts file mapped to localhost for testing)`);
 }
 

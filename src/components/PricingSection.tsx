@@ -90,7 +90,7 @@ function PlanCard({
 }) {
   return (
     <div
-      className="p-6 sm:p-8 relative"
+      className="plan-card p-6 sm:p-8 relative"
       style={{
         backgroundColor: highlighted ? 'var(--color-ink)' : 'var(--color-paper)',
         color: highlighted ? 'var(--color-paper-bleached)' : 'var(--color-ink)',
@@ -118,7 +118,7 @@ function PlanCard({
       {highlighted && seal && (
         <div
           aria-hidden
-          className="stamp"
+          className="stamp seal-wobble"
           style={{
             position: 'absolute',
             top: 18,
@@ -189,15 +189,16 @@ function PlanCard({
 
       <a
         href={ctaHref}
-        className="mt-7 inline-flex w-full items-center justify-center px-6 py-4 text-center font-bold no-underline"
+        className={`mt-7 inline-flex w-full items-center justify-center px-6 py-4 text-center font-bold no-underline ${
+          highlighted ? 'btn-telebirr' : 'btn-ink'
+        }`}
         style={{
-          backgroundColor: highlighted ? 'var(--color-telebirr)' : 'var(--color-ink)',
-          color: 'var(--color-paper-bleached)',
           fontFamily: 'var(--font-display)',
           borderRadius: 'var(--rd-card)',
         }}
       >
         {cta}
+        <span aria-hidden className="btn-arrow ml-2">→</span>
       </a>
     </div>
   );
