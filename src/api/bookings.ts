@@ -2,27 +2,14 @@ import { Router } from 'express';
 import { db } from '../db';
 import { appointments, services, staff } from '../db/schema';
 import { eq, and, desc, gte, lte } from 'drizzle-orm';
-import jwt from 'jsonwebtoken';
+import { requireAuth } from './middleware/auth';
 
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'supersecret_fallback';
 
-// Middleware to authenticate and get tenantId
-router.use((req, res, next) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader?.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  const token = authHeader.split(' ')[1];
-  try {
-    const payload = jwt.verify(token, JWT_SECRET) as any;
-    (req as any).user = payload;
-    next();
-  } catch (error) {
-    res.status(401).json({ error: 'Invalid token' });
-  }
-});
+// Authenticated (any role — staff see only their own bookings via the
+// role-based filter below). tokenVersion is verified so a revoked session is
+// rejected immediately.
+router.use(requireAuth());
 
 router.get('/', async (req, res) => {
   const { tenantId, role, userId } = (req as any).user;

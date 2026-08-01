@@ -1,28 +1,12 @@
 import { Router } from 'express';
-import jwt from 'jsonwebtoken';
 import { sendMail } from '../../server/lib/mailer';
+import { requireAuth } from './middleware/auth';
 
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'supersecret_fallback';
 
-router.use((req, res, next) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader?.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  const token = authHeader.split(' ')[1];
-  try {
-    const payload = jwt.verify(token, JWT_SECRET) as any;
-    if (payload.role !== 'owner') {
-      return res.status(403).json({ error: 'Forbidden' });
-    }
-    (req as any).user = payload;
-    next();
-  } catch (error) {
-    res.status(401).json({ error: 'Invalid token' });
-  }
-});
+// Only mounted when ENABLE_TEST_ENDPOINTS=true (see src/api/index.ts). Never
+// shipped in production.
+router.use(requireAuth({ roles: ['owner'] }));
 
 router.post('/send-email', async (req, res) => {
   const { to } = req.body;

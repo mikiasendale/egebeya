@@ -14,7 +14,7 @@ import { Settings as SettingsComponent } from './Settings';
 import { ServicesPage } from './ServicesPage';
 import { StaffPage } from './StaffPage';
 import { MediaLibraryPage } from './MediaLibraryPage';
-import { authFetch, clearTokens } from '../../lib/api';
+import { authFetch } from '../../lib/api';
 import { getRole, useRole, isStaff } from '../../lib/auth';
 import { StaffRedirect } from './StaffRedirect';
 
@@ -36,8 +36,14 @@ export function Dashboard() {
   const role = useRole();
 
   // Stub logout
-  const handleLogout = () => {
-    clearTokens();
+  const handleLogout = async () => {
+    // Clear the server-side session (bumps token_version + clears cookies).
+    try {
+      await authFetch('/api/auth/logout', { method: 'POST' });
+    } catch {
+      // best-effort — still clear local UI state below
+    }
+    ['role', 'tenantId', 'tenantSlug', 'isSuperadmin'].forEach((k) => localStorage.removeItem(k));
     navigate('/login');
   };
 

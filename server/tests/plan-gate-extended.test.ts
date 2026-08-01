@@ -36,7 +36,7 @@ app.use(express.json());
 app.use('/api', apiRoutes);
 
 function tokenFor(uid: string, tid: string, role: string): string {
-  return jwt.sign({ userId: uid, tenantId: tid, role }, JWT_SECRET, { expiresIn: '15m' });
+  return jwt.sign({ userId: uid, tenantId: tid, role, tokenVersion: 0 }, JWT_SECRET, { expiresIn: '15m' });
 }
 
 describe('Plan-gate extended — trial-expired + domain gate', () => {

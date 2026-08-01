@@ -29,6 +29,7 @@ import express from 'express';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { eq } from 'drizzle-orm';
+import { cookieValue } from './helpers';
 
 import apiRoutes from '../../src/api';
 import { db } from '../../src/db';
@@ -97,6 +98,13 @@ describe('Auth roundtrip + protected-route middleware', () => {
     await db.delete(tenants).where(eq(tenants.id, tenantId));
   });
 
+  // The user's current token_version (bumped by every password reset) — a
+  // valid access token must be minted against the live value.
+  async function currentVersion(): Promise<number> {
+    const u = await db.select().from(users).where(eq(users.id, userId)).get();
+    return (u as any)?.tokenVersion ?? 0;
+  }
+
   // ---- full reset-password roundtrip ----
 
   it('forgot-password issues a reset token persisted to password_resets', async () => {
@@ -139,8 +147,8 @@ describe('Auth roundtrip + protected-route middleware', () => {
       .post('/api/auth/login')
       .send({ phone, password: newPassword });
     expect(res.status).toBe(200);
-    expect(res.body.token).toBeDefined();
-    expect(res.body.refreshToken).toBeDefined();
+    expect(cookieValue(res, 'accessToken')).toBeTruthy();
+    expect(cookieValue(res, 'refreshToken')).toBeTruthy();
     expect(res.body.tenantId).toBe(tenantId);
   });
 
@@ -189,7 +197,7 @@ describe('Auth roundtrip + protected-route middleware', () => {
   it('GET /api/bookings with a well-signed JWT returns 200', async () => {
     const jwt = require('jsonwebtoken');
     const valid = jwt.sign(
-      { userId, tenantId, role: 'owner' },
+      { userId, tenantId, role: 'owner', tokenVersion: await currentVersion() },
       JWT_SECRET,
       { expiresIn: '15m' },
     );
@@ -205,7 +213,7 @@ describe('Auth roundtrip + protected-route middleware', () => {
   it('owner-only /api/tenant/* rejects a non-owner (staff) JWT with 403', async () => {
     const jwt = require('jsonwebtoken');
     const staffToken = jwt.sign(
-      { userId, tenantId, role: 'staff' },
+      { userId, tenantId, role: 'staff', tokenVersion: await currentVersion() },
       JWT_SECRET,
       { expiresIn: '15m' },
     );
@@ -218,7 +226,7 @@ describe('Auth roundtrip + protected-route middleware', () => {
   it('owner-only /api/tenant/pro-site/files rejects a non-owner (staff) JWT with 403', async () => {
     const jwt = require('jsonwebtoken');
     const staffToken = jwt.sign(
-      { userId, tenantId, role: 'staff' },
+      { userId, tenantId, role: 'staff', tokenVersion: await currentVersion() },
       JWT_SECRET,
       { expiresIn: '15m' },
     );
@@ -241,14 +249,14 @@ describe('Auth roundtrip + protected-route middleware', () => {
       .post('/api/auth/login')
       .send({ phone, password: newPassword });
     expect(loginRes.status).toBe(200);
-    const refreshToken = loginRes.body.refreshToken;
+    const refreshToken = cookieValue(loginRes, 'refreshToken');
 
     // 2) Verify the refresh token works before password change.
     const beforeRes = await request(app)
       .post('/api/auth/refresh')
       .send({ refreshToken });
     expect(beforeRes.status).toBe(200);
-    expect(beforeRes.body.token).toBeDefined();
+    expect(beforeRes.body.success).toBe(true);
 
     // 3) Issue a fresh password-reset token in the DB.
     await db.delete(passwordResets).where(eq(passwordResets.userId, userId));
@@ -282,15 +290,15 @@ describe('Auth roundtrip + protected-route middleware', () => {
       .post('/api/auth/login')
       .send({ phone, password: 'newerPass999' });
     expect(loginRes.status).toBe(200);
-    const accessToken = loginRes.body.token;
-    const refreshToken = loginRes.body.refreshToken;
+    const accessToken = cookieValue(loginRes, 'accessToken');
+    const refreshToken = cookieValue(loginRes, 'refreshToken');
 
     // 2) Verify the refresh token works before logout.
     const beforeRes = await request(app)
       .post('/api/auth/refresh')
       .send({ refreshToken });
     expect(beforeRes.status).toBe(200);
-    expect(beforeRes.body.token).toBeDefined();
+    expect(beforeRes.body.success).toBe(true);
 
     // 3) Call the logout endpoint.
     const logoutRes = await request(app)

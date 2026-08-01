@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Loader2, ShieldCheck, Pause, Play, Globe } from 'lucide-react';
-import { authFetch, getAccessToken } from '../lib/api';
+import { authFetch } from '../lib/api';
 import { showToast } from '../components/ui/toast-helper';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -52,14 +52,8 @@ export function Admin() {
         if (res.ok) {
           setAuthState('ok');
         } else if (res.status === 401) {
-          // No/no-expired token at all — bounce through /login.
-          const haveToken = !!getAccessToken();
-          if (haveToken) {
-            // Token is valid for tenant routes but user isn't superadmin.
-            setAuthState('forbidden');
-          } else {
-            window.location.assign('/login?next=/admin');
-          }
+          // No valid session cookie — bounce through /login.
+          window.location.assign('/login?next=/admin');
           return;
         } else if (res.status === 403) {
           setAuthState('forbidden');

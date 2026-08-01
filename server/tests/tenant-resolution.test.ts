@@ -74,7 +74,10 @@ describe('Public site routes — tenant resolution', () => {
       .set('X-Tenant-Slug', activeSlug);
     expect(res.status).toBe(200);
     expect(res.body.tenant?.slug).toBe(activeSlug);
-    expect(res.body.tenant?.id).toBe(activeTenantId);
+    // The public page payload is a whitelist — it must NOT expose internal
+    // fields like `id` or the raw settings blob.
+    expect(res.body.tenant?.id).toBeUndefined();
+    expect(res.body.tenant?.settings).toBeUndefined();
   });
 
   it('resolves the tenant via the Host header when no X-Tenant-Slug is sent', async () => {

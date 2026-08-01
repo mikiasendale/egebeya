@@ -62,8 +62,34 @@ export function Footer() {
           </div>
         </div>
         <div
-          className="mt-10 pt-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+          className="mt-14 mb-12 flex justify-center"
           style={{ borderTop: '1px solid var(--color-counter-rule)' }}
+        >
+          <span
+            aria-hidden
+            className="footer-seal"
+            style={{
+              marginTop: 36,
+              transform: 'rotate(-3deg)',
+              border: '1px solid rgba(244,242,236,0.5)',
+              borderRadius: 'var(--rd-card)',
+              color: 'rgba(244,242,236,0.92)',
+            }}
+          >
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.55rem', letterSpacing: '0.12em', color: 'rgba(244,242,236,0.6)' }}>
+              {t('footer.depositClears')}
+            </span>
+            <span style={{ fontFamily: 'var(--font-serif-ethiopic)', fontWeight: 700, fontSize: '1.6rem', lineHeight: 1.1, color: 'var(--color-telebirr)' }}>
+              ተከከለ
+            </span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.55rem', letterSpacing: '0.12em', color: 'rgba(244,242,236,0.6)' }}>
+              ISSUE&nbsp;{year}
+            </span>
+          </span>
+        </div>
+        <div
+          className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+          style={{ borderTop: '1px solid var(--color-counter-rule)', paddingTop: 20 }}
         >
           <p
             className="m-0 text-xs"

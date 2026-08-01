@@ -76,7 +76,7 @@ async function signupOwner(tenantName: string, slug: string, opts: { phone?: str
 function jwt_for(userId: string, tenantId: string): string {
   // Inline import so the test file stays simple.
   const jwt = require('jsonwebtoken');
-  return jwt.sign({ userId, tenantId, role: 'owner' }, JWT_SECRET, { expiresIn: '15m' });
+  return jwt.sign({ userId, tenantId, role: 'owner', tokenVersion: 0 }, JWT_SECRET, { expiresIn: '15m' });
 }
 
 describe('Plan-limit staff cap enforcement', () => {
@@ -158,7 +158,7 @@ describe('Plan-limit staff cap enforcement', () => {
     // user who has no tenant. The planLimit middleware short-circuits
     // before reading any plan rows.
     const jwt = require('jsonwebtoken');
-    const fakeToken = jwt.sign({ userId: 'orphan', tenantId: null, role: 'owner' }, JWT_SECRET, { expiresIn: '15m' });
+    const fakeToken = jwt.sign({ userId: 'orphan', tenantId: null, role: 'owner', tokenVersion: 0 }, JWT_SECRET, { expiresIn: '15m' });
     const res = await request(app)
       .post('/api/tenant/staff')
       .set('Authorization', `Bearer ${fakeToken}`)

@@ -398,6 +398,9 @@ export function MediaLibraryPage() {
 }
 
 interface MediaCardProps {
+  // React reserves `key` for reconciliation; declared here to satisfy the
+  // type-checker in some React JSX configurations.
+  key?: React.Key;
   item: MediaItem;
   copied: boolean;
   onCopy: () => void;

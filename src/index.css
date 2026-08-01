@@ -211,6 +211,190 @@ body {
   border-radius: 2px;
 }
 
+/* ─── Perforation tear — the receipt roll torn between ledger pages ─── */
+.perf-tear {
+  position: relative;
+  border-top: 1px dashed var(--color-ink-rule-dashed);
+  height: 0;
+  margin: 0;
+}
+.perf-tear::before,
+.perf-tear::after {
+  content: "";
+  position: absolute;
+  top: -4px;
+  width: 6px;
+  height: 8px;
+  border: 1px dashed var(--color-ink-rule-dashed);
+  border-top: none;
+  border-radius: 0 0 2px 2px;
+  background: var(--color-paper);
+}
+.perf-tear::before { left: 0; }
+.perf-tear::after  { right: 0; }
+
+/* ─── Rubber stamp — squared stamp with ink-bleed inner ring + tilt ─── */
+.stamp {
+  position: relative;
+}
+.stamp.rubber {
+  transform: rotate(-1.5deg);
+}
+.stamp.rubber::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  border: 1px dashed var(--color-ink-rule);
+  border-radius: 1px;
+  pointer-events: none;
+}
+.stamp.warm {
+  color: var(--color-ink-soft);
+  border-color: var(--color-ink-soft);
+}
+
+/* Ink-bleed status transition — the deposit-cleared stamp smears in */
+@keyframes stamp-bleed {
+  0%   { opacity: 0; filter: blur(3px); transform: rotate(-3deg) scale(1.04); }
+  55%  { opacity: 0.85; filter: blur(1px); transform: rotate(-1.5deg) scale(0.97); }
+  100% { opacity: 1; filter: blur(0); transform: rotate(-1.5deg) scale(1); }
+}
+.stamp-bleed-in {
+  animation: stamp-bleed 280ms cubic-bezier(0.2, 0.9, 0.25, 1) both;
+}
+
+/* Live-queue pulse — only the NEXT stamp breathes; nothing else on the page */
+@keyframes stamp-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.55; }
+}
+.stamp.pulse {
+  animation: stamp-pulse 1.6s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .stamp.pulse { animation: none; }
+  .stamp-bleed-in { animation: none; }
+}
+
+/* Press-the-stamp affordance: the deposit stamp sits lower when pressed */
+.deposit-stamp-btn .deposit-stamp {
+  transition: transform 120ms ease-out;
+}
+.deposit-stamp-btn:hover .deposit-stamp {
+  transform: rotate(-2deg) scale(0.97);
+}
+.deposit-stamp-btn:active .deposit-stamp {
+  transform: rotate(-2deg) scale(0.92);
+}
+@media (prefers-reduced-motion: reduce) {
+  .deposit-stamp-btn .deposit-stamp { transition: none; }
+  .stamp-press-in { animation: none; }
+}
+
+/* Banknote security thread — a 1px dashed telebirr filament down the card */
+.security-thread {
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  right: 6px;
+  width: 1px;
+  border-left: 1px dashed var(--color-telebirr);
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+/* Faint green watermark behind the form label (EGB-01) */
+.ticket-watermark {
+  position: absolute;
+  top: 2px;
+  left: 8px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 2.75rem;
+  letter-spacing: 0.16em;
+  color: var(--color-telebirr);
+  opacity: 0.07;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Tear-off ticket stub: dashed tear line + barcode + reference */
+.ticket-stub {
+  border-top: 1px dashed var(--color-ink-rule-dashed);
+}
+
+/* Tariff row hover: price crossfades into a green BOOK stamp, zero shift */
+.tariff-price-wrap {
+  position: relative;
+  min-width: 7.5rem;
+}
+.tariff-price {
+  transition: opacity 140ms ease-out;
+}
+.tariff-book {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 140ms ease-out;
+  white-space: nowrap;
+}
+.tariff-hover-row:hover .tariff-price { opacity: 0; }
+.tariff-hover-row:hover .tariff-book  { opacity: 1; }
+@media (prefers-reduced-motion: reduce) {
+  .tariff-price { transition: none; }
+  .tariff-book { transition: none; }
+}
+
+/* Footer seal — the DEPOSIT CLEARS rubber stamp, squared with an ink-bleed ring */
+.footer-seal {
+  display: inline-grid;
+  grid-template-rows: auto 1fr auto;
+  align-items: center;
+  justify-items: center;
+  gap: 0.15rem;
+  width: 6.5rem;
+  height: 6.5rem;
+  padding: 0.45rem 0.3rem;
+  text-align: center;
+  position: relative;
+}
+.footer-seal::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border: 1px dashed rgba(244, 242, 236, 0.35);
+  border-radius: 1px;
+  pointer-events: none;
+}
+
+/* Nav "Take a number" counter — rolls ፩ → ፪ → ፫ while hovered */
+.num-roller {
+  display: inline-flex;
+  flex-direction: column;
+  height: 1.2em;
+  overflow: hidden;
+  vertical-align: -0.15em;
+}
+.num-roller span {
+  height: 1.2em;
+  line-height: 1.2;
+}
+a:hover .num-roller,
+button:hover .num-roller {
+  animation: num-roll 1.6s steps(4, end) infinite;
+}
+@keyframes num-roll {
+  0%   { transform: translateY(0); }
+  100% { transform: translateY(-4.8em); }
+}
+@media (prefers-reduced-motion: reduce) {
+  a:hover .num-roller,
+  button:hover .num-roller { animation: none; }
+}
+
 /* Receipt top rule: telebirr 2px green band above a payment card */
 .receipt-rule-top {
   position: relative;

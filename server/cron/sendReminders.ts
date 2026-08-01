@@ -27,10 +27,12 @@ async function sendReminders() {
 
     for (const appt of upcomingAppointments) {
       const appointmentDateStr = new Date(appt.startTime).toLocaleString('en-US', { timeZone: 'Africa/Addis_Ababa' });
-      console.log(`[SMS STUB] Sending reminder to ${appt.customerPhone} for appointment at ${appointmentDateStr}`);
-      
+      // Log the appointment id, never the customer's phone/email (PII must
+      // not reach console/log output).
+      console.log(`[SMS STUB] Sending reminder for appointment ${appt.id} at ${appointmentDateStr}`);
+
       if (appt.customerEmail) {
-        console.log(`Sending email reminder to ${appt.customerEmail}`);
+        console.log(`Sending email reminder for appointment ${appt.id}`);
         await sendMail({
           to: appt.customerEmail,
           subject: `Reminder: Your Upcoming Appointment`,

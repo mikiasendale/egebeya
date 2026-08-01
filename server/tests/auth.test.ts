@@ -5,6 +5,7 @@ import apiRoutes from '../../src/api';
 import { db } from '../../src/db';
 import { tenants, users, passwordResets, tenantSubscriptions } from '../../src/db/schema';
 import { eq } from 'drizzle-orm';
+import { cookieValue } from './helpers';
 import crypto from 'crypto';
 
 const app = express();
@@ -49,13 +50,13 @@ describe('Auth flow (register / login / refresh / forgot-password)', () => {
     });
 
     expect(res.status).toBe(200);
-    expect(res.body.token).toBeDefined();
-    expect(res.body.refreshToken).toBeDefined();
     expect(res.body.role).toBe('owner');
     expect(res.body.tenant.slug).toBe(slug);
 
-    token = res.body.token;
-    refreshToken = res.body.refreshToken;
+    token = cookieValue(res, 'accessToken');
+    refreshToken = cookieValue(res, 'refreshToken');
+    expect(token).toBeTruthy();
+    expect(refreshToken).toBeTruthy();
     tenantId = res.body.tenant.id;
     // We need the real user.id for password_resets cleanup later. The
     // /register response doesn't return the user row, so resolve it from
@@ -113,13 +114,13 @@ describe('Auth flow (register / login / refresh / forgot-password)', () => {
       password,
     });
     expect(res.status).toBe(200);
-    expect(res.body.token).toBeDefined();
-    expect(res.body.refreshToken).toBeDefined();
     expect(res.body.role).toBe('owner');
     expect(res.body.tenantId).toBeDefined();
 
-    token = res.body.token;
-    refreshToken = res.body.refreshToken;
+    token = cookieValue(res, 'accessToken');
+    refreshToken = cookieValue(res, 'refreshToken');
+    expect(token).toBeTruthy();
+    expect(refreshToken).toBeTruthy();
   });
 
   it('rejects login with wrong password (401)', async () => {
@@ -146,9 +147,10 @@ describe('Auth flow (register / login / refresh / forgot-password)', () => {
       refreshToken,
     });
     expect(res.status).toBe(200);
-    expect(res.body.token).toBeDefined();
+    expect(res.body.success).toBe(true);
 
-    token = res.body.token;
+    token = cookieValue(res, 'accessToken');
+    expect(token).toBeTruthy();
   });
 
   it('rejects refresh with a missing token (401)', async () => {

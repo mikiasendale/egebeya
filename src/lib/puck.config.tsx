@@ -30,27 +30,41 @@ function getSubdomain() {
   return localStorage.getItem('tenantSlug') || '';
 }
 
+// Tenant-supplied URLs (social links, map embeds) are rendered into href/src.
+// Never allow javascript:, data: or other scheme injection.
+function safeLink(url: unknown): string {
+  if (typeof url !== 'string') return '';
+  const t = url.trim();
+  if (!t) return '';
+  if (/^(https?:\/\/|mailto:|tel:)/i.test(t)) return t;
+  return '';
+}
+
+function safeEmbed(url: unknown): string {
+  if (typeof url !== 'string') return '';
+  const t = url.trim();
+  if (!t) return '';
+  if (/^https?:\/\//i.test(t)) return t;
+  return '';
+}
+
 const ImageUploaderField = ({ value, onChange }: any) => {
   const [uploading, setUploading] = useState(false);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files?.[0]) return;
     const file = e.target.files[0];
-    const token = localStorage.getItem('token');
-    if (!token) {
-      showToast('No auth token found', 'Please sign in and try again.', 'destructive');
-      return;
-    }
-    
+
     setUploading(true);
     const formData = new FormData();
     formData.append('file', file);
-    
+
     try {
+      // The session is an httpOnly cookie — no Authorization header needed.
       const res = await fetch('/api/tenant/upload', {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
-        body: formData
+        credentials: 'same-origin',
+        body: formData,
       });
       const data = await res.json();
       if (data.url) {
@@ -96,7 +110,7 @@ export const config: Config<Props> = {
       defaultProps: {
         title: 'Welcome to our business',
         subtitle: 'We provide the best services.',
-        backgroundImage: 'https://images.unsplash.com/photo-1522337660859-02fbefca4702?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80',
+        backgroundImage: '',
       },
       render: ({ title, subtitle, backgroundImage }) => (
         <div 
@@ -135,7 +149,7 @@ export const config: Config<Props> = {
                   <div key={s.id} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                     <h3 className="text-xl font-bold mb-2">{s.name}</h3>
                     <p className="text-gray-500 mb-4">{s.durationMinutes} mins</p>
-                    <p className="text-[#F59E0B] font-bold text-lg">{(s.price / 100).toLocaleString()} ETB</p>
+                    <p className="text-[var(--color-telebirr-deep)] font-bold text-lg">{(s.price / 100).toLocaleString()} ETB</p>
                   </div>
                 ))}
                 {services.length === 0 && <p className="text-center col-span-full text-gray-500">No services available or loading...</p>}
@@ -158,7 +172,7 @@ export const config: Config<Props> = {
       },
       defaultProps: {
         images: [
-          { url: 'https://images.unsplash.com/photo-1512496015851-a1c8491c33a2?w=800&q=80', caption: 'Interior' }
+          { url: '', caption: 'Interior' }
         ]
       },
       render: ({ images }) => (
@@ -204,8 +218,8 @@ export const config: Config<Props> = {
         mapUrl: { type: 'text' }
       },
       defaultProps: {
-        phone: '+251911234567',
-        address: 'Bole, Addis Ababa, Ethiopia',
+        phone: '',
+        address: '',
         mapUrl: ''
       },
       render: ({ phone, address, mapUrl }) => (
@@ -220,7 +234,7 @@ export const config: Config<Props> = {
             </div>
             {mapUrl && (
               <div className="h-64 bg-gray-200 rounded-xl overflow-hidden">
-                <iframe src={mapUrl} width="100%" height="100%" style={{ border: 0 }} allowFullScreen loading="lazy"></iframe>
+                <iframe src={safeEmbed(mapUrl)} width="100%" height="100%" style={{ border: 0 }} allowFullScreen loading="lazy"></iframe>
               </div>
             )}
           </div>
@@ -277,7 +291,7 @@ export const config: Config<Props> = {
             <h2 className="text-3xl font-bold text-center mb-10 text-gray-900">Our Location</h2>
             {mapUrl ? (
               <div className="h-96 bg-gray-200 rounded-xl overflow-hidden shadow-sm border border-gray-100">
-                <iframe src={mapUrl} width="100%" height="100%" style={{ border: 0 }} allowFullScreen loading="lazy"></iframe>
+                <iframe src={safeEmbed(mapUrl)} width="100%" height="100%" style={{ border: 0 }} allowFullScreen loading="lazy"></iframe>
               </div>
             ) : (
               <p className="text-center text-gray-500">Map not configured</p>
@@ -299,18 +313,7 @@ export const config: Config<Props> = {
         }
       },
       defaultProps: {
-        items: [
-          {
-            quote: 'This is the best service I have ever used. Highly recommended!',
-            name: 'Abebe B.',
-            avatar: 'https://ui-avatars.com/api/?name=Abebe+B&background=random'
-          },
-          {
-            quote: 'Amazing experience from start to finish. Will definitely come back.',
-            name: 'Sara M.',
-            avatar: 'https://ui-avatars.com/api/?name=Sara+M&background=random'
-          }
-        ]
+        items: [],
       },
       render: ({ items }) => (
         <div className="py-16 bg-blue-50">
@@ -335,34 +338,34 @@ export const config: Config<Props> = {
     SocialLinks: {
       fields: {},
       render: () => {
-        const [settings, setSettings] = useState<any>({});
+        const [tenant, setTenant] = useState<any>({});
         const subdomain = getSubdomain();
 
         useEffect(() => {
           if (subdomain) {
             fetch(`/api/public/page`, { headers: { 'X-Tenant-Slug': subdomain } })
               .then(res => res.json())
-              .then(data => setSettings(data.tenant?.settings || {}))
+              .then(data => setTenant(data.tenant || {}))
               .catch(console.error);
           }
         }, [subdomain]);
 
-        const telegram = settings.social_telegram;
-        const facebook = settings.social_facebook;
-        const instagram = settings.social_instagram;
-        const tiktok = settings.social_tiktok;
+        const telegram = tenant.social_telegram;
+        const facebook = tenant.social_facebook;
+        const instagram = tenant.social_instagram;
+        const tiktok = tenant.social_tiktok;
 
-        if (!telegram && !facebook && !instagram && !tiktok) {
+        if (!safeLink(telegram) && !safeLink(facebook) && !safeLink(instagram) && !safeLink(tiktok)) {
           return null; // hide if none configured
         }
 
         return (
           <div className="py-12 bg-white text-center border-t border-gray-100">
             <div className="flex justify-center space-x-8">
-              {telegram && <a href={telegram} target="_blank" rel="noreferrer" className="text-gray-600 hover:text-[#1E3A8A] transition-colors font-medium">Telegram</a>}
-              {facebook && <a href={facebook} target="_blank" rel="noreferrer" className="text-gray-600 hover:text-[#1E3A8A] transition-colors font-medium">Facebook</a>}
-              {instagram && <a href={instagram} target="_blank" rel="noreferrer" className="text-gray-600 hover:text-[#1E3A8A] transition-colors font-medium">Instagram</a>}
-              {tiktok && <a href={tiktok} target="_blank" rel="noreferrer" className="text-gray-600 hover:text-[#1E3A8A] transition-colors font-medium">TikTok</a>}
+              {safeLink(telegram) && <a href={safeLink(telegram)} target="_blank" rel="noreferrer" className="text-gray-600 hover:text-[#1E3A8A] transition-colors font-medium">Telegram</a>}
+              {safeLink(facebook) && <a href={safeLink(facebook)} target="_blank" rel="noreferrer" className="text-gray-600 hover:text-[#1E3A8A] transition-colors font-medium">Facebook</a>}
+              {safeLink(instagram) && <a href={safeLink(instagram)} target="_blank" rel="noreferrer" className="text-gray-600 hover:text-[#1E3A8A] transition-colors font-medium">Instagram</a>}
+              {safeLink(tiktok) && <a href={safeLink(tiktok)} target="_blank" rel="noreferrer" className="text-gray-600 hover:text-[#1E3A8A] transition-colors font-medium">TikTok</a>}
             </div>
           </div>
         );

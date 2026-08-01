@@ -36,7 +36,7 @@ app.use(express.json());
 app.use('/api', apiRoutes);
 
 function tokenFor(userId: string, tenantId: string): string {
-  return jwt.sign({ userId, tenantId, role: 'owner' }, JWT_SECRET, { expiresIn: '15m' });
+  return jwt.sign({ userId, tenantId, role: 'owner', tokenVersion: 0 }, JWT_SECRET, { expiresIn: '15m' });
 }
 
 describe('Subscription upgrade + Pro-plan roundtrip', () => {

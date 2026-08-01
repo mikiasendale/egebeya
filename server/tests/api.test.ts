@@ -5,6 +5,7 @@ import apiRoutes from '../../src/api';
 import { db } from '../../src/db';
 import { tenants, users, services } from '../../src/db/schema';
 import crypto from 'crypto';
+import { cookieValue } from './helpers';
 
 const app = express();
 app.use(express.json());
@@ -33,14 +34,15 @@ describe('API Tests', () => {
         businessName: 'Test Business',
         slug: testSlug,
         email: `test-${Date.now()}@egebeya.test`,
+        consent: true,
       });
 
     expect(res.status).toBe(200);
-    expect(res.body.token).toBeDefined();
     expect(res.body.tenant).toBeDefined();
     expect(res.body.tenant.slug).toBe(testSlug);
 
-    testToken = res.body.token;
+    testToken = cookieValue(res, 'accessToken');
+    expect(testToken).toBeTruthy();
     testTenantId = res.body.tenant.id;
   });
 
@@ -54,6 +56,7 @@ describe('API Tests', () => {
         businessName: 'Bad Phone Business',
         slug: `bad-phone-${Date.now()}`,
         email: `bad-phone-${Date.now()}@egebeya.test`,
+        consent: true,
       });
 
     expect(res.status).toBe(400);
@@ -70,6 +73,7 @@ describe('API Tests', () => {
         businessName: 'Another Business',
         slug: testSlug, // same slug
         email: `another-${Date.now()}@egebeya.test`,
+        consent: true,
       });
 
     expect(res.status).toBe(400);
@@ -96,7 +100,7 @@ describe('API Tests', () => {
       });
 
     expect(res.status).toBe(200);
-    expect(res.body.token).toBeDefined();
+    expect(cookieValue(res, 'accessToken')).toBeTruthy();
   });
 
   it('GET /api/tenant/settings returns name + slug + tenantId', async () => {

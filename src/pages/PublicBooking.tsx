@@ -55,6 +55,14 @@ export function PublicBooking({ tenant, subdomain }: { tenant: any, subdomain: s
   // The customer name captured at submission time, threaded to the printed
   // receipt's success display. Set by handleSubmit.
   const [confirmedCustomerName, setConfirmedCustomerName] = useState('');
+  // The appointment id returned at booking time — used as the management
+  // reference for cancel/reschedule (combined with the customer phone).
+  const [bookingId, setBookingId] = useState<string | null>(null);
+  // Management panel (cancel / reschedule)
+  const [managePhone, setManagePhone] = useState('');
+  const [rescheduleTime, setRescheduleTime] = useState('');
+  const [managing, setManaging] = useState(false);
+  const [manageMsg, setManageMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
 
   // ---- Cloudflare Turnstile (bot check on the customer-info step) ----
   // Loaded from /api/public/turnstile-config; when the operator has not
@@ -214,12 +222,60 @@ export function PublicBooking({ tenant, subdomain }: { tenant: any, subdomain: s
         const resultData = await res.json();
         setConfirmedCustomerName(data.customer_name || '--');
         setBookingResult({ status: resultData.appointment?.status, paymentStatus: resultData.appointment?.paymentStatus });
+        setBookingId(resultData.appointment?.id || null);
+        setManagePhone(data.customer_phone || '');
         setSuccess(true);
       }
     } catch (err) {
       showToast('An error occurred', 'Please try again.', 'destructive');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  // ---- Booking management (cancel / reschedule) ----
+  const cancelBooking = async () => {
+    if (!bookingId) return;
+    setManaging(true);
+    setManageMsg(null);
+    try {
+      const res = await fetch(`/api/public/bookings/${bookingId}/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Tenant-Slug': subdomain },
+        body: JSON.stringify({ customer_phone: managePhone }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || 'Failed to cancel');
+      setManageMsg({ kind: 'ok', text: body.refundNote ? `Booking cancelled. ${body.refundNote}` : 'Booking cancelled.' });
+    } catch (e: any) {
+      setManageMsg({ kind: 'err', text: e?.message || 'Failed to cancel' });
+    } finally {
+      setManaging(false);
+    }
+  };
+
+  const rescheduleBooking = async () => {
+    if (!bookingId) return;
+    if (!rescheduleTime) {
+      setManageMsg({ kind: 'err', text: 'Choose a new date and time first.' });
+      return;
+    }
+    setManaging(true);
+    setManageMsg(null);
+    try {
+      const start_time = `${rescheduleTime}:00+03:00`;
+      const res = await fetch(`/api/public/bookings/${bookingId}/reschedule`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Tenant-Slug': subdomain },
+        body: JSON.stringify({ customer_phone: managePhone, start_time }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || 'Failed to reschedule');
+      setManageMsg({ kind: 'ok', text: 'Booking rescheduled.' });
+    } catch (e: any) {
+      setManageMsg({ kind: 'err', text: e?.message || 'Failed to reschedule' });
+    } finally {
+      setManaging(false);
     }
   };
 
@@ -294,6 +350,70 @@ export function PublicBooking({ tenant, subdomain }: { tenant: any, subdomain: s
               </button>
             </div>
           </div>
+
+          {/* Manage booking — cancel or reschedule using the reference + phone */}
+          {bookingId && (
+            <div className="mx-auto max-w-xl mt-4">
+              <div className="receipt-rule-top" style={{ ...page.card, borderTop: '2px dashed var(--color-ink-rule-dashed)' }}>
+                <div className="p-6 sm:p-8">
+                  <div className="uppercase text-xs" style={{ ...page.monoSoft, color: 'var(--color-telebirr-deep)' }}>
+                    {t('booking.manageBooking')}
+                  </div>
+                  <div className="mt-1" style={page.mono}>
+                    {t('booking.reference')} · <span style={{ color: 'var(--color-ink)' }}>{bookingId}</span>
+                  </div>
+
+                  <div className="mt-4 space-y-4">
+                    <div>
+                      <label className="block text-xs uppercase" style={page.monoSoft}>{t('booking.phone')}</label>
+                      <input
+                        type="tel"
+                        value={managePhone}
+                        onChange={e => setManagePhone(e.target.value)}
+                        className="mt-1 block w-full receipt-input"
+                        style={{ borderBottom: '1px dashed var(--color-ink-rule-dashed)' }}
+                      />
+                    </div>
+                    <div className="flex flex-wrap items-end gap-3">
+                      <div className="min-w-0 flex-1">
+                        <label className="block text-xs uppercase" style={page.monoSoft}>
+                          {t('booking.newDateTime')}
+                        </label>
+                        <input
+                          type="datetime-local"
+                          value={rescheduleTime}
+                          onChange={e => setRescheduleTime(e.target.value)}
+                          className="mt-1 block w-full receipt-input"
+                          style={{ borderBottom: '1px dashed var(--color-ink-rule-dashed)' }}
+                        />
+                      </div>
+                      <button
+                        onClick={rescheduleBooking}
+                        disabled={managing}
+                        className="px-5 py-2"
+                        style={page.btnOutline}
+                      >
+                        {t('booking.reschedule')}
+                      </button>
+                      <button
+                        onClick={cancelBooking}
+                        disabled={managing}
+                        className="px-5 py-2"
+                        style={{ ...page.btnOutline, borderColor: 'var(--color-signal)', color: 'var(--color-signal)' }}
+                      >
+                        {t('booking.cancel')}
+                      </button>
+                    </div>
+                    {manageMsg && (
+                      <p className="text-xs" style={{ color: manageMsg.kind === 'ok' ? 'var(--color-telebirr-deep)' : 'var(--color-signal)' }}>
+                        {manageMsg.text}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -396,7 +516,7 @@ export function PublicBooking({ tenant, subdomain }: { tenant: any, subdomain: s
                 <Section title={t('booking.step3Title')} subtitle={t('booking.step3Subtitle')} onBack={() => setStep(2)}>
                   <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div style={{ border: '1px solid var(--color-ink-rule)', backgroundColor: 'var(--color-paper)', borderRadius: 'var(--rd-card)' }} className="p-2 flex justify-center">
-                      {tenant?.settings?.calendar_display === 'ethiopian' ? (
+                      {tenant?.calendar_display === 'ethiopian' ? (
                         <div className="calendar-zoom flex justify-center">
                           <EthiopianDayPicker selected={selectedDate} onSelect={setSelectedDate as any} disabled={{ before: new Date() }} />
                         </div>
@@ -513,7 +633,7 @@ export function PublicBooking({ tenant, subdomain }: { tenant: any, subdomain: s
                       {isSubmitting ? t('booking.confirming') : t('booking.confirm')}
                     </button>
                     <p className="text-xs" style={page.monoSoft}>
-                      {tenant?.settings?.require_payment_upfront === true
+                      {tenant?.require_payment_upfront === true
                         ? `${t('booking.depositNotice').replace('{price}', ((selectedService?.price / 100) || 0).toLocaleString())}`
                         : t('booking.noDepositNotice')}
                     </p>

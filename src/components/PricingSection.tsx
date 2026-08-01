@@ -1,21 +1,11 @@
 import React from 'react';
 import { Check } from 'lucide-react';
-
-const BASIC_FEATURES = [
-  'Website for your business',
-  'Online booking',
-  'Up to 2 staff',
-  'Egebeya subdomain',
-];
-
-const PRO_FEATURES = [
-  ...BASIC_FEATURES.map((f) => f.replace('Up to 2 staff', 'Unlimited staff').replace('Egebeya subdomain', 'Custom domain')),
-  'Advanced analytics',
-  'AI marketing',
-  'Priority support',
-];
+import { useTranslation } from 'react-i18next';
 
 export function PricingSection() {
+  const { t } = useTranslation();
+  const basicFeatures = t('pricing.basicFeatures', { returnObjects: true }) as string[];
+  const proFeatures = t('pricing.proFeatures', { returnObjects: true }) as string[];
   return (
     <section
       id="pricing"
@@ -28,40 +18,44 @@ export function PricingSection() {
             className="uppercase text-xs tracking-widest mb-3"
             style={{ fontFamily: 'var(--font-receipt)', color: 'var(--color-ink-soft)', letterSpacing: '0.12em' }}
           >
-            Pricing
+            {t('pricing.eyebrow')} · {t('pricing.eyebrowAm')}
           </p>
           <h2
             className="m-0"
             style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 'clamp(2rem, 5vw, 3.5rem)', letterSpacing: '-0.025em' }}
           >
-            A chair for your business,
-            <span style={{ fontFamily: 'var(--font-serif-ethiopic)', marginLeft: '0.5rem' }}>
-              ዋጋ።
+            {t('pricing.heading')}
+            <span style={{ fontFamily: 'var(--font-serif-ethiopic)', marginLeft: '0.5rem', color: 'var(--color-telebirr)' }}>
+              {t('pricing.headingAm')}
             </span>
           </h2>
           <p className="mt-3 text-base sm:text-lg" style={{ color: 'var(--color-ink-soft)' }}>
-            One floor price keeps things upright. Every plan runs on Telebirr deposit.
+            {t('pricing.sub')}
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl mx-auto">
           <PlanCard
-            title="Basic"
-            price="Free"
-            description="A starting counter that takes bookings straight away."
-            features={BASIC_FEATURES}
-            cta="Start Free Trial"
+            tag={t('pricing.basicTag')}
+            title={t('pricing.basicTitle')}
+            price={t('pricing.basicPrice')}
+            description={t('pricing.basicDesc')}
+            features={basicFeatures}
+            cta={t('pricing.basicCta')}
             ctaHref="/register"
           />
           <PlanCard
-            title="Pro"
-            price="ETB 500"
-            period="/month"
-            description="The full counter for salons that want their own name and reach."
-            features={PRO_FEATURES}
-            cta="Start Free Trial"
+            tag={t('pricing.proTag')}
+            title={t('pricing.proTitle')}
+            price={t('pricing.proPrice')}
+            period={t('pricing.month')}
+            description={t('pricing.proDesc')}
+            features={proFeatures}
+            cta={t('pricing.proCta')}
             ctaHref="/register"
             highlighted
+            mostPopular={`${t('pricing.mostPopular')} · ${t('pricing.mostPopularAm')}`}
+            seal={`${t('pricing.seal')} · ${t('pricing.sealAm')}`}
           />
         </div>
       </div>
@@ -70,6 +64,7 @@ export function PricingSection() {
 }
 
 function PlanCard({
+  tag,
   title,
   price,
   period,
@@ -78,7 +73,10 @@ function PlanCard({
   cta,
   ctaHref,
   highlighted,
+  mostPopular,
+  seal,
 }: {
+  tag: string;
   title: string;
   price: string;
   period?: string;
@@ -87,6 +85,8 @@ function PlanCard({
   cta: string;
   ctaHref: string;
   highlighted?: boolean;
+  mostPopular?: string;
+  seal?: string;
 }) {
   return (
     <div
@@ -98,20 +98,53 @@ function PlanCard({
         borderRadius: 'var(--rd-card)',
       }}
     >
-      {highlighted && (
+      {highlighted && mostPopular && (
         <div
-          className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-0.5 uppercase text-xs font-bold"
+          className="stamp rubber whitespace-nowrap"
           style={{
+            position: 'absolute',
+            top: -14,
+            left: '50%',
+            transform: 'translateX(-50%) rotate(-1.5deg)',
             backgroundColor: 'var(--color-telebirr)',
             color: 'var(--color-paper-bleached)',
-            fontFamily: 'var(--font-receipt)',
-            borderRadius: 'var(--rd-card)',
-            letterSpacing: '0.1em',
+            borderColor: 'var(--color-telebirr)',
           }}
         >
-          Most popular
+          {mostPopular}
         </div>
       )}
+
+      {highlighted && seal && (
+        <div
+          aria-hidden
+          className="stamp"
+          style={{
+            position: 'absolute',
+            top: 18,
+            right: 18,
+            transform: 'rotate(3deg)',
+            borderColor: 'var(--color-telebirr)',
+            color: 'var(--color-telebirr)',
+            backgroundColor: 'var(--color-ink)',
+          }}
+        >
+          {seal}
+        </div>
+      )}
+
+      <p
+        className="m-0 mb-1"
+        style={{
+          fontFamily: 'var(--font-mono)',
+          fontWeight: 600,
+          fontSize: '0.65rem',
+          letterSpacing: '0.1em',
+          color: highlighted ? 'var(--color-counter-soft)' : 'var(--color-ink-stamp)',
+        }}
+      >
+        {tag}
+      </p>
 
       <h3
         style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1.5rem', letterSpacing: '-0.015em' }}

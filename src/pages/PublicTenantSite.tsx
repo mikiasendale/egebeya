@@ -108,8 +108,8 @@ export function PublicTenantSite({ hostname }: { hostname: string }) {
     >
       <Helmet>
         <title>{tenant.name} | {t('publicTenant.bookOnline')}</title>
-        {tenant.settings?.description && (
-          <meta name="description" content={tenant.settings.description} />
+        {tenant.description && (
+          <meta name="description" content={tenant.description} />
         )}
       </Helmet>
 

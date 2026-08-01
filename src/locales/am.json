@@ -1,9 +1,8 @@
 {
   "siteName": "ኢ-ገበያ",
-  "siteTagline": "the booking is confirmed before the chair is held.",
-  "siteDescription": "Egebeya (ኢ-ገበያ) የቀጠሮ ቅጽ ነው — ቦታው ከመኖሩ በፊት የቴሌቢር ተቀማጭ የሚወስድ። ለኢትዮጵያ ሳሎኖች፣ ክሊኒኮች፣ ፀጉር ቤቶች የተሰራ።",
+  "siteTagline": "No-show used to mean no answer. Now it means deposit paid.",
+  "siteDescription": "Egebeya (ኢ-ገበያ) የቴሌቢር ተቀማጭ የሚወስድ የቀጠሮ ስርዓት ነው — ቦታው ከመኖሩ በፊት። ለኢትዮጵያ ሳሎኖች፣ ክሊኒኮች፣ ፀጉር ቤቶች የተሰራ።",
   "siteDescriptionShort": "ተወሰነ በውሉ።",
-
   "nav": {
     "tariff": "ዝርዝር",
     "pricing": "ዋጋ",
@@ -14,11 +13,11 @@
     "dashboard": "ሜዳ",
     "signOut": "ውጣ"
   },
-
   "lead": {
     "headingAm": "ተወሰነ በውሉ፣",
-    "subheading": "the booking is confirmed before the chair is held.",
-    "description": "Egebeya (ኢ-ገበያ) የቀጠሮ ቅጽ ነው — ቦታው ከመኖሩ በፊት የቴሌቢር ተቀማጭ የሚወስድ። ለኢትዮጵያ ሳሎኖች፣ ክሊኒኮች፣ ፀጉር ቤቶች የተሰራ።",
+    "subheading": "No-show used to mean no answer.",
+    "subheadingEmphasis": "Now it means deposit paid.",
+    "description": "Egebeya (ኢ-ገበያ) የቴሌቢር ተቀማጭ የሚወስድ የቀጠሮ ስርዓት ነው — ቦታው ከመኖሩ በፊት። ለኢትዮጵያ ሳሎኖች፣ ክሊኒኮች፣ ፀጉር ቤቶች የተሰራ።",
     "cta": "የቀጠሮ ቅጽዎን ይክፈቱ",
     "ctaFree": "14 ቀን ነፃ",
     "ctaTariff": "የዛሬ ዝርዝር",
@@ -28,7 +27,16 @@
     "issue": "ISSUE",
     "depositClears": "DEPOSIT CLEARS"
   },
-
+  "trustBar": {
+    "ledger": "LIVE LEDGER",
+    "ledgerAm": "የቀጥታ መዝገብ",
+    "city": "Addis Ababa",
+    "cityAm": "አዲስ አበባ",
+    "verified": "Telebirr verified",
+    "verifiedAm": "ቴሌቢር ተረጋግጧል",
+    "noCard": "No card required",
+    "noCardAm": "ካርድ አያስፈልግም"
+  },
   "proofForm": {
     "title": "የቀጠሮ መዝገብ",
     "ref": "REF",
@@ -47,16 +55,19 @@
     "pressStamp": "ማህተሙን ይጫኑ — ተቀማጩ ቦታውን እንዴት እንደሚይዝ ለማየት።",
     "pressStampShort": "ይጫኑ"
   },
-
   "tariffSection": {
     "heading": "Today's tariff.",
-    "headingAm": "የዛሬ ዝርዝር።",
-    "everyTenant": "each business publishes their own",
+    "headingAm": "የዛሬ ዋጋ።",
+    "everyTenant": "each business publishes their own — prices update at 06:00 EAT",
+    "lastUpdated": "last updated · today, 06:00 EAT",
+    "location": "Bole, Addis Ababa",
+    "locationAm": "ቦሌ፣ አዲስ አበባ",
+    "book": "BOOK",
+    "bookAm": "ተይዟል",
     "synthetic": "Synthetic demonstration tariffs — your numbers replace these on day one.",
     "staffOfChoice": "staff of choice",
     "min": "ደቂቃ"
   },
-
   "services": {
     "manicure": "Manicure",
     "pedicure": "Pedicure",
@@ -67,7 +78,6 @@
     "haircutHint": "ፀጉር",
     "massageHint": "ቁርጥጥ"
   },
-
   "queueSection": {
     "heading": "Walk in. See the queue. Take",
     "headingAm": "ቁጥር",
@@ -77,11 +87,50 @@
     "day": "ቀን",
     "booked": "የተያዙ",
     "illustrative": "ምሳሌ — የቀጥታ ማሳያ አይደለም",
+    "nowServing": "NOW SERVING",
+    "nowServingAm": "በአገልግሎት",
+    "addis": "ADDIS TIME",
     "privacy": "ለግላዊነት የደንበኞች ስም አይታይም — ሰዓት እና አገልግሎት ብቻ።",
     "with": "with",
     "staffLabel": "ሰራተኛ"
   },
-
+  "pricing": {
+    "eyebrow": "Pricing",
+    "eyebrowAm": "ዋጋ",
+    "heading": "Rent a chair on the internet.",
+    "headingAm": "ዋጋ።",
+    "sub": "One floor price keeps things upright. Every plan runs on Telebirr deposit.",
+    "basicTag": "PLAN 01 · BASIC",
+    "proTag": "PLAN 02 · PRO",
+    "basicTitle": "Basic",
+    "proTitle": "The full counter",
+    "basicDesc": "A starting counter that takes bookings straight away.",
+    "proDesc": "The full counter for salons that want their own name and reach.",
+    "basicPrice": "Free",
+    "proPrice": "ETB 1,000",
+    "month": "/month",
+    "basicCta": "Start Free Trial",
+    "proCta": "Start Free Trial",
+    "mostPopular": "Most popular",
+    "mostPopularAm": "ተወዳጅ",
+    "seal": "APPROVED",
+    "sealAm": "ጸድቋል",
+    "basicFeatures": [
+      "Website for your business",
+      "Online booking",
+      "Up to 2 staff",
+      "Egebeya subdomain"
+    ],
+    "proFeatures": [
+      "Website for your business",
+      "Online booking",
+      "Up to 10 staff",
+      "Custom domain",
+      "Advanced analytics",
+      "AI marketing",
+      "Priority support"
+    ]
+  },
   "counterClose": {
     "owner": "IF YOU OWN THE BUSINESS",
     "ownerAm": "ባለቤት",
@@ -109,7 +158,6 @@
     "customerStep4Am": "ወንብር",
     "customerCta": "የኢ-ገበያ ንግዶችን ያስሱ"
   },
-
   "footer": {
     "tagline": "ተቀማጩ ያረጋግጣል። በአዲስ አበባ የተሰራ።",
     "product": "ምርት",
@@ -123,7 +171,6 @@
     "depositClears": "DEPOSIT CLEARS",
     "noShowSolved": "no-show is no-answer solved"
   },
-
   "booking": {
     "takeNumber": "Take a number.",
     "takeNumberAm": "ቁጥር ይዘው።",
@@ -178,9 +225,13 @@
     "payment": "ክፍያ",
     "with": "ከ",
     "at": "በ",
-    "addis": "(አዲስ አበባ)"
+    "addis": "(አዲስ አበባ)",
+    "manageBooking": "ቦታ ማስያዣን ያስተዳድሩ",
+    "reference": "ማጣቀሻ",
+    "newDateTime": "አዲስ ቀን እና ሰዓት (አዲስ አበባ)",
+    "reschedule": "መርሐግብር ቀይር",
+    "cancel": "ቦታ ማስያዣ ሰርዝ"
   },
-
   "publicTenant": {
     "loading": "LOADING",
     "loadingAm": "እባክዎ ይጠብቁ",
@@ -195,12 +246,10 @@
     "newTenant": "FORM EGB-PUB · አዲስ ተመዝጋቢ",
     "bookOnline": "ቀጠሮ ያስይዙ"
   },
-
   "languageToggle": {
     "en": "English",
     "am": "አማርኛ"
   },
-
   "register": {
     "title": "Open your booking form.",
     "amTitle": "የምርመራ ቅጹን ይሙሉ።",
@@ -223,6 +272,21 @@
     "consentDetail": "Your consent is recorded with a timestamp. You can request data export or deletion at any time from your account settings.",
     "submitting": "Issuing tenant…",
     "alreadyOnRolls": "Already on the rolls?",
-    "signIn": "ግባ"
+    "signIn": "ግባ",
+    "fullName": "ሙሉ ስም",
+    "businessName": "የንግድ ስም",
+    "slug": "የንግድ አድራሻ (URL)",
+    "city": "ከተማ",
+    "password": "የይለፍ ቃል",
+    "consentLabel": "ሁኔታዎች እና ገደብ",
+    "consentText": "በዚህ ተስማምቻለሁ",
+    "privacyPolicy": "የግላዊነት ፖሊሲ",
+    "termsOfService": "የአገልግሎት ውል",
+    "submit": "ቅጹን ይጭበሩ · 14 ቀን የሙከራ",
+    "lede": "በአንድ ምዝገባ የንግድ ድረ-ገጽ፣ ነፃ እቅድ እና የህዝብ ቦታ ማስያዝ ድረ-ገጽ ይከፈታል።"
+  },
+  "setup": {
+    "welcome": "እንኳን ወደ ኢ-ገበያ በደህና መጡ",
+    "welcomeAm": "እንኳን ወደ ኢ-ገበያ በደህና መጡ"
   }
 }

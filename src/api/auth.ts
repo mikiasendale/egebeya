@@ -6,27 +6,53 @@ import { users, tenants, passwordResets, plans, tenantSubscriptions } from '../d
 import { eq, sql } from 'drizzle-orm';
 import crypto from 'crypto';
 import { sendMail } from '../../server/lib/mailer';
-import rateLimit from 'express-rate-limit';
+import { jwtSecret, refreshSecret, requireAuth } from './middleware/auth';
+import { csrfProtection } from './middleware/csrf';
+import { authLimiter } from '../../server/middleware/rateLimiter';
+import { logSecurityEvent, ipFromRequest } from '../../server/lib/securityLog';
+import { normalizePhone } from '../lib/phone';
 
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'supersecret_fallback';
-const REFRESH_SECRET = process.env.REFRESH_SECRET || 'refresh_supersecret_fallback';
-
-// Ethiopian phone format: +251 followed by 9 digits, e.g. +251911234567.
-const PHONE_RE = /^\+251\d{9}$/;
-function isValidPhone(value: unknown): boolean {
-  return typeof value === 'string' && PHONE_RE.test(value.trim());
-}
-
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 20, // Limit each IP to 20 requests per `window` (here, per 15 minutes)
-  message: { error: 'Too many requests, please try again later.' }
-});
-
-router.use(authLimiter);
 
 const RESERVED_SLUGS = ['www', 'api', 'admin', 'app', 'mail', 'ftp', 'static', 'cdn', 'blog', 'support', 'help', 'dashboard'];
+
+// ---- httpOnly-cookie session helpers ----
+const ACCESS_COOKIE = 'accessToken';
+const REFRESH_COOKIE = 'refreshToken';
+const CSRF_COOKIE = 'csrf_token';
+
+const isProd = () => process.env.NODE_ENV === 'production';
+
+// Access + refresh tokens live in httpOnly cookies (XSS cannot read them).
+// The csrf_token cookie is NOT httpOnly so the SPA can read it and echo it
+// back in the X-CSRF-Token header on mutations.
+function setAuthCookies(res: any, accessToken: string, refreshToken: string) {
+  res.cookie(ACCESS_COOKIE, accessToken, {
+    httpOnly: true,
+    secure: isProd(),
+    sameSite: 'lax',
+    maxAge: 15 * 60 * 1000, // 15 min
+  });
+  res.cookie(REFRESH_COOKIE, refreshToken, {
+    httpOnly: true,
+    secure: isProd(),
+    sameSite: 'lax',
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    path: '/api/auth/refresh',
+  });
+  res.cookie(CSRF_COOKIE, crypto.randomUUID(), {
+    httpOnly: false,
+    secure: isProd(),
+    sameSite: 'lax',
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
+}
+
+function clearAuthCookies(res: any) {
+  res.clearCookie(ACCESS_COOKIE, { httpOnly: true, secure: isProd(), sameSite: 'lax' });
+  res.clearCookie(REFRESH_COOKIE, { httpOnly: true, secure: isProd(), sameSite: 'lax', path: '/api/auth/refresh' });
+  res.clearCookie(CSRF_COOKIE, { secure: isProd(), sameSite: 'lax' });
+}
 
 router.post('/check-slug', async (req, res) => {
   try {
@@ -45,30 +71,32 @@ router.post('/check-slug', async (req, res) => {
   }
 });
 
-router.post('/register', async (req, res) => {
+// Find (or create) the canonical 'free' plan row.
+async function getOrCreateFreePlan() {
+  const existing = await db.select().from(plans).where(eq(plans.name, 'free')).get();
+  if (existing) return existing;
+  const row = { id: crypto.randomUUID(), name: 'free', price: 0, maxStaff: 2, customDomainAllowed: false };
+  await db.insert(plans).values(row);
+  return row;
+}
+
+router.post('/register', authLimiter, async (req, res) => {
   try {
     const { name, phone, password, businessName, slug, email, city, consent } = req.body;
 
-    // Email is now required and must be unique — it is the address the
-    // forgot-password flow sends the reset link to.
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email).trim())) {
       return res.status(400).json({ error: 'A valid email is required' });
     }
 
-    // Require consent to Privacy Policy and Terms of Service
     if (!consent || consent !== true) {
       return res.status(400).json({ error: 'You must agree to the Privacy Policy and Terms of Service to register.' });
     }
     const consentGivenAt = Date.now();
 
-    // Phone must be a valid Ethiopian (+251XXXXXXXXX) number so that
-    // downstream SMS / Telebirr push notifications have a real recipient.
-    if (!isValidPhone(phone)) {
-      return res.status(400).json({
-        error: 'Enter a valid Ethiopian phone number (+251XXXXXXXXX)',
-      });
+    const normalizedPhone = normalizePhone(phone);
+    if (!normalizedPhone) {
+      return res.status(400).json({ error: 'Enter a valid Ethiopian phone number (+251XXXXXXXXX)' });
     }
-    const normalizedPhone = String(phone).trim();
 
     const normalizedEmail = String(email).trim().toLowerCase();
     const existingEmail = await db.select().from(users).where(eq(users.email, normalizedEmail)).get();
@@ -76,7 +104,6 @@ router.post('/register', async (req, res) => {
       return res.status(409).json({ error: 'Email already registered' });
     }
 
-    // Check if user exists
     const existingUser = await db.select().from(users).where(eq(users.phone, normalizedPhone)).get();
     if (existingUser) {
       return res.status(400).json({ error: 'Phone number already registered' });
@@ -87,7 +114,6 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ error: 'This business URL is reserved' });
     }
 
-    // Check if slug exists
     const existingTenant = await db.select().from(tenants).where(eq(tenants.slug, normalizedSlug)).get();
     if (existingTenant) {
       return res.status(400).json({ error: 'Business URL already taken' });
@@ -97,16 +123,9 @@ router.post('/register', async (req, res) => {
     const userId = crypto.randomUUID();
     const passwordHash = await bcrypt.hash(password, 10);
 
-    // The only bit of tenant settings we collect at signup: an optional city
-    // shown on the /discover directory. Stored as settings.city (string or
-    // null) rather than as a dedicated column, since `tenants.settings` is a
-    // JSON blob already used for require_payment_upfront, calendar_display, etc.
     const trimmedCity = typeof city === 'string' && city.trim() ? city.trim() : null;
     const initialSettings = trimmedCity ? { city: trimmedCity } : {};
 
-    // Create tenant + user + subscription in a single transaction so that
-    // any failure mid-registration rolls back cleanly, preventing orphaned
-    // tenant rows. See server/tests/auth.test.ts for the proof.
     await db.transaction(async (tx) => {
       await tx.insert(tenants).values({
         id: tenantId,
@@ -128,13 +147,7 @@ router.post('/register', async (req, res) => {
         createdAt: Date.now()
       });
 
-      // Provision a default trial subscription on the cheapest plan so the
-      // tenant can immediately use owner-only features (services, staff, etc.)
-      let plan = await tx.select().from(plans).where(eq(plans.name, 'Basic')).get();
-      if (!plan) {
-        plan = { id: crypto.randomUUID(), name: 'Basic', price: 0, maxStaff: 2, customDomainAllowed: false } as any;
-        await tx.insert(plans).values(plan);
-      }
+      const plan = await getOrCreateFreePlan();
       await tx.insert(tenantSubscriptions).values({
         id: crypto.randomUUID(),
         tenantId,
@@ -148,15 +161,18 @@ router.post('/register', async (req, res) => {
     const userRecord = await db.select({ tokenVersion: users.tokenVersion }).from(users).where(eq(users.id, userId)).get();
     const tokenVersion = userRecord?.tokenVersion ?? 0;
 
-    const token = jwt.sign({ userId, tenantId, role: 'owner' }, JWT_SECRET, { expiresIn: '15m' });
-    const refreshToken = jwt.sign({ userId, tenantId, tokenVersion }, REFRESH_SECRET, { expiresIn: '7d' });
-    
+    const token = jwt.sign({ userId, tenantId, role: 'owner', tokenVersion }, jwtSecret(), { expiresIn: '15m' });
+    const refreshToken = jwt.sign({ userId, tenantId, tokenVersion }, refreshSecret(), { expiresIn: '7d' });
+    setAuthCookies(res, token, refreshToken);
+
     res.json({
-      token,
-      refreshToken,
+      message: 'Registration successful',
       role: 'owner',
       tenantId,
-      tenant: { id: tenantId, name: businessName, slug: normalizedSlug }
+      tenant: { id: tenantId, name: businessName, slug: normalizedSlug },
+      name,
+      isSuperadmin: false,
+      user: { id: userId, role: 'owner', tenantId, tenantSlug: normalizedSlug, name, phone: normalizedPhone },
     });
   } catch (error) {
     console.error('Register error:', error);
@@ -164,24 +180,24 @@ router.post('/register', async (req, res) => {
   }
 });
 
-router.post('/login', async (req, res) => {
+router.post('/login', authLimiter, async (req, res) => {
   try {
     const { phone, password } = req.body;
 
-    if (!isValidPhone(phone)) {
-      return res.status(400).json({
-        error: 'Enter a valid Ethiopian phone number (+251XXXXXXXXX)',
-      });
+    const normalizedPhone = normalizePhone(phone);
+    if (!normalizedPhone) {
+      return res.status(400).json({ error: 'Enter a valid Ethiopian phone number (+251XXXXXXXXX)' });
     }
-    const normalizedPhone = String(phone).trim();
 
     const user = await db.select().from(users).where(eq(users.phone, normalizedPhone)).get();
     if (!user) {
+      logSecurityEvent({ type: 'failed_login', ip: ipFromRequest(req), details: { reason: 'no_user' } });
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
     const isValid = await bcrypt.compare(password, user.passwordHash);
     if (!isValid) {
+      logSecurityEvent({ type: 'failed_login', tenantId: user.tenantId ?? undefined, ip: ipFromRequest(req), details: { reason: 'bad_password' } });
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
@@ -192,16 +208,25 @@ router.post('/login', async (req, res) => {
     const tokenVersion = (user as any).tokenVersion ?? 0;
     const isSuperadmin = !!(user as any).isSuperadmin;
 
-    const token = jwt.sign({ userId: user.id, tenantId: user.tenantId, role: user.role }, JWT_SECRET, { expiresIn: '15m' });
-    const refreshToken = jwt.sign({ userId: user.id, tenantId: user.tenantId, tokenVersion }, REFRESH_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ userId: user.id, tenantId: user.tenantId, role: user.role, tokenVersion }, jwtSecret(), { expiresIn: '15m' });
+    const refreshToken = jwt.sign({ userId: user.id, tenantId: user.tenantId, tokenVersion }, refreshSecret(), { expiresIn: '7d' });
+    setAuthCookies(res, token, refreshToken);
 
     res.json({
-      token,
-      refreshToken,
+      message: 'Login successful',
       role: user.role,
       isSuperadmin,
       tenantId: user.tenantId,
       tenant: tenant ? { id: tenant.id, name: tenant.name, slug: tenant.slug } : null,
+      name: user.name,
+      user: {
+        id: user.id,
+        role: user.role,
+        tenantId: user.tenantId,
+        tenantSlug: tenant?.slug ?? null,
+        name: user.name,
+        phone: user.phone,
+      },
     });
   } catch (error) {
     console.error('Login error:', error);
@@ -209,12 +234,12 @@ router.post('/login', async (req, res) => {
   }
 });
 
-router.post('/refresh', async (req, res) => {
+router.post('/refresh', authLimiter, async (req, res) => {
   try {
-    const { refreshToken } = req.body;
+    const refreshToken = (req as any).cookies?.refreshToken || req.body?.refreshToken;
     if (!refreshToken) return res.status(401).json({ error: 'Refresh token required' });
 
-    jwt.verify(refreshToken, REFRESH_SECRET, async (err: any, payload: any) => {
+    jwt.verify(refreshToken, refreshSecret(), async (err: any, payload: any) => {
       if (err) return res.status(403).json({ error: 'Invalid or expired refresh token' });
 
       const user = await db.select().from(users).where(eq(users.id, payload.userId)).get();
@@ -224,8 +249,12 @@ router.post('/refresh', async (req, res) => {
         return res.status(403).json({ error: 'Refresh token has been revoked' });
       }
 
-      const newToken = jwt.sign({ userId: user.id, tenantId: user.tenantId, role: user.role }, JWT_SECRET, { expiresIn: '15m' });
-      res.json({ token: newToken });
+      const tokenVersion = (user as any).tokenVersion ?? 0;
+      const newToken = jwt.sign({ userId: user.id, tenantId: user.tenantId, role: user.role, tokenVersion }, jwtSecret(), { expiresIn: '15m' });
+      const newRefresh = jwt.sign({ userId: user.id, tenantId: user.tenantId, tokenVersion }, refreshSecret(), { expiresIn: '7d' });
+      setAuthCookies(res, newToken, newRefresh);
+
+      res.json({ success: true });
     });
   } catch (error) {
     console.error('Refresh token error:', error);
@@ -233,7 +262,32 @@ router.post('/refresh', async (req, res) => {
   }
 });
 
-router.post('/forgot-password', async (req, res) => {
+// GET /api/auth/me — hydrate the SPA's user context from the session cookie.
+router.get('/me', requireAuth(), async (req: any, res) => {
+  try {
+    const user = await db.select().from(users).where(eq(users.id, req.user.userId)).get();
+    if (!user) return res.status(401).json({ error: 'User not found' });
+    const tenant = user.tenantId
+      ? await db.select().from(tenants).where(eq(tenants.id, user.tenantId)).get()
+      : null;
+    res.json({
+      user: {
+        id: user.id,
+        role: user.role,
+        tenantId: user.tenantId,
+        tenantSlug: tenant?.slug ?? null,
+        name: user.name,
+        phone: user.phone,
+        email: user.email,
+      },
+    });
+  } catch (error) {
+    console.error('Me error:', error);
+    res.status(500).json({ error: 'Failed to fetch session' });
+  }
+});
+
+router.post('/forgot-password', authLimiter, async (req, res) => {
   try {
     const { email } = req.body;
     if (!email) return res.status(400).json({ error: 'Email is required' });
@@ -244,7 +298,6 @@ router.post('/forgot-password', async (req, res) => {
       return res.json({ success: true, message: 'If that email is registered, you will receive a reset link.' });
     }
 
-    // Clean up old tokens
     await db.delete(passwordResets).where(eq(passwordResets.userId, user.id));
 
     const token = crypto.randomUUID();
@@ -256,7 +309,7 @@ router.post('/forgot-password', async (req, res) => {
     });
 
     const resetLink = `${process.env.APP_URL || 'http://localhost:3000'}/reset-password?token=${token}`;
-    
+
     await sendMail({
       to: email,
       subject: 'Password Reset Request',
@@ -270,17 +323,16 @@ router.post('/forgot-password', async (req, res) => {
   }
 });
 
-router.post('/reset-password', async (req, res) => {
+router.post('/reset-password', authLimiter, async (req, res) => {
   try {
-    // `oldPassword` provides an additional check on top of the email token:
-    // even with a valid token, the user must also know their current password.
-    const { token, oldPassword, newPassword } = req.body;
+    // The emailed reset token alone is sufficient — the old password is NOT
+    // required so a user who genuinely forgot their password can recover it.
+    const { token, newPassword } = req.body;
     if (!token || !newPassword) return res.status(400).json({ error: 'Token and new password required' });
-    if (!oldPassword) return res.status(400).json({ error: 'Current password is required' });
 
     const resetRecord = await db.select().from(passwordResets).where(eq(passwordResets.token, token)).get();
     if (!resetRecord) return res.status(400).json({ error: 'Invalid or expired token' });
-    
+
     if (Date.now() > resetRecord.expiresAt) {
       await db.delete(passwordResets).where(eq(passwordResets.id, resetRecord.id));
       return res.status(400).json({ error: 'Token has expired' });
@@ -288,20 +340,13 @@ router.post('/reset-password', async (req, res) => {
 
     const user = await db.select().from(users).where(eq(users.id, resetRecord.userId)).get();
     if (!user) {
-      // Defensive: clean up the dangling token.
       await db.delete(passwordResets).where(eq(passwordResets.id, resetRecord.id));
       return res.status(400).json({ error: 'Invalid or expired token' });
     }
 
-    // Verify the current password matches before accepting a new one.
-    const oldValid = await bcrypt.compare(oldPassword, user.passwordHash);
-    if (!oldValid) {
-      return res.status(401).json({ error: 'Current password is incorrect' });
-    }
-
     const passwordHash = await bcrypt.hash(newPassword, 10);
-    // Increment token_version so every previously-issued refresh token for
-    // this user is immediately invalidated after the password changes.
+    // Increment token_version so every previously-issued access AND refresh
+    // token for this user is immediately invalidated.
     await db.update(users).set({
       passwordHash,
       tokenVersion: ((user as any).tokenVersion ?? 0) + 1,
@@ -315,21 +360,23 @@ router.post('/reset-password', async (req, res) => {
   }
 });
 
-router.post('/logout', async (req, res) => {
+router.post('/logout', csrfProtection, async (req, res) => {
   try {
     const authHeader = req.headers.authorization;
-    if (!authHeader?.startsWith('Bearer ')) {
+    const cookieToken = (req as any).cookies?.accessToken;
+    const token = cookieToken || (authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null);
+    if (!token) {
       return res.status(401).json({ error: 'Authentication required' });
     }
-    const token = authHeader.slice(7);
 
-    jwt.verify(token, JWT_SECRET, async (err: any, payload: any) => {
+    jwt.verify(token, jwtSecret(), async (err: any, payload: any) => {
       if (err) return res.status(401).json({ error: 'Invalid token' });
 
       await db.update(users)
         .set({ tokenVersion: sql`token_version + 1` })
         .where(eq(users.id, payload.userId));
 
+      clearAuthCookies(res);
       res.json({ success: true });
     });
   } catch (error) {

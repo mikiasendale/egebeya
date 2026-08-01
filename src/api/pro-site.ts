@@ -2,65 +2,122 @@ import { Router } from 'express';
 import { db } from '../db';
 import { proSiteFiles, tenantSubscriptions, plans } from '../db/schema';
 import { eq, and } from 'drizzle-orm';
-import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
+import { requireAuth } from './middleware/auth';
+import { csrfProtection } from './middleware/csrf';
+import { tenantWriteLimiter } from '../../server/middleware/rateLimiter';
 
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'supersecret_fallback';
 
 // Resolver for the starter template directory on disk. Defined once and
 // memoised so repeated /init calls don't re-stat the filesystem.
 const TEMPLATE_DIR = path.join(process.cwd(), 'server', 'templates', 'pro-starter');
 
-// Mirror of the owner-only auth guard used by tenant.ts. Pro-site files are
-// tenant-scoped and only the owner/admin should be able to read, write, or
-// initialise them — a staff account has no reason to touch raw source.
-router.use((req, res, next) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader?.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  const token = authHeader.split(' ')[1];
-  try {
-    const payload = jwt.verify(token, JWT_SECRET) as any;
-    if (payload.role !== 'owner') {
-      return res.status(403).json({ error: 'Forbidden' });
-    }
-    (req as any).user = payload;
-    next();
-  } catch {
-    res.status(401).json({ error: 'Invalid token' });
-  }
-});
+// Owner-only auth gate (cookie or Bearer) + CSRF + write throttling.
+router.use(requireAuth({ roles: ['owner'] }));
+router.use(csrfProtection);
+router.use(tenantWriteLimiter);
 
 /**
- * Enforce that the caller's tenant is currently on the Pro plan. We tolerate a
- * `trial` subscription status so the seeded test tenant (which is on a trial
- * subscription) can still access the editor — only the plan name matters.
+ * Enforce that the caller's tenant is currently on the Pro plan. A `trial`
+ * status is tolerated, but an EXPIRED trial or any non-Pro plan is rejected.
  *
- * Returns the plan row on success; sends a 403 response and returns null on
- * failure. Callers should early-return on a null result.
+ * Check order:
+ *   1. no subscription          → 403 PLAN_REQUIRED
+ *   2. status not active/trial  → 403 PLAN_REQUIRED
+ *   3. plan is not Pro          → 403 PLAN_REQUIRED
+ *   4. trial lapsed             → 403 TRIAL_EXPIRED
  */
-async function requireProPlan(req: any, res: any) {
+export async function requireProPlan(req: any, res: any) {
   const { tenantId } = (req as any).user;
   const subscription = await db.select().from(tenantSubscriptions)
     .where(eq(tenantSubscriptions.tenantId, tenantId)).get();
   if (!subscription) {
-    res.status(403).json({ error: 'No active subscription. Complete setup first.' });
+    res.status(403).json({ error: 'No active subscription. Complete setup first.', code: 'PLAN_REQUIRED' });
+    return null;
+  }
+  if (subscription.status !== 'active' && subscription.status !== 'trial') {
+    res.status(403).json({ error: 'An active subscription is required.', code: 'PLAN_REQUIRED' });
     return null;
   }
   const plan = subscription.planId
     ? await db.select().from(plans).where(eq(plans.id, subscription.planId)).get()
     : null;
-  if (!plan || plan.name !== 'Pro') {
-    res.status(403).json({ error: 'The code editor is available on the Pro plan only.' });
+  if (!plan || (plan.name ?? '').toLowerCase() !== 'pro') {
+    res.status(403).json({ error: 'The code editor is available on the Pro plan only.', code: 'PLAN_REQUIRED' });
+    return null;
+  }
+  if (
+    subscription.status === 'trial' &&
+    typeof subscription.trialEndsAt === 'number' &&
+    subscription.trialEndsAt <= Date.now()
+  ) {
+    res.status(403).json({ error: 'Your Pro trial has expired. Renew to keep using the code editor.', code: 'TRIAL_EXPIRED' });
     return null;
   }
   return plan;
 }
+
+/**
+ * POST /api/tenant/subscription/upgrade — move the tenant onto the Pro plan
+ * with a fresh 14-day trial. Idempotent. This is the dev/trial upgrade path;
+ * real production billing must route through the payment gateway first.
+ */
+router.post('/subscription/upgrade', async (req, res) => {
+  const { tenantId } = (req as any).user;
+  try {
+    const allPlans = await db.select().from(plans).all();
+    const proPlan = allPlans.find((p) => (p.name ?? '').toLowerCase() === 'pro');
+    if (!proPlan) {
+      return res.status(500).json({ error: 'Pro plan is not configured on this platform.' });
+    }
+
+    const existing = await db.select().from(tenantSubscriptions)
+      .where(eq(tenantSubscriptions.tenantId, tenantId)).get();
+
+    const now = Date.now();
+    const trialEndsAt = now + 14 * 24 * 3600 * 1000;
+
+    if (existing) {
+      const alreadyProTrial = existing.planId === proPlan.id && existing.status === 'trial';
+      if (!alreadyProTrial) {
+        await db.update(tenantSubscriptions).set({
+          planId: proPlan.id,
+          status: 'trial',
+          trialEndsAt,
+          startsAt: now,
+        }).where(eq(tenantSubscriptions.tenantId, tenantId));
+      }
+    } else {
+      await db.insert(tenantSubscriptions).values({
+        id: crypto.randomUUID(),
+        tenantId,
+        planId: proPlan.id,
+        status: 'trial',
+        trialEndsAt,
+        startsAt: now,
+      });
+    }
+
+    const subscription = await db.select().from(tenantSubscriptions)
+      .where(eq(tenantSubscriptions.tenantId, tenantId)).get();
+    const plan = subscription?.planId
+      ? await db.select().from(plans).where(eq(plans.id, subscription.planId)).get()
+      : null;
+
+    res.json({
+      success: true,
+      unchanged: existing?.planId === proPlan.id && existing.status === 'trial',
+      plan,
+      subscription,
+    });
+  } catch (error) {
+    console.error('Upgrade error:', error);
+    res.status(500).json({ error: 'Failed to upgrade subscription' });
+  }
+});
 
 /**
  * Read every file under TEMPLATE_DIR (recursively) into a { path: content }

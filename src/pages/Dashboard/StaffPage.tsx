@@ -35,6 +35,7 @@ export interface StaffMember {
   title: string | null;
   bio?: string | null;
   imagePath?: string | null;
+  userId?: string | null;
   active: boolean;
   services: { id: string; name: string }[];
 }
@@ -87,6 +88,14 @@ export function StaffPage() {
   // Delete dialog
   const [deleteTarget, setDeleteTarget] = useState<StaffMember | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Invite-login dialog
+  const [inviteTarget, setInviteTarget] = useState<StaffMember | null>(null);
+  const [invitePhone, setInvitePhone] = useState('');
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviting, setInviting] = useState(false);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [inviteResult, setInviteResult] = useState<string | null>(null);
 
   // Manage-services dialog
   const [servicesTarget, setServicesTarget] = useState<StaffMember | null>(null);
@@ -215,6 +224,48 @@ export function StaffPage() {
       showToast('Failed to delete staff', e?.message || 'Please try again.', 'destructive');
     } finally {
       setDeleting(false);
+    }
+  };
+
+  // ---- Invite login ----
+  const openInvite = (s: StaffMember) => {
+    setInviteTarget(s);
+    setInvitePhone('');
+    setInviteEmail('');
+    setInviteError(null);
+    setInviteResult(null);
+  };
+
+  const submitInvite = async () => {
+    if (!inviteTarget) return;
+    setInviteError(null);
+    setInviteResult(null);
+    if (!invitePhone.trim()) {
+      setInviteError('Phone number is required');
+      return;
+    }
+    setInviting(true);
+    try {
+      const res = await authFetch('/api/tenant/staff/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: inviteTarget.name,
+          phone: invitePhone.trim(),
+          email: inviteEmail.trim() || undefined,
+          staff_id: inviteTarget.id,
+        }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || 'Failed to invite');
+      setInviteResult(body.resetUrl || 'Invite created. Share the reset link with the staff member.');
+      await fetchStaff();
+      showToast('Invite created', 'A password-setup link was generated.');
+    } catch (e: any) {
+      setInviteError(e?.message || 'Something went wrong');
+      showToast('Failed to invite', e?.message || 'Please try again.', 'destructive');
+    } finally {
+      setInviting(false);
     }
   };
 
@@ -424,6 +475,12 @@ export function StaffPage() {
                         <Pencil className="h-4 w-4" />
                         Edit
                       </Button>
+                      {!s.userId && (
+                        <Button variant="outline" size="sm" onClick={() => openInvite(s)}>
+                          <Plus className="h-4 w-4" />
+                          Invite login
+                        </Button>
+                      )}
                       <Button
                         variant="destructive"
                         size="sm"
@@ -519,6 +576,69 @@ export function StaffPage() {
               Delete
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Invite login dialog */}
+      <Dialog
+        open={!!inviteTarget}
+        onOpenChange={o => !inviting && !o && setInviteTarget(null)}
+      >
+        <DialogContent className="w-[calc(100%-2rem)] max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Invite {inviteTarget?.name} to log in</DialogTitle>
+            <DialogDescription>
+              This creates a staff login for the member. They set their own password using the
+              link below (valid for 15 minutes).
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="invite-phone">Phone number</Label>
+              <Input
+                id="invite-phone"
+                placeholder="+251911234567"
+                value={invitePhone}
+                onChange={e => setInvitePhone(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="invite-email">Email (optional)</Label>
+              <Input
+                id="invite-email"
+                type="email"
+                placeholder="staff@example.com"
+                value={inviteEmail}
+                onChange={e => setInviteEmail(e.target.value)}
+              />
+            </div>
+
+            {inviteError && <p className="text-sm text-accent">{inviteError}</p>}
+
+            {inviteResult && (
+              <div className="rounded-md border border-ink-rule bg-surface-raised p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-ink-soft">
+                  Password-setup link (share with the staff member)
+                </p>
+                <p className="mt-1 break-all text-sm text-ink">{inviteResult}</p>
+              </div>
+            )}
+
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setInviteTarget(null)}
+                disabled={inviting}
+              >
+                Close
+              </Button>
+              <Button onClick={submitInvite} disabled={inviting || !!inviteResult}>
+                {inviting && <Loader2 className="h-4 w-4 animate-spin" />}
+                {inviteResult ? 'Invite created' : 'Create invite'}
+              </Button>
+            </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
 

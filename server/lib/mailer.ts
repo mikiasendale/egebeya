@@ -14,17 +14,29 @@ export const transporter = nodemailer.createTransport({
   } : undefined,
 });
 
+// Neutral platform sender. The from-address is NOT tenant-branded.
+const FROM = process.env.SMTP_FROM || '"Egebeya" <noreply@egebeya.et>';
+
+// Never log raw PII. When an address is printed it is truncated so support
+// can still tell which mailbox a stub went to.
+function redact(addr: string | undefined): string {
+  if (!addr) return '<none>';
+  const at = addr.indexOf('@');
+  const local = at === -1 ? addr : addr.slice(0, at);
+  const domain = at === -1 ? '' : addr.slice(at);
+  return `${local.slice(0, 3)}***${domain}`;
+}
+
 export const sendMail = async (options: nodemailer.SendMailOptions) => {
   if (!host) {
-    console.log('[MAILER STUB] Would send email to:', options.to);
+    console.log('[MAILER STUB] Would send email to:', redact(String(options.to ?? '')));
     console.log('[MAILER STUB] Subject:', options.subject);
-    console.log('[MAILER STUB] Text:', options.text);
     return { messageId: 'stub-message-id' };
   }
-  
+
   try {
     const info = await transporter.sendMail({
-      from: '"Lux Nails & Spa" <noreply@luxnails.egebeya.et>',
+      from: FROM,
       ...options
     });
     console.log('Message sent: %s', info.messageId);

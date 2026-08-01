@@ -41,7 +41,8 @@ describe('Cross-tenant isolation — every scoped resource rejects B-ids when au
       { id: tA, name: 'A', slug: slugA, settings: {}, createdAt: Date.now() },
       { id: tB, name: 'B', slug: slugB, settings: {}, createdAt: Date.now() },
     ]);
-    await db.insert(users).values({ id: crypto.randomUUID(), tenantId: tA, name: 'AO', phone: ph, email: `a@${Date.now()}.t`, passwordHash: pw, role: 'owner', createdAt: Date.now() });
+    const aUserId = crypto.randomUUID();
+    await db.insert(users).values({ id: aUserId, tenantId: tA, name: 'AO', phone: ph, email: `a@${Date.now()}.t`, passwordHash: pw, role: 'owner', createdAt: Date.now() });
 
     const fp = await db.select().from(plans).where(eq(plans.name, 'free')).get();
     if (!fp) throw new Error('free plan not seeded');
@@ -49,7 +50,7 @@ describe('Cross-tenant isolation — every scoped resource rejects B-ids when au
       { id: crypto.randomUUID(), tenantId: tA, planId: fp.id, status: 'active', startsAt: Date.now() },
       { id: crypto.randomUUID(), tenantId: tB, planId: fp.id, status: 'active', startsAt: Date.now() },
     ]);
-    tokenA = jwt.sign({ userId: 'usr', tenantId: tA, role: 'owner' }, JWT_SECRET, { expiresIn: '15m' });
+    tokenA = jwt.sign({ userId: aUserId, tenantId: tA, role: 'owner', tokenVersion: 0 }, JWT_SECRET, { expiresIn: '15m' });
 
     svcA = crypto.randomUUID(); svcB = crypto.randomUUID();
     staA = crypto.randomUUID(); staB = crypto.randomUUID();
