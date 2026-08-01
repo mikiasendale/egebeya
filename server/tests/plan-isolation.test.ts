@@ -117,8 +117,8 @@ describe('Plan-gate enforcement & tenant isolation', () => {
       startsAt: Date.now(),
     });
 
-    freeToken = jwt.sign({ userId: freeUserId, tenantId: freeTenantId, role: 'owner' }, JWT_SECRET, { expiresIn: '15m' });
-    proToken = jwt.sign({ userId: proUserId, tenantId: proTenantId, role: 'owner' }, JWT_SECRET, { expiresIn: '15m' });
+    freeToken = jwt.sign({ userId: freeUserId, tenantId: freeTenantId, role: 'owner', tokenVersion: 0 }, JWT_SECRET, { expiresIn: '15m' });
+    proToken = jwt.sign({ userId: proUserId, tenantId: proTenantId, role: 'owner', tokenVersion: 0 }, JWT_SECRET, { expiresIn: '15m' });
 
     // Seed staff + services for both tenants
     freeStaffId = crypto.randomUUID();

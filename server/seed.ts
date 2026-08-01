@@ -3,29 +3,36 @@ import { tenants, users, services, staff, staffServices, staffAvailability, page
 import { eq } from 'drizzle-orm';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
+import { normalizePhone } from '../src/lib/phone';
+
+// Canonical plan rows ('free' / 'pro', lowercase).
+async function ensurePlan(name: string, price: number, maxStaff: number, customDomainAllowed: boolean) {
+  const existing = await db.select().from(plans).where(eq(plans.name, name)).get();
+  if (existing) return existing;
+  const row = { id: crypto.randomUUID(), name, price, maxStaff, customDomainAllowed };
+  await db.insert(plans).values(row);
+  return row;
+}
 
 async function seed() {
   console.log('Starting seed...');
   
-  const tenantId = crypto.randomUUID();
   const userId = crypto.randomUUID();
   const staffId = crypto.randomUUID();
   const serviceId1 = crypto.randomUUID();
   const serviceId2 = crypto.randomUUID();
-  const planBasicId = crypto.randomUUID();
-  const planProId = crypto.randomUUID();
-  
+
   const passwordHash = await bcrypt.hash('password123', 10);
 
   console.log('Creating plans...');
-  await db.insert(plans).values([
-    { id: planBasicId, name: 'Basic', price: 0, maxStaff: 2, customDomainAllowed: false },
-    { id: planProId, name: 'Pro', price: 100000, maxStaff: 10, customDomainAllowed: true } // 1000 ETB
-  ]);
+  const freePlan = await ensurePlan('free', 0, 2, false);
+  await ensurePlan('pro', 100000, 10, true); // 1000 ETB
 
   console.log('Creating tenant...');
   const existingLux = await db.select().from(tenants).where(eq(tenants.slug, 'luxnails')).get();
+  let tenantId: string;
   if (!existingLux) {
+    tenantId = crypto.randomUUID();
     await db.insert(tenants).values({
       id: tenantId,
       name: 'Lux Nails & Spa',
@@ -35,33 +42,38 @@ async function seed() {
       createdAt: Date.now()
     });
   } else {
-    // Ensure is_lusted et al. in case schema migration missed them.
+    tenantId = existingLux.id;
     await db.update(tenants)
       .set({ isListed: true, category: 'Spa', name: 'Lux Nails & Spa' })
       .where(eq(tenants.id, existingLux.id));
   }
 
   console.log('Creating subscription...');
+  await db.delete(tenantSubscriptions).where(eq(tenantSubscriptions.tenantId, tenantId));
   await db.insert(tenantSubscriptions).values({
     id: crypto.randomUUID(),
     tenantId,
-    planId: planBasicId,
+    planId: freePlan.id,
     status: 'trial',
     trialEndsAt: Date.now() + 14 * 24 * 3600 * 1000,
     startsAt: Date.now(),
   });
 
   console.log('Creating owner...');
-  await db.insert(users).values({
-    id: userId,
-    tenantId: tenantId,
-    name: 'Betelhem T.',
-    phone: '+251911234567',
-    email: 'betty@luxnails.com',
-    passwordHash,
-    role: 'owner',
-    createdAt: Date.now()
-  });
+  const existingOwner = await db.select({ id: users.id }).from(users)
+    .where(eq(users.phone, '+251911234567')).get();
+  if (!existingOwner) {
+    await db.insert(users).values({
+      id: userId,
+      tenantId: tenantId,
+      name: 'Betelhem T.',
+      phone: '+251911234567',
+      email: 'betty@luxnails.com',
+      passwordHash,
+      role: 'owner',
+      createdAt: Date.now()
+    });
+  }
 
   console.log('Creating services...');
   await db.insert(services).values([
@@ -121,14 +133,16 @@ async function seed() {
   await db.insert(staffAvailability).values(availabilities);
 
   console.log('Creating page template...');
+  // Replace any existing page row so re-seeding doesn't trip the PK.
+  await db.delete(pages).where(eq(pages.tenantId, tenantId));
   await db.insert(pages).values({
     tenantId,
     content: {
       content: [
-        { 
-          type: 'Hero', 
-          props: { 
-            title: 'Welcome to Lux Nails & Spa', 
+        {
+          type: 'Hero',
+          props: {
+            title: 'Welcome to Lux Nails & Spa',
             subtitle: 'The best nail salon in Addis. Experience true relaxation.',
             backgroundImage: 'https://images.unsplash.com/photo-1522337660859-02fbefca4702?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80'
           },
@@ -166,18 +180,8 @@ async function seed() {
   // ====================================================================
   console.log('--- Seeding testpayment tenant (Chapa payment flow) ---');
 
-  // Reuse the Basic plan we created above; fall back to lookup if it survived a prior seed.
-  let basicPlan = await db.select().from(plans).where(eq(plans.name, 'Basic')).get();
-  if (!basicPlan) {
-    basicPlan = {
-      id: crypto.randomUUID(),
-      name: 'Basic',
-      price: 0,
-      maxStaff: 2,
-      customDomainAllowed: false,
-    } as any;
-    await db.insert(plans).values(basicPlan);
-  }
+  // The canonical 'free' plan from above.
+  const basicPlan = freePlan;
 
   const tpTenantId = crypto.randomUUID();
   const tpUserId = crypto.randomUUID();
@@ -209,7 +213,9 @@ async function seed() {
       id: tpUserId,
       tenantId: tpTenantId,
       name: 'TP Owner',
-      phone: '0900123456', // matches the spec; no country-code prefix on purpose
+      // '0900123456' is stored canonically; login accepts any valid format
+      // (09…, 251…, 7…) and normalizes to this.
+      phone: normalizePhone('0900123456'),
       email: 'owner@testpayment.example',
       passwordHash, // 'password123'
       role: 'owner',
@@ -317,7 +323,7 @@ async function seed() {
 
   console.log('Seed completed successfully!');
   console.log(`Test account: +251911234567 / password123 (slug: luxnails, no payment)`);
-  console.log(`Test account: 0900123456 / password123      (slug: testpayment, requires Chapa payment upfront)`);
+  console.log(`Test account: 0900123456 → ${normalizePhone('0900123456')} / password123 (slug: testpayment, requires Chapa payment upfront)`);
   console.log(`Test site: http://luxnails.egebeya.et (Add to your hosts file mapped to localhost for testing)`);
 }
 

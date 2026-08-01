@@ -32,8 +32,16 @@ export default defineConfig({
     environment: 'node',
     testTimeout: 30_000,
     hookTimeout: 30_000,
+    // Run all test files sequentially: every file shares the same
+    // `file:sqlite.db`, and parallel workers writing the same SQLite file
+    // cause SQLITE_BUSY flakiness.
+    fileParallelism: false,
     env: {
       NODE_ENV: 'test',
+      // The suite supplies the required secrets so the middleware never falls
+      // back or throws during tests (see server/tests/_setup.ts).
+      JWT_SECRET: 'test-jwt-secret-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+      REFRESH_SECRET: 'test-refresh-secret-yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy',
     },
     setupFiles: ['./server/tests/_setup.ts'],
   },

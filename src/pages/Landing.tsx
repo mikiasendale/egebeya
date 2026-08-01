@@ -12,10 +12,10 @@ const SERVICES_DEMO: { geo: string; name: string; amName: string; duration: stri
 ];
 
 const QUEUE_DEMO = [
-  { no: '፭',    time: '09:00', service: 'Manicure', staff: 'Sara M.',   status: 'DONE',  statusAm: 'ተፈጸመ' },
-  { no: '፮',    time: '10:30', service: 'Haircut',  staff: 'Dawit G.',  status: 'DONE',  statusAm: 'ተፈጸመ' },
-  { no: '፯',    time: '13:00', service: 'Pedicure', staff: 'Sara M.',   status: 'NEXT',  statusAm: 'ቀጣይ'  },
-  { no: '፰',    time: '14:00', service: 'Massage',  staff: 'Sara M.',   status: 'WAIT',  statusAm: 'በመጠበቅ' },
+  { no: '፭',    time: '09:00', service: 'Manicure', staff: 'Sara M.',   status: 'DONE',    statusAm: 'ተፈጸመ' },
+  { no: '፮',    time: '10:30', service: 'Haircut',  staff: 'Dawit G.',  status: 'SERVING', statusAm: 'በአገልግሎት' },
+  { no: '፯',    time: '13:00', service: 'Pedicure', staff: 'Sara M.',   status: 'NEXT',    statusAm: 'ቀጣይ'  },
+  { no: '፰',    time: '14:00', service: 'Massage',  staff: 'Sara M.',   status: 'WAIT',    statusAm: 'በመጠበቅ' },
 ];
 
 const ISSUE_NO = 'ኢ-ገ-2026-' + (Math.floor(Math.random() * 9000) + 1000);
@@ -34,13 +34,64 @@ export function Landing() {
     >
       <Navbar />
       <Lead stamped={stamped} onStamp={() => setStamped(true)} />
+      <TrustBar />
+      <PerfTear />
       <SearchSection />
       <TariffSection />
       <PricingSection />
+      <PerfTear />
       <QueueSection />
       <CounterClose />
       <Footer />
     </div>
+  );
+}
+
+/* ── Perforation — the receipt roll tears between ledger pages ── */
+function PerfTear() {
+  return (
+    <div className="px-5 sm:px-8 lg:px-12" aria-hidden>
+      <div className="mx-auto max-w-6xl">
+        <div className="perf-tear" />
+      </div>
+    </div>
+  );
+}
+
+/* ── Live Ledger trust strip — what the ledger promises, in one line ── */
+function TrustBar() {
+  const { t } = useTranslation();
+  return (
+    <section
+      aria-label="The ledger promise"
+      className="px-5 sm:px-8 lg:px-12"
+    >
+      <div className="mx-auto max-w-6xl">
+        <div
+          className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6 py-4"
+          style={{ borderTop: '1px solid var(--color-ink-rule)' }}
+        >
+          <span className="stamp positive self-start sm:self-auto">
+            {t('trustBar.ledger')}&nbsp;·&nbsp;{t('trustBar.ledgerAm')}
+          </span>
+          <div
+            className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs"
+            style={{
+              fontFamily: 'var(--font-mono)',
+              color: 'var(--color-ink-soft)',
+              letterSpacing: '0.05em',
+              textTransform: 'uppercase',
+            }}
+          >
+            <span>{t('trustBar.city')}&nbsp;·&nbsp;{t('trustBar.cityAm')}</span>
+            <span aria-hidden style={{ color: 'var(--color-ink-rule-dashed)' }}>·</span>
+            <span>{t('trustBar.verified')}&nbsp;·&nbsp;{t('trustBar.verifiedAm')}</span>
+            <span aria-hidden style={{ color: 'var(--color-ink-rule-dashed)' }}>·</span>
+            <span>{t('trustBar.noCard')}&nbsp;·&nbsp;{t('trustBar.noCardAm')}</span>
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -104,6 +155,17 @@ function Lead({ stamped, onStamp }: { stamped: boolean; onStamp: () => void }) {
               {t('lead.headingAm')}&nbsp;<span style={{ color: 'var(--color-telebirr)' }}>በውሉ</span>፣<br />
               <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, letterSpacing: '-0.025em' }}>
                 {t('lead.subheading')}
+              </span>
+              <br />
+              <span
+                style={{
+                  fontFamily: 'var(--font-display)',
+                  fontWeight: 600,
+                  letterSpacing: '-0.025em',
+                  color: 'var(--color-telebirr)',
+                }}
+              >
+                {t('lead.subheadingEmphasis')}
               </span>
             </h1>
             <p
@@ -173,6 +235,10 @@ function ProofForm({ stamped, onStamp }: { stamped: boolean; onStamp: () => void
         borderRadius: 'var(--rd-card)',
       }}
     >
+      {/* Faint green watermark — the form number behind the label, banknote-style */}
+      <div className="ticket-watermark" aria-hidden>EGB-01</div>
+      {/* Security thread: a dashed telebirr filament running down the card */}
+      <span className="security-thread" aria-hidden />
       <div
         className="flex items-baseline justify-between gap-3 pb-3"
         style={{ borderBottom: '1px solid var(--color-ink-rule)' }}
@@ -225,7 +291,7 @@ function ProofForm({ stamped, onStamp }: { stamped: boolean; onStamp: () => void
           onClick={onStamp}
           aria-label="Press the stamp"
           aria-pressed={stamped}
-          className="cursor-pointer no-underline"
+          className="deposit-stamp-btn cursor-pointer no-underline"
           style={{ all: 'unset', cursor: 'pointer' }}
         >
           {stamped ? (
@@ -247,7 +313,11 @@ function ProofForm({ stamped, onStamp }: { stamped: boolean; onStamp: () => void
           )}
         </button>
         <div className="flex-1 min-w-0">
-          <div className="stamp" style={{ borderColor: 'var(--color-ink)' }}>
+          <div
+            key={String(stamped)}
+            className={`stamp ${stamped ? 'positive stamp-bleed-in' : ''}`}
+            style={stamped ? undefined : { borderColor: 'var(--color-ink)' }}
+          >
             {stamped ? `${t('proofForm.cleared')} · ተከከለ` : `${t('proofForm.awaitingDeposit')} · በመጠበቅ`}
           </div>
           <p
@@ -260,7 +330,53 @@ function ProofForm({ stamped, onStamp }: { stamped: boolean; onStamp: () => void
           </p>
         </div>
       </div>
+
+      {/* Tear-off stub — the perforated bottom of the ticket with its barcode */}
+      <div className="ticket-stub mt-5 pt-4 flex flex-col sm:flex-row sm:items-end gap-4">
+        <Barcode refNo={ISSUE_NO} />
+        <div className="sm:ml-auto sm:text-right min-w-0">
+          <span className="stamp" aria-hidden>STUB&nbsp;·&nbsp;KEEP&nbsp;THIS</span>
+          <div
+            className="mt-2 text-xs"
+            style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-ink-stamp)', letterSpacing: '0.05em' }}
+          >
+            {t('proofForm.ref')}&nbsp;{ISSUE_NO}
+          </div>
+        </div>
+      </div>
     </div>
+  );
+}
+
+/* ── Barcode — a data mark, not a decoration: bars encode the reference ── */
+const BARCODE_BARS = [2, 1, 3, 1, 1, 2, 1, 1, 3, 2, 1, 1, 2, 3, 1, 1, 1, 2, 2, 1, 3, 1, 1, 2, 1, 2, 1, 1, 3, 1, 2, 2];
+
+function Barcode({ refNo }: { refNo: string }) {
+  const gap = 2;
+  const barUnit = 1.4;
+  let x = 0;
+  const rects = BARCODE_BARS.map((w, i) => {
+    const r = (
+      <rect key={i} x={x} y={0} width={w * barUnit} height={30} style={{ fill: 'var(--color-ink)' }} />
+    );
+    x += (w + gap) * barUnit;
+    return r;
+  });
+  const guard = <rect x={-1} y={0} width={3.2} height={34} style={{ fill: 'var(--color-ink)' }} />;
+  return (
+    <svg
+      width={x}
+      height={34}
+      viewBox={`-3 0 ${x + 4} 34`}
+      role="img"
+      aria-label={`Illustrative barcode for reference ${refNo}`}
+      className="flex-shrink-0"
+      style={{ display: 'block' }}
+    >
+      {guard}
+      {rects}
+      <rect x={x - 1} y={0} width={3.2} height={34} style={{ fill: 'var(--color-ink)' }} />
+    </svg>
   );
 }
 
@@ -314,25 +430,39 @@ function TariffSection() {
     >
       <div className="mx-auto max-w-6xl">
         <header className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-3 mb-8">
-          <h2
-            className="m-0"
-            style={{
-              fontFamily: 'var(--font-display)',
-              fontWeight: 600,
-              fontSize: 'clamp(1.75rem, 4vw, 2.75rem)',
-              letterSpacing: '-0.02em',
-            }}
-          >
-            {t('tariffSection.heading')}
-            <span
-              style={{ fontFamily: 'var(--font-serif-ethiopic)', fontWeight: 700, marginLeft: '0.5rem' }}
+          <div>
+            <h2
+              className="m-0"
+              style={{
+                fontFamily: 'var(--font-display)',
+                fontWeight: 600,
+                fontSize: 'clamp(1.75rem, 4vw, 2.75rem)',
+                letterSpacing: '-0.02em',
+              }}
             >
-              {t('tariffSection.headingAm')}
+              {t('tariffSection.heading')}
+              <span
+                style={{ fontFamily: 'var(--font-serif-ethiopic)', fontWeight: 700, marginLeft: '0.5rem', color: 'var(--color-telebirr)' }}
+              >
+                {t('tariffSection.headingAm')}
+              </span>
+            </h2>
+            <p
+              className="mt-2 m-0 text-sm"
+              style={{ color: 'var(--color-ink-soft)', fontFamily: 'var(--font-mono)', letterSpacing: '0.04em' }}
+            >
+              {t('tariffSection.everyTenant')}
+            </p>
+          </div>
+          <div className="flex flex-col items-start sm:items-end gap-2">
+            <span className="stamp" aria-hidden>{t('tariffSection.location')}&nbsp;·&nbsp;{t('tariffSection.locationAm')}</span>
+            <span
+              className="text-xs"
+              style={{ color: 'var(--color-ink-stamp)', fontFamily: 'var(--font-mono)', letterSpacing: '0.05em' }}
+            >
+              {t('tariffSection.lastUpdated')}
             </span>
-          </h2>
-          <p className="m-0 text-sm" style={{ color: 'var(--color-ink-soft)', fontFamily: 'var(--font-mono)', letterSpacing: '0.04em' }}>
-            {t('tariffSection.everyTenant')}
-          </p>
+          </div>
         </header>
 
         <div
@@ -343,8 +473,8 @@ function TariffSection() {
             {SERVICES_DEMO.map((s) => (
               <li
                 key={s.name}
-                className="form-row group"
-                style={{ gap: '1.25rem', cursor: 'default', transition: 'background-color 120ms ease-out' }}
+                className="form-row tariff-hover-row group"
+                style={{ gap: '1.25rem', cursor: 'default', transition: 'background-color 120ms ease-out', position: 'relative' }}
                 onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--color-paper-raised)')}
                 onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
               >
@@ -368,12 +498,17 @@ function TariffSection() {
                     {s.amName} · {s.duration} {t('tariffSection.min')} · {t('tariffSection.staffOfChoice')}
                   </div>
                 </div>
-                <div
-                  className="text-right"
-                  style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, fontSize: '1.05rem', color: 'var(--color-ink)' }}
-                >
-                  <span style={{ color: 'var(--color-ink-stamp)', fontWeight: 400 }}>Br&nbsp;</span>
-                  {s.price}
+                <div className="tariff-price-wrap">
+                  <span
+                    className="tariff-price text-right"
+                    style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, fontSize: '1.05rem', color: 'var(--color-ink)' }}
+                  >
+                    <span style={{ color: 'var(--color-ink-stamp)', fontWeight: 400 }}>Br&nbsp;</span>
+                    {s.price}
+                  </span>
+                  <span className="stamp positive rubber tariff-book" aria-hidden>
+                    {t('tariffSection.book')}&nbsp;·&nbsp;{t('tariffSection.bookAm')}
+                  </span>
                 </div>
               </li>
             ))}
@@ -449,10 +584,52 @@ function QueueSection() {
                 </div>
               </div>
 
+              {/* NOW SERVING ticker — the active slot on the display board */}
+              <div
+                className="flex items-center gap-3 py-2.5 px-1"
+                style={{ borderBottom: '1px solid var(--color-ink)' }}
+              >
+                <span
+                  aria-hidden
+                  className="take-a-number"
+                  style={{ width: 22, height: 22, fontSize: '0.7rem' }}
+                >
+                  ፮
+                </span>
+                <span className="stamp positive" aria-hidden>
+                  {t('queueSection.nowServing')}&nbsp;·&nbsp;{t('queueSection.nowServingAm')}
+                </span>
+                <span
+                  className="truncate"
+                  style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, fontSize: '0.95rem', color: 'var(--color-ink)' }}
+                >
+                  10:30
+                  <span style={{ color: 'var(--color-ink-soft)', fontWeight: 400 }}>&nbsp;·&nbsp;</span>
+                  Haircut
+                  <span style={{ color: 'var(--color-ink-soft)', fontWeight: 400 }}>&nbsp;·&nbsp;</span>
+                  Dawit G.
+                </span>
+                <span
+                  className="ml-auto hidden sm:inline text-[0.65rem]"
+                  style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-ink-stamp)', letterSpacing: '0.08em' }}
+                  aria-hidden
+                >
+                  {t('queueSection.addis')}
+                </span>
+              </div>
+
               <ol className="m-0 mt-2 p-0 list-none" role="list">
                 {QUEUE_DEMO.map((q) => {
                   const done = q.status === 'DONE';
+                  const serving = q.status === 'SERVING';
                   const next = q.status === 'NEXT';
+                  const statusClass = done
+                    ? undefined
+                    : serving
+                      ? 'positive'
+                      : next
+                        ? 'positive pulse'
+                        : 'warm';
                   return (
                     <li
                       key={q.no}
@@ -485,7 +662,7 @@ function QueueSection() {
                         </div>
                       </div>
                       <span
-                        className={`stamp ${next ? 'positive' : 'negative'}`}
+                        className={`stamp ${statusClass || ''}`}
                         style={done ? { borderColor: 'var(--color-ink-rule-dashed)', color: 'var(--color-ink-stamp)' } : undefined}
                       >
                         {q.statusAm} · {q.status}
@@ -716,7 +893,9 @@ function SearchSection() {
         >
           Every business on Egebeya takes Telebirr deposits. Search by name, area, or service.
         </p>
-        <div
+        <form
+          action="/discover"
+          method="get"
           style={{
             display: 'flex',
             gap: 0,
@@ -727,7 +906,9 @@ function SearchSection() {
         >
           <input
             type="text"
+            name="q"
             placeholder="Salons, clinics, barbers, plumbers in Addis…"
+            aria-label="Search Egebeya businesses"
             style={{
               flex: 1,
               border: 'none',
@@ -737,11 +918,11 @@ function SearchSection() {
               color: 'var(--color-ink)',
               outline: 'none',
               background: 'transparent',
+              minWidth: 0,
             }}
-            onFocus={(e) => (e.target.style.outline = 'none')}
           />
           <button
-            type="button"
+            type="submit"
             style={{
               background: 'var(--color-ink)',
               color: 'var(--color-paper)',
@@ -757,7 +938,7 @@ function SearchSection() {
           >
             Find · ፈልግ
           </button>
-        </div>
+        </form>
         <div
           style={{
             marginTop: 16,
@@ -769,24 +950,26 @@ function SearchSection() {
           {['Salons · ሳሎን', 'Clinics · ክሊኒክ', 'Barbers · ፀጉር', 'Plumbers · ውሃ', 'Tutors · አስተማሪ'].map((cat) => (
             <a
               key={cat}
-              href="#"
+              href="/discover"
               style={{
-                color: 'var(--color-ink-soft)',
+                color: 'var(--color-ink)',
                 textDecoration: 'none',
-                fontSize: '0.82rem',
-                padding: '5px 14px',
-                border: '1px solid var(--color-ink-rule)',
-                borderRadius: 9999,
-                fontFamily: 'var(--font-body)',
-                transition: 'border-color 120ms, color 120ms',
+                fontFamily: 'var(--font-mono)',
+                fontSize: '0.72rem',
+                letterSpacing: '0.06em',
+                textTransform: 'uppercase',
+                padding: '7px 13px',
+                border: '1px solid var(--color-ink)',
+                borderRadius: 'var(--rd-card)',
+                transition: 'background-color 120ms, color 120ms',
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = 'var(--color-telebirr)';
-                e.currentTarget.style.color = 'var(--color-telebirr)';
+                e.currentTarget.style.backgroundColor = 'var(--color-ink)';
+                e.currentTarget.style.color = 'var(--color-paper)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = 'var(--color-ink-rule)';
-                e.currentTarget.style.color = 'var(--color-ink-soft)';
+                e.currentTarget.style.backgroundColor = 'transparent';
+                e.currentTarget.style.color = 'var(--color-ink)';
               }}
             >
               {cat}

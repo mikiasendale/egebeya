@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { db } from '../db';
+import bcrypt from 'bcryptjs';
 import {
   pages,
   tenantSubscriptions,
@@ -11,18 +12,22 @@ import {
   staffAvailability,
   tenantBusinessHours,
   media,
+  users,
+  passwordResets,
 } from '../db/schema';
 import { eq, and, inArray, desc } from 'drizzle-orm';
-import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import multer from 'multer';
 import sharp from 'sharp';
 import fs from 'fs';
 import path from 'path';
 import { requirePlanLimit, requireActiveSubscription } from '../../server/middleware/planLimits';
+import { requireAuth } from './middleware/auth';
+import { csrfProtection } from './middleware/csrf';
+import { tenantWriteLimiter, uploadLimiter } from '../../server/middleware/rateLimiter';
+import { normalizePhone } from '../lib/phone';
 
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'supersecret_fallback';
 
 const uploadDir = path.join(process.cwd(), 'dist', 'uploads');
 if (!fs.existsSync(uploadDir)) {
@@ -45,24 +50,11 @@ const upload = multer({
   }
 });
 
-router.use((req, res, next) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader?.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  const token = authHeader.split(' ')[1];
-  try {
-    const payload = jwt.verify(token, JWT_SECRET) as any;
-    if (payload.role !== 'owner') {
-      return res.status(403).json({ error: 'Forbidden' });
-    }
-    (req as any).user = payload;
-    next();
-  } catch (error) {
-    res.status(401).json({ error: 'Invalid token' });
-  }
-});
+// Owner-only auth gate (cookie or Bearer) with tokenVersion revocation, then
+// CSRF protection for cookie-authenticated mutations, then write throttling.
+router.use(requireAuth({ roles: ['owner'] }));
+router.use(csrfProtection);
+router.use(tenantWriteLimiter);
 
 
 
@@ -90,6 +82,92 @@ router.post('/staff', requirePlanLimit('staff'), async (req, res) => {
 });
 
 // ---- Staff CRUD ----
+
+// POST /staff/invite — create a staff login for a staff member. The owner
+// supplies the staff's name + phone; the backend creates the `users` row with
+// a random password and returns a one-time password-reset link to share.
+router.post('/staff/invite', requirePlanLimit('staff'), async (req, res) => {
+  const { tenantId } = (req as any).user;
+  const { name, phone, email, staff_id } = req.body || {};
+
+  if (!name || String(name).trim().length === 0) {
+    return res.status(400).json({ error: 'Staff name is required' });
+  }
+  const normalizedPhone = normalizePhone(phone);
+  if (!normalizedPhone) {
+    return res.status(400).json({ error: 'Enter a valid Ethiopian phone number (+251XXXXXXXXX)' });
+  }
+  if (email !== undefined && email !== null && email !== '') {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email).trim())) {
+      return res.status(400).json({ error: 'Please enter a valid email address' });
+    }
+  }
+
+  try {
+    const existingUser = await db.select().from(users).where(eq(users.phone, normalizedPhone)).get();
+    if (existingUser) {
+      return res.status(409).json({ error: 'A user with this phone number already exists' });
+    }
+
+    let staffRow: any = null;
+    if (staff_id) {
+      staffRow = await db.select().from(staff)
+        .where(and(eq(staff.id, staff_id), eq(staff.tenantId, tenantId))).get();
+      if (!staffRow) return res.status(404).json({ error: 'Staff not found for this tenant' });
+    }
+
+    const tempPassword = crypto.randomBytes(18).toString('base64url');
+    const passwordHash = await bcrypt.hash(tempPassword, 10);
+
+    const userId = crypto.randomUUID();
+    await db.insert(users).values({
+      id: userId,
+      tenantId,
+      name: String(name).trim(),
+      phone: normalizedPhone,
+      email: email ? String(email).trim().toLowerCase() : null,
+      passwordHash,
+      role: 'staff',
+      createdAt: Date.now(),
+    });
+
+    if (staffRow) {
+      await db.update(staff).set({ userId }).where(eq(staff.id, staffRow.id));
+    } else {
+      const newStaffId = crypto.randomUUID();
+      await db.insert(staff).values({
+        id: newStaffId,
+        tenantId,
+        userId,
+        name: String(name).trim(),
+        title: null,
+        bio: null,
+        imagePath: null,
+        active: true,
+      });
+    }
+
+    const resetToken = crypto.randomUUID();
+    await db.insert(passwordResets).values({
+      id: crypto.randomUUID(),
+      token: resetToken,
+      userId,
+      expiresAt: Date.now() + 15 * 60 * 1000,
+    });
+
+    const resetUrl = `${process.env.APP_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
+
+    res.status(201).json({
+      success: true,
+      userId,
+      staffId: staffRow?.id ?? null,
+      resetUrl,
+    });
+  } catch (error) {
+    console.error('Invite staff error:', error);
+    res.status(500).json({ error: 'Failed to invite staff' });
+  }
+});
 
 router.put('/staff/:id', async (req, res) => {
   const { tenantId } = (req as any).user;
@@ -436,7 +514,7 @@ router.post('/page', async (req, res) => {
   }
 });
 
-router.post('/upload', upload.single('file'), async (req, res) => {
+router.post('/upload', uploadLimiter, upload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
   const { tenantId } = (req as any).user;

@@ -1,9 +1,8 @@
 {
   "siteName": "Egebeya",
-  "siteTagline": "the booking is confirmed before the chair is held.",
-  "siteDescription": "Egebeya (ኢ-ገበያ) is the booking form that takes a Telebirr deposit before the slot exists. Built for Ethiopian salons, clinics, barbershops — where no-show used to mean no answer.",
+  "siteTagline": "No-show used to mean no answer. Now it means deposit paid.",
+  "siteDescription": "Egebeya (ኢ-ገበያ) takes a Telebirr deposit before the slot exists. Built for Ethiopian salons, clinics, barbershops — where ቁጥር means your turn is guaranteed.",
   "siteDescriptionShort": "The deposit confirms the booking.",
-
   "nav": {
     "tariff": "Tariff",
     "pricing": "Pricing",
@@ -14,11 +13,11 @@
     "dashboard": "Dashboard",
     "signOut": "Sign Out"
   },
-
   "lead": {
     "headingAm": "ተወሰነ በውሉ፣",
-    "subheading": "the booking is confirmed before the chair is held.",
-    "description": "Egebeya (ኢ-ገበያ) is the booking form that takes a Telebirr deposit before the slot exists. Built for Ethiopian salons, clinics, barbershops — where no-show used to mean no answer.",
+    "subheading": "No-show used to mean no answer.",
+    "subheadingEmphasis": "Now it means deposit paid.",
+    "description": "Egebeya (ኢ-ገበያ) takes a Telebirr deposit before the slot exists. Built for Ethiopian salons, clinics, barbershops — where ቁጥር means your turn is guaranteed.",
     "cta": "Open your booking form",
     "ctaFree": "14 days free",
     "ctaTariff": "today's tariff",
@@ -28,7 +27,16 @@
     "issue": "ISSUE",
     "depositClears": "DEPOSIT CLEARS"
   },
-
+  "trustBar": {
+    "ledger": "LIVE LEDGER",
+    "ledgerAm": "የቀጥታ መዝገብ",
+    "city": "Addis Ababa",
+    "cityAm": "አዲስ አበባ",
+    "verified": "Telebirr verified",
+    "verifiedAm": "ቴሌቢር ተረጋግጧል",
+    "noCard": "No card required",
+    "noCardAm": "ካርድ አያስፈልግም"
+  },
   "proofForm": {
     "title": "Booking record",
     "ref": "REF",
@@ -47,16 +55,19 @@
     "pressStamp": "Press the stamp to see how the deposit clears the slot.",
     "pressStampShort": "press the stamp"
   },
-
   "tariffSection": {
     "heading": "Today's tariff.",
-    "headingAm": "የዛሬ ዝርዝር።",
-    "everyTenant": "every tenant publishes their own",
+    "headingAm": "የዛሬ ዋጋ።",
+    "everyTenant": "every business publishes their own — prices update at 06:00 EAT",
+    "lastUpdated": "last updated · today, 06:00 EAT",
+    "location": "Bole, Addis Ababa",
+    "locationAm": "ቦሌ፣ አዲስ አበባ",
+    "book": "BOOK",
+    "bookAm": "ተይዟል",
     "synthetic": "Synthetic demonstration tariffs — your numbers replace these on day one.",
     "staffOfChoice": "staff of choice",
     "min": "min"
   },
-
   "services": {
     "manicure": "Manicure",
     "pedicure": "Pedicure",
@@ -67,7 +78,6 @@
     "haircutHint": "ፀጉር",
     "massageHint": "ቁርጥጥ"
   },
-
   "queueSection": {
     "heading": "Walk in. See the queue. Take",
     "headingAm": "ቁጥር",
@@ -77,11 +87,50 @@
     "day": "ቀን",
     "booked": "booked",
     "illustrative": "illustrative — not a live screen",
+    "nowServing": "NOW SERVING",
+    "nowServingAm": "በአገልግሎት",
+    "addis": "ADDIS TIME",
     "privacy": "For privacy, customer names never appear — only time and service.",
     "with": "with",
     "staffLabel": "ሰራተኛ"
   },
-
+  "pricing": {
+    "eyebrow": "Pricing",
+    "eyebrowAm": "ዋጋ",
+    "heading": "Rent a chair on the internet.",
+    "headingAm": "ዋጋ።",
+    "sub": "One floor price keeps things upright. Every plan runs on Telebirr deposit.",
+    "basicTag": "PLAN 01 · BASIC",
+    "proTag": "PLAN 02 · PRO",
+    "basicTitle": "Basic",
+    "proTitle": "The full counter",
+    "basicDesc": "A starting counter that takes bookings straight away.",
+    "proDesc": "The full counter for salons that want their own name and reach.",
+    "basicPrice": "Free",
+    "proPrice": "ETB 1,000",
+    "month": "/month",
+    "basicCta": "Start Free Trial",
+    "proCta": "Start Free Trial",
+    "mostPopular": "Most popular",
+    "mostPopularAm": "ተወዳጅ",
+    "seal": "APPROVED",
+    "sealAm": "ጸድቋል",
+    "basicFeatures": [
+      "Website for your business",
+      "Online booking",
+      "Up to 2 staff",
+      "Egebeya subdomain"
+    ],
+    "proFeatures": [
+      "Website for your business",
+      "Online booking",
+      "Up to 10 staff",
+      "Custom domain",
+      "Advanced analytics",
+      "AI marketing",
+      "Priority support"
+    ]
+  },
   "counterClose": {
     "owner": "IF YOU OWN THE BUSINESS",
     "ownerAm": "ባለቤት",
@@ -109,7 +158,6 @@
     "customerStep4Am": "ወንብር",
     "customerCta": "browse Egebeya businesses"
   },
-
   "footer": {
     "tagline": "The deposit confirms it. Built in Addis for Ethiopian service businesses.",
     "product": "PRODUCT",
@@ -123,7 +171,6 @@
     "depositClears": "DEPOSIT CLEARS",
     "noShowSolved": "no-show is no-answer solved"
   },
-
   "booking": {
     "takeNumber": "Take a number.",
     "takeNumberAm": "ቁጥር ይዘው።",
@@ -178,9 +225,13 @@
     "payment": "payment",
     "with": "with",
     "at": "at",
-    "addis": "(Addis)"
+    "addis": "(Addis)",
+    "manageBooking": "Manage booking",
+    "reference": "Reference",
+    "newDateTime": "New date & time (Addis Ababa)",
+    "reschedule": "Reschedule",
+    "cancel": "Cancel booking"
   },
-
   "publicTenant": {
     "loading": "LOADING",
     "loadingAm": "እባክዎ ይጠብቁ",
@@ -195,12 +246,10 @@
     "newTenant": "FORM EGB-PUB · NEW TENANT",
     "bookOnline": "Book Online"
   },
-
   "languageToggle": {
     "en": "English",
     "am": "አማርኛ"
   },
-
   "register": {
     "title": "Open your booking form.",
     "amTitle": "የምርመራ ቅጹን ይሙሉ።",
@@ -236,7 +285,6 @@
     "alreadyOnRolls": "Already on the rolls?",
     "lede": "One signup provisions a tenant, a free plan, and a public booking site on {slug}.egebeya.et. The wizard closes — your site is live. Fill the form below, line by line; the Telebirr deposit arrives the moment it would."
   },
-
   "setup": {
     "welcome": "Welcome to Egebeya",
     "welcomeAm": "እንኳን ወደ ኢ-ገበያ በደህና መጡ"

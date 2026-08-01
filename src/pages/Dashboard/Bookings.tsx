@@ -14,25 +14,17 @@ export function Bookings() {
   const [calendarDisplay, setCalendarDisplay] = useState<'ethiopian' | 'gregorian'>('ethiopian'); // assume ethiopian by default or fetch it
 
   useEffect(() => {
-    // Optionally fetch settings if we had a dedicated endpoint, but we can decode token
-    const token = localStorage.getItem('token');
-    if (token) {
-      try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        // If settings were in token, we could use them.
-        // For now let's try fetching public settings if we know the subdomain.
-        const tenantSlug = localStorage.getItem('tenantSlug');
-        if (tenantSlug) {
-           fetch('/api/public/page', { headers: { 'X-Tenant-Slug': tenantSlug }})
-             .then(res => res.json())
-             .then(data => {
-               if (data.tenant?.settings?.calendar_display) {
-                 setCalendarDisplay(data.tenant.settings.calendar_display);
-               }
-             })
-             .catch(console.error);
-        }
-      } catch(e) {}
+    // Fetch the tenant's calendar preference from the public page payload.
+    const tenantSlug = localStorage.getItem('tenantSlug');
+    if (tenantSlug) {
+      fetch('/api/public/page', { headers: { 'X-Tenant-Slug': tenantSlug } })
+        .then(res => res.json())
+        .then(data => {
+          if (data.tenant?.calendar_display) {
+            setCalendarDisplay(data.tenant.calendar_display);
+          }
+        })
+        .catch(console.error);
     }
   }, []);
 

@@ -3,9 +3,9 @@ import { db } from '../db';
 import { tenants, services, staff, staffServices, staffAvailability, appointments, tenantBusinessHours, tenantClosures, pages, payments, users } from '../db/schema';
 import { eq, and, inArray, gte, lt, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
-import { format, parseISO } from 'date-fns';
 import crypto from 'crypto';
 import { sendMail } from '../../server/lib/mailer';
+import { logSecurityEvent, ipFromRequest } from '../../server/lib/securityLog';
 import {
   initiateDirectCharge,
   authorizeDirectCharge,
@@ -17,22 +17,28 @@ import {
   parseAddisDate,
   formatAddisSlotTime,
   getAddisDateString,
-  toAddis,
 } from '../../server/lib/timezone';
+import {
+  isTurnstileConfigured,
+  verifyTurnstileToken,
+} from '../../server/lib/turnstile';
+import {
+  bookingWriteLimiter,
+  publicReadLimiter,
+  discoverLimiter,
+} from '../../server/middleware/rateLimiter';
+import { normalizePhone } from '../lib/phone';
+import { strictCsp } from '../../server/middleware/csp';
 
 const router = Router();
 
+// Strict CSP for all public tenant-facing responses (JSON here, but the
+// header is what matters when these become HTML surfaces).
+router.use(strictCsp);
+
 // Public, tenant-agnostic directory used by /discover. Must be registered
-// BEFORE the tenant-resolution middleware below so it does not require a
-// tenant slug.
-//
-// The directory surfaces ONLY real data the tenant has supplied: their name,
-// category, chosen city (if they've filled one in Settings General), and the
-// hero image they uploaded in the Puck editor. Until a tenant has at least
-// one past/active booking we surface "isNew": true so the frontend can show
-// a "New" pill instead of fabricating a 4.8/5 average rating (there is no
-// review system, so any rating would be a lie).
-router.get('/discover', async (_req, res) => {
+// BEFORE the tenant-resolution middleware below.
+router.get('/discover', discoverLimiter, async (_req, res) => {
   try {
     const rows = await db.select({
       id: tenants.id,
@@ -51,10 +57,6 @@ router.get('/discover', async (_req, res) => {
       return res.json([]);
     }
 
-    // One round-trip: pages for hero images + a per-tenant booking count.
-    // "real" bookings = anything that is confirmed or completed (not pending,
-    // not cancelled, not no_show — those tell us nothing about whether the
-    // business has actually served anyone).
     const tenantIds = rows.map((r) => r.id);
 
     const [pageRows, bookingRows] = await Promise.all([
@@ -95,13 +97,7 @@ router.get('/discover', async (_req, res) => {
         slug: r.slug,
         category: r.category,
         city,
-        // Only return a hero image that's actually the tenant's uploaded media
-        // (path under /uploads). Reject default Unsplash URLs that ship with
-        // the Puck template — those tell /discover nothing about the tenant
-        // and would re-introduce fabricated-looking stock photos.
         heroImage: pickTenantMedia(heroByTenant.get(r.id) || null),
-        // True only when this tenant has never had a confirmed/completed
-        // booking — the frontend shows "New" instead of a rating.
         isNew: realBookings === 0,
         createdAt: r.createdAt,
       };
@@ -114,11 +110,13 @@ router.get('/discover', async (_req, res) => {
   }
 });
 
-// Walk a Puck page JSON document and pull the `backgroundImage` off the first
-// Hero block. Puck stores blocks under `content: [{type, props, data}]` after
-// our editor publishes, or after the onboarding wizard's auto-generated layout.
-// Returns null when there's no Hero block, no `backgroundImage` prop, or the
-// document shape is unexpected.
+// Turnstile widget configuration for the public booking flow. Public (the
+// site key is client-safe); the server enforces the token on submit when a
+// secret key is configured.
+router.get('/turnstile-config', (_req, res) => {
+  res.json({ siteKey: process.env.TURNSTILE_SITE_KEY?.trim() || null });
+});
+
 function extractHeroImage(pageContent: any): string | null {
   if (!pageContent || typeof pageContent !== 'object') return null;
   const blocks = Array.isArray(pageContent.content)
@@ -135,10 +133,6 @@ function extractHeroImage(pageContent: any): string | null {
   return null;
 }
 
-// Accept only media the tenant uploaded themselves (served from our
-// /uploads/<tenantId>/... path). Anything else (Unsplash defaults shipped with
-// the Puck template, ui-avatars placeholders, etc.) is treated as "no image"
-// so /discover falls back to a plain branded placeholder, never a stock photo.
 function pickTenantMedia(url: string | null): string | null {
   if (!url) return null;
   const trimmed = url.trim();
@@ -149,28 +143,70 @@ function pickTenantMedia(url: string | null): string | null {
   return null;
 }
 
-// Middleware to resolve tenant from X-Tenant-Slug header or Host
+// Public tenant view — a whitelist of fields, never the raw DB row. Internal
+// fields (id, createdAt, notification_email, onboarding_completed, …) must
+// not reach public consumers. The keys the public booking flow genuinely
+// needs (calendar_display, require_payment_upfront, social links) are
+// flattened onto the tenant object.
+function publicTenantView(tenant: any): any {
+  const settings = (tenant.settings as any) || {};
+  const view: Record<string, unknown> = {
+    name: tenant.name,
+    slug: tenant.slug,
+    category: tenant.category ?? null,
+    description: typeof settings.description === 'string' && settings.description.trim()
+      ? settings.description.trim()
+      : null,
+    calendar_display: settings.calendar_display === 'ethiopian' ? 'ethiopian' : 'gregorian',
+    require_payment_upfront: settings.require_payment_upfront === true,
+  };
+  for (const key of ['social_telegram', 'social_facebook', 'social_instagram', 'social_tiktok']) {
+    if (typeof settings[key] === 'string' && settings[key].trim()) {
+      view[key] = settings[key].trim();
+    }
+  }
+  return view;
+}
+
+// Middleware to resolve tenant from X-Tenant-Slug header or Host. Slugs are
+// resolved case-insensitively; suspended tenants are rejected with 403
+// TENANT_SUSPENDED.
 router.use(async (req, res, next) => {
   let slug = req.headers['x-tenant-slug'] as string;
-  
+
   if (!slug) {
     const host = req.headers.host || '';
     slug = host.split('.')[0];
   }
-  
+
   if (!slug) {
     return res.status(400).json({ error: 'Tenant slug not found' });
   }
 
-  const tenant = await db.select().from(tenants).where(eq(tenants.slug, slug)).get();
-  
+  const rawSlug = String(slug).trim();
+  const tenant = await db.select().from(tenants)
+    .where(or(eq(tenants.slug, rawSlug), eq(tenants.slug, rawSlug.toLowerCase())))
+    .get();
+
   if (!tenant) {
     return res.status(404).json({ error: 'Tenant not found' });
   }
-  
+
+  if (tenant.isSuspended) {
+    logSecurityEvent({
+      type: 'suspended_tenant_request',
+      tenantId: tenant.id,
+      ip: ipFromRequest(req),
+      details: { path: req.path },
+    });
+    return res.status(403).json({ error: 'This business has been suspended', code: 'TENANT_SUSPENDED' });
+  }
+
   (req as any).tenant = tenant;
   next();
 });
+
+router.use(publicReadLimiter);
 
 router.get('/business-hours', async (req, res) => {
   const tenant = (req as any).tenant;
@@ -189,8 +225,9 @@ router.get('/page', async (req, res) => {
   const tenant = (req as any).tenant;
   try {
     const page = await db.select().from(pages).where(eq(pages.tenantId, tenant.id)).get();
-    res.json({ tenant, page });
+    res.json({ tenant: publicTenantView(tenant), page });
   } catch (error) {
+    console.error('Failed to fetch page data:', error);
     res.status(500).json({ error: 'Failed to fetch page data' });
   }
 });
@@ -213,29 +250,36 @@ router.get('/staff', async (req, res) => {
   const serviceId = req.query.service_id as string;
 
   try {
-    let query = db.select({
+    const staffMembers = await db.select({
       id: staff.id,
       name: staff.name,
       title: staff.title,
       bio: staff.bio,
       imagePath: staff.imagePath,
-    }).from(staff).where(and(eq(staff.tenantId, tenant.id), eq(staff.active, true)));
+    }).from(staff).where(and(eq(staff.tenantId, tenant.id), eq(staff.active, true))).all();
 
-    const staffMembers = await query.all();
-    
     if (serviceId) {
-      // Filter by staff that provide this service
-      const mappings = await db.select().from(staffServices).where(eq(staffServices.serviceId, serviceId)).all();
-      const staffIds = mappings.map(m => m.staffId);
-      const filtered = staffMembers.filter(s => staffIds.includes(s.id));
-      return res.json(filtered);
+      const mappings = await getStaffServicesForServiceInTenant(tenant.id, serviceId);
+      const staffIds = new Set(mappings.map((m: any) => m.staffId));
+      return res.json(staffMembers.filter((s: any) => staffIds.has(s.id)));
     }
-    
+
     res.json(staffMembers);
   } catch (error) {
+    console.error('Failed to fetch staff:', error);
     res.status(500).json({ error: 'Failed to fetch staff' });
   }
 });
+
+async function getStaffServicesForServiceInTenant(tenantId: string, serviceId: string) {
+  const tenantStaff = await db.select({ id: staff.id }).from(staff)
+    .where(eq(staff.tenantId, tenantId)).all();
+  if (!tenantStaff.length) return [];
+  const staffIds = tenantStaff.map((s) => s.id);
+  return db.select().from(staffServices)
+    .where(and(eq(staffServices.serviceId, serviceId), inArray(staffServices.staffId, staffIds)))
+    .all();
+}
 
 router.get('/availability', async (req, res) => {
   const tenant = (req as any).tenant;
@@ -246,49 +290,47 @@ router.get('/availability', async (req, res) => {
   }
 
   try {
-    // The date param is interpreted as a calendar date in Addis Ababa timezone.
+    // Cross-tenant guard: staff_id must belong to THIS tenant.
+    const ownedStaff = await db.select({ id: staff.id }).from(staff)
+      .where(and(eq(staff.id, staff_id as string), eq(staff.tenantId, tenant.id))).get();
+    if (!ownedStaff) {
+      logSecurityEvent({
+        type: 'cross_tenant_attempt',
+        tenantId: tenant.id,
+        ip: ipFromRequest(req),
+        details: { path: req.path, staffId: staff_id },
+      });
+      return res.json([]);
+    }
+
     const addisMidnight = parseAddisDate(date as string);
     const addisDayEnd = new Date(addisMidnight.getTime() + 24 * 3600 * 1000);
     const dayOfWeek = getAddisDayOfWeek(addisMidnight);
     const dateString = getAddisDateString(addisMidnight);
 
-    // 0. Reject past dates explicitly — the frontend disables them, but the
-    //    backend must never return slots for a day that has already begun.
     if (addisDayEnd.getTime() <= Date.now()) {
-      return res.status(422).json({
-        error: 'Cannot fetch availability for a past date.',
-        code: 'PAST_DATE',
-      });
+      return res.status(422).json({ error: 'Cannot fetch availability for a past date.', code: 'PAST_DATE' });
     }
 
-    // 1. Check tenant closures
     const closures = await db.select().from(tenantClosures).where(
       and(eq(tenantClosures.tenantId, tenant.id), eq(tenantClosures.date, dateString))
     ).all();
 
     if (closures.length > 0) {
-      return res.status(422).json({
-        error: 'The business is closed on this date.',
-        code: 'CLOSED_DATE',
-      });
+      return res.status(422).json({ error: 'The business is closed on this date.', code: 'CLOSED_DATE' });
     }
 
-    // 2. Check tenant business hours for that Addis day-of-week
     const businessHours = await db.select().from(tenantBusinessHours).where(
       and(eq(tenantBusinessHours.tenantId, tenant.id), eq(tenantBusinessHours.dayOfWeek, dayOfWeek))
     ).get();
 
     if (businessHours?.isClosed) {
-      return res.status(422).json({
-        error: 'The business is closed on this day of the week.',
-        code: 'CLOSED_DAY',
-      });
+      return res.status(422).json({ error: 'The business is closed on this day of the week.', code: 'CLOSED_DAY' });
     }
 
     const tOpen = businessHours?.openTime || '00:00';
     const tClose = businessHours?.closeTime || '23:59';
 
-    // 3. Check staff availability for that day-of-week
     const availabilities = await db.select().from(staffAvailability).where(
       and(eq(staffAvailability.staffId, staff_id as string), eq(staffAvailability.dayOfWeek, dayOfWeek))
     ).all();
@@ -297,17 +339,16 @@ router.get('/availability', async (req, res) => {
       return res.json([]);
     }
 
-    // Fetch appointments overlapping this Addis day (with ~1h margin)
     const staffAppointments = await db.select().from(appointments).where(
       and(
         eq(appointments.staffId, staff_id as string),
+        eq(appointments.tenantId, tenant.id),
         or(eq(appointments.status, 'confirmed'), eq(appointments.status, 'pending')),
         gte(appointments.startTime, addisMidnight.getTime() - 3600_000),
         lt(appointments.startTime, addisDayEnd.getTime() + 3600_000)
       )
     ).all();
 
-    // Helper: parse "HH:MM" as minutes since midnight
     const parseTime = (t: string) => {
       const [h, m] = t.split(':').map(Number);
       return h * 60 + m;
@@ -323,7 +364,6 @@ router.get('/availability', async (req, res) => {
       if (startMin >= endMin) continue;
 
       for (let min = startMin; min < endMin - 29; min += 30) {
-        // Build UTC Date for this slot: addisMidnight + min*60*1000
         const slotUtcMs = addisMidnight.getTime() + min * 60 * 1000;
         const slotEndUtcMs = slotUtcMs + 30 * 60 * 1000;
 
@@ -337,107 +377,125 @@ router.get('/availability', async (req, res) => {
       }
     }
 
-    const uniqueSlots = Array.from(new Set(slots)).sort();
-    res.json(uniqueSlots);
+    res.json(Array.from(new Set(slots)).sort());
   } catch (error) {
     console.error('Availability error:', error);
     res.status(500).json({ error: 'Failed to fetch availability' });
   }
 });
 
-// Ethiopian phone format: +251 followed by 9 digits.
-const PHONE_RE = /^\+251\d{9}$/;
-
 const BookingSchema = z.object({
   staff_id: z.string().uuid(),
   service_id: z.string().uuid(),
-  // Accept both UTC "...Z" and timezone-offset "...+03:00" ISO timestamps
   start_time: z.string().datetime({ offset: true }),
   customer_name: z.string().min(1),
-  customer_phone: z
-    .string()
-    .regex(PHONE_RE, 'Enter a valid Ethiopian phone number (+251XXXXXXXXX)'),
+  customer_phone: z.string().min(1),
   customer_email: z.string().email().optional().or(z.literal('')),
 });
 
-router.post('/bookings', async (req, res) => {
+async function assertSlotAllowed(tenant: any, startTimeMs: number): Promise<{ code: string; error: string } | null> {
+  if (!Number.isFinite(startTimeMs)) {
+    return { code: 'INVALID_TIME', error: 'Invalid start_time. Expected an ISO 8601 timestamp.' };
+  }
+  if (startTimeMs <= Date.now()) {
+    return { code: 'PAST_DATE', error: 'Cannot book a time in the past.' };
+  }
+
+  const slotStartDate = new Date(startTimeMs);
+  const slotDayOfWeek = getAddisDayOfWeek(slotStartDate);
+  const slotDateString = getAddisDateString(slotStartDate);
+
+  const closures = await db.select().from(tenantClosures).where(
+    and(eq(tenantClosures.tenantId, tenant.id), eq(tenantClosures.date, slotDateString))
+  ).all();
+  if (closures.length > 0) {
+    return { code: 'CLOSED_DATE', error: 'The business is closed on this date.' };
+  }
+
+  const businessHours = await db.select().from(tenantBusinessHours).where(
+    and(eq(tenantBusinessHours.tenantId, tenant.id), eq(tenantBusinessHours.dayOfWeek, slotDayOfWeek))
+  ).get();
+  if (businessHours?.isClosed) {
+    return { code: 'CLOSED_DAY', error: 'The business is closed on this day of the week.' };
+  }
+
+  return null;
+}
+
+async function findSlotConflict(tenantId: string, staffId: string, startMs: number, endMs: number, excludeAppointmentId?: string) {
+  const filter = and(
+    eq(appointments.tenantId, tenantId),
+    eq(appointments.staffId, staffId),
+    or(eq(appointments.status, 'confirmed'), eq(appointments.status, 'pending')),
+    lt(appointments.startTime, endMs),
+    gte(appointments.endTime, startMs),
+  );
+  const where = excludeAppointmentId
+    ? and(filter, sql`${appointments.id} != ${excludeAppointmentId}`)
+    : filter;
+  return db.select({ id: appointments.id }).from(appointments).where(where).get();
+}
+
+router.post('/bookings', bookingWriteLimiter, async (req, res) => {
   const tenant = (req as any).tenant;
-  
+
   try {
     const data = BookingSchema.parse(req.body);
-    
+
+    // Bot check: server-side Turnstile (enforced when a secret is configured).
+    if (isTurnstileConfigured()) {
+      const token = (req.body as any)?.turnstile_token;
+      if (!token) {
+        return res.status(422).json({ error: 'Bot check required. Please verify you are human.', code: 'TURNSTILE_MISSING' });
+      }
+      const verify = await verifyTurnstileToken(token);
+      if (!verify.success) {
+        return res.status(422).json({ error: 'Bot check failed. Please retry the verification.', code: 'TURNSTILE_INVALID' });
+      }
+    }
+
+    // Cross-tenant guards: service AND staff must belong to THIS tenant.
     const service = await db.select().from(services).where(eq(services.id, data.service_id)).get();
-    if (!service) return res.status(404).json({ error: 'Service not found' });
-    
+    if (!service || service.tenantId !== tenant.id) {
+      return res.status(404).json({ error: 'Service not found' });
+    }
+    const staffRow = await db.select({ id: staff.id }).from(staff)
+      .where(and(eq(staff.id, data.staff_id), eq(staff.tenantId, tenant.id))).get();
+    if (!staffRow) {
+      logSecurityEvent({
+        type: 'cross_tenant_attempt',
+        tenantId: tenant.id,
+        ip: ipFromRequest(req),
+        details: { path: req.path, staffId: data.staff_id },
+      });
+      return res.status(404).json({ error: 'Staff not found' });
+    }
+
+    const customerPhone = normalizePhone(data.customer_phone);
+    if (!customerPhone) {
+      return res.status(422).json({ error: 'Enter a valid Ethiopian phone number' });
+    }
+
     const startTimeMs = new Date(data.start_time).getTime();
     const endTimeMs = startTimeMs + service.durationMinutes * 60000;
 
-    // ---- Server-side past-date / closed-day / closure validation ----
-    // The PHP-style rule of "never trust the client" means we always re-check
-    // these on the backend, regardless of what the UI disables.
-    if (!Number.isFinite(startTimeMs)) {
-      return res.status(422).json({
-        error: 'Invalid start_time. Expected an ISO 8601 timestamp.',
-        code: 'INVALID_TIME',
-      });
-    }
-    if (startTimeMs <= Date.now()) {
-      return res.status(422).json({
-        error: 'Cannot book a time in the past.',
-        code: 'PAST_DATE',
-      });
-    }
-
-    const slotStartDate = new Date(startTimeMs);
-    const slotDayOfWeek = getAddisDayOfWeek(slotStartDate);
-    const slotDateString = getAddisDateString(slotStartDate);
-
-    // Closure check (an explicit one-off closed date).
-    const closures = await db.select().from(tenantClosures).where(
-      and(eq(tenantClosures.tenantId, tenant.id), eq(tenantClosures.date, slotDateString))
-    ).all();
-    if (closures.length > 0) {
-      return res.status(422).json({
-        error: 'The business is closed on this date.',
-        code: 'CLOSED_DATE',
-        date: slotDateString,
-      });
-    }
-
-    // Business hours / isClosed day-of-week check.
-    const businessHours = await db.select().from(tenantBusinessHours).where(
-      and(eq(tenantBusinessHours.tenantId, tenant.id), eq(tenantBusinessHours.dayOfWeek, slotDayOfWeek))
-    ).get();
-    if (businessHours?.isClosed) {
-      return res.status(422).json({
-        error: 'The business is closed on this day of the week.',
-        code: 'CLOSED_DAY',
-      });
+    const slotError = await assertSlotAllowed(tenant, startTimeMs);
+    if (slotError) {
+      return res.status(422).json(slotError);
     }
 
     const requiresPayment = (tenant.settings?.require_payment_upfront === true);
     const initialStatus = requiresPayment ? 'pending' : 'confirmed';
 
-    // ---- Phase 1: insert the appointment (+ pending payment row if needed) ----
     const appId = crypto.randomUUID();
     let paymentId: string | null = null;
     let txRef: string | null = null;
 
     try {
-      // Use BEGIN IMMEDIATE so a write lock is acquired up front. With the
-      // default deferred transaction, two concurrent bookings could both pass
-      // the conflict-check read and then race to insert — producing a double
-      // write. With 'immediate', the second transaction blocks until the
-      // first commits, then re-evaluates the conflict and bails out with 409.
       await db.transaction(async (tx) => {
-        // Schema note: appointments.staffId is the row we want to lock,
-        // and SQLite (libsql) has no SELECT ... FOR UPDATE — it acquires
-        // a file-wide write lock on BEGIN IMMEDIATE, so any concurrent
-        // booking for the same staff_id serializes through this lock.
-        // The conflict re-read below sees the freshly-inserted row.
-
         const conflicting = await tx.select().from(appointments).where(
           and(
+            eq(appointments.tenantId, tenant.id),
             eq(appointments.staffId, data.staff_id),
             or(eq(appointments.status, 'confirmed'), eq(appointments.status, 'pending')),
             lt(appointments.startTime, endTimeMs),
@@ -455,7 +513,7 @@ router.post('/bookings', async (req, res) => {
           staffId: data.staff_id,
           serviceId: data.service_id,
           customerName: data.customer_name,
-          customerPhone: data.customer_phone,
+          customerPhone,
           customerEmail: data.customer_email || null,
           startTime: startTimeMs,
           endTime: endTimeMs,
@@ -485,20 +543,17 @@ router.post('/bookings', async (req, res) => {
       throw err;
     }
 
-    // ---- Phase 2: Chapa direct charge (only when upfront payment is required) ----
     let finalStatus = initialStatus;
     let paymentStatus: string | null = null;
 
     if (requiresPayment && txRef && paymentId) {
-      const amountBirr = (service.price / 100).toFixed(2); // cents -> birr
-      // Reuse customer_name as the first name for the charge
+      const amountBirr = (service.price / 100).toFixed(2);
       const firstName = data.customer_name.split(' ')[0] || data.customer_name;
       const lastName = data.customer_name.split(' ').slice(1).join(' ') || undefined;
 
       try {
-        // Step (c) initiate
         const init = await initiateDirectCharge(
-          data.customer_phone,
+          customerPhone,
           amountBirr,
           txRef,
           firstName,
@@ -506,10 +561,8 @@ router.post('/bookings', async (req, res) => {
           data.customer_email || undefined,
         );
 
-        // Step (e) authorize (test mode succeeds instantly)
         await authorizeDirectCharge(init.ref_id);
 
-        // Step (f) verify
         let verifiedStatus: string = 'pending';
         try {
           const verification = await verifyPayment(txRef);
@@ -528,7 +581,6 @@ router.post('/bookings', async (req, res) => {
           paymentStatus = 'pending';
         }
       } catch (chapaErr: any) {
-        // Step (d) rollback: delete the appointment and the pending payment row
         console.error('Chapa initiation failed — rolling back payment+appointment:', chapaErr?.message || chapaErr);
         try {
           await db.delete(payments).where(eq(payments.id, paymentId));
@@ -536,21 +588,12 @@ router.post('/bookings', async (req, res) => {
         try {
           await db.delete(appointments).where(eq(appointments.id, appId));
         } catch {}
-        return res.status(402).json({
-          error: 'Payment initiation failed. Booking was not created.',
-          detail: chapaErr?.message || 'Chapa error',
-        });
+        return res.status(402).json({ error: 'Payment initiation failed. Booking was not created.' });
       }
     }
 
-    const result = {
-      id: appId,
-      status: finalStatus,
-      paymentStatus,
-      data,
-    };
+    const result = { id: appId, status: finalStatus, paymentStatus, data };
 
-    // Send confirmation emails asynchronously (only when actually booked)
     const appointmentDateStr = new Date(startTimeMs).toLocaleString('en-US', { timeZone: 'Africa/Addis_Ababa' });
     if (result.data.customer_email) {
       sendMail({
@@ -559,7 +602,7 @@ router.post('/bookings', async (req, res) => {
         text: `Hello ${result.data.customer_name},\n\nYour appointment for ${service.name} is ${result.status}.\nDate: ${appointmentDateStr}\n\nThank you for choosing ${tenant.name}!`,
       }).catch(console.error);
     }
-    
+
     const owner = await db.select().from(users).where(eq(users.tenantId, tenant.id)).get();
     if (owner && owner.email) {
       sendMail({
@@ -582,8 +625,104 @@ router.post('/bookings', async (req, res) => {
   }
 });
 
-// Public "today's queue" endpoint — returns upcoming appointments for a given
-// date in the tenant's timezone. Does not expose customer names.
+// Public booking ownership lookup: id + customer phone are both required.
+async function resolveOwnedBooking(req: any, res: any): Promise<any | null> {
+  const tenant = (req as any).tenant;
+  const { id } = req.params;
+  const phone = normalizePhone((req.body as any)?.customer_phone);
+  if (!phone) {
+    res.status(400).json({ error: 'A valid Ethiopian phone number is required' });
+    return null;
+  }
+  const appt = await db.select().from(appointments)
+    .where(and(eq(appointments.id, id), eq(appointments.tenantId, tenant.id))).get();
+  if (!appt) {
+    res.status(404).json({ error: 'Booking not found' });
+    return null;
+  }
+  if (appt.customerPhone !== phone) {
+    res.status(403).json({ error: 'Phone number does not match this booking' });
+    return null;
+  }
+  return appt;
+}
+
+router.post('/bookings/:id/cancel', bookingWriteLimiter, async (req, res) => {
+  const tenant = (req as any).tenant;
+  try {
+    const appt = await resolveOwnedBooking(req, res);
+    if (!appt) return;
+
+    if (!['pending', 'confirmed'].includes(appt.status)) {
+      return res.status(400).json({ error: 'Only pending or confirmed bookings can be cancelled.' });
+    }
+
+    await db.update(appointments).set({ status: 'cancelled' }).where(eq(appointments.id, appt.id));
+
+    const payment = await db.select().from(payments).where(eq(payments.appointmentId, appt.id)).get();
+    res.json({
+      success: true,
+      status: 'cancelled',
+      refundNote: payment && payment.status === 'completed'
+        ? 'A refund must be issued manually by the business.'
+        : undefined,
+    });
+  } catch (error) {
+    console.error('Cancel booking error:', error);
+    res.status(500).json({ error: 'Failed to cancel booking' });
+  }
+});
+
+router.post('/bookings/:id/reschedule', bookingWriteLimiter, async (req, res) => {
+  const tenant = (req as any).tenant;
+  try {
+    const appt = await resolveOwnedBooking(req, res);
+    if (!appt) return;
+
+    if (appt.status === 'cancelled') {
+      return res.status(400).json({ error: 'Cancelled bookings cannot be rescheduled.' });
+    }
+
+    const { start_time } = req.body as { start_time?: string };
+    if (!start_time) {
+      return res.status(400).json({ error: 'start_time is required' });
+    }
+    const startTimeMs = new Date(start_time).getTime();
+    if (!Number.isFinite(startTimeMs)) {
+      return res.status(422).json({ error: 'Invalid start_time. Expected an ISO 8601 timestamp.' });
+    }
+
+    const service = await db.select().from(services)
+      .where(and(eq(services.id, appt.serviceId), eq(services.tenantId, tenant.id))).get();
+    if (!service) {
+      return res.status(404).json({ error: 'Service not found' });
+    }
+    const endTimeMs = startTimeMs + service.durationMinutes * 60000;
+
+    const slotError = await assertSlotAllowed(tenant, startTimeMs);
+    if (slotError) return res.status(422).json(slotError);
+
+    const conflict = await findSlotConflict(tenant.id, appt.staffId, startTimeMs, endTimeMs, appt.id);
+    if (conflict) {
+      return res.status(409).json({ error: 'That time is no longer available' });
+    }
+
+    const requiresPayment = (tenant.settings?.require_payment_upfront === true);
+    const newStatus = requiresPayment ? 'pending' : 'confirmed';
+
+    await db.update(appointments).set({
+      startTime: startTimeMs,
+      endTime: endTimeMs,
+      status: newStatus,
+    }).where(eq(appointments.id, appt.id));
+
+    res.json({ success: true, appointment: { id: appt.id, startTime: startTimeMs, endTime: endTimeMs, status: newStatus } });
+  } catch (error) {
+    console.error('Reschedule booking error:', error);
+    res.status(500).json({ error: 'Failed to reschedule booking' });
+  }
+});
+
 router.get('/appointments', async (req, res) => {
   const tenant = (req as any).tenant;
   const { date } = req.query;

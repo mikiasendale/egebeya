@@ -5,12 +5,31 @@ import { useTranslation } from 'react-i18next';
 export function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState<string | null>(null);
   const { t, i18n } = useTranslation();
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 20);
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  useEffect(() => {
+    const ids = ['tariff', 'pricing'];
+    const sections = ids
+      .map((id) => document.getElementById(id))
+      .filter((el): el is HTMLElement => Boolean(el));
+    if (sections.length === 0) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) setActiveSection(`#${entry.target.id}`);
+        }
+      },
+      { rootMargin: '-35% 0px -55% 0px', threshold: 0 },
+    );
+    sections.forEach((s) => observer.observe(s));
+    return () => observer.disconnect();
   }, []);
 
   const toggleLang = () => {
@@ -55,8 +74,8 @@ export function Navbar() {
         </a>
 
         <div className="hidden md:flex items-center gap-7">
-          <NavLink href="#tariff">{t('nav.tariff')} · ዝርዝር</NavLink>
-          <NavLink href="#pricing">{t('nav.pricing')} · ዋጋ</NavLink>
+          <NavLink href="#tariff" active={activeSection === '#tariff'}>{t('nav.tariff')} · ዝርዝር</NavLink>
+          <NavLink href="#pricing" active={activeSection === '#pricing'}>{t('nav.pricing')} · ዋጋ</NavLink>
           <NavLink href="/discover">{t('nav.businesses')} · ንግድ</NavLink>
           <NavLink href="/login">{t('nav.login')} · ግባ</NavLink>
         </div>
@@ -90,7 +109,10 @@ export function Navbar() {
               letterSpacing: '0.01em',
             }}
           >
-            {t('nav.takeNumber')} · ፩
+            {t('nav.takeNumber')}&nbsp;
+            <span className="num-roller" aria-hidden>
+              <span>፩</span><span>፪</span><span>፫</span><span>፩</span>
+            </span>
           </a>
         </div>
 
@@ -155,7 +177,7 @@ export function Navbar() {
   );
 }
 
-function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
+function NavLink({ href, children, active }: { href: string; children: React.ReactNode; active?: boolean }) {
   return (
     <a
       href={href}
@@ -167,16 +189,14 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
         fontSize: '0.85rem',
         letterSpacing: '0.01em',
         paddingBottom: 4,
-        borderBottom: '4px solid var(--color-ink-rule)',
-        transition: 'border-color 140ms ease-out, border-bottom-width 60ms ease-out',
+        borderBottom: `4px solid ${active ? 'var(--color-telebirr)' : 'var(--color-ink-rule)'}`,
+        transition: 'border-color 140ms ease-out',
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.borderColor = 'var(--color-ink)';
-        e.currentTarget.style.borderBottomWidth = '6px';
+        if (!active) e.currentTarget.style.borderColor = 'var(--color-ink)';
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.borderColor = 'var(--color-ink-rule)';
-        e.currentTarget.style.borderBottomWidth = '4px';
+        if (!active) e.currentTarget.style.borderColor = 'var(--color-ink-rule)';
       }}
     >
       {children}

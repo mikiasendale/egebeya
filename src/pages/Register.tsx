@@ -26,11 +26,11 @@ export function Register() {
       });
       const data = await res.json();
       if (res.ok) {
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('refreshToken', data.refreshToken);
+        // Session lives in httpOnly cookies. Only non-secret UI hints here.
         if (data.tenantId) localStorage.setItem('tenantId', data.tenantId);
         if (data.tenant?.slug) localStorage.setItem('tenantSlug', data.tenant.slug);
         if (data.role) localStorage.setItem('role', data.role);
+        localStorage.setItem('isSuperadmin', data.isSuperadmin ? 'true' : 'false');
         navigate('/setup');
       } else { setError(data.error || 'Failed to register'); }
     } catch { setError('Network error'); }

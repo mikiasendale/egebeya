@@ -4,44 +4,30 @@ import {
   tenants, users, tenantSubscriptions, plans, appointments,
 } from '../db/schema';
 import { eq, sql, desc } from 'drizzle-orm';
-import jwt from 'jsonwebtoken';
+import { requireAuth } from './middleware/auth';
+import { csrfProtection } from './middleware/csrf';
+import { adminWriteLimiter } from '../../server/middleware/rateLimiter';
 
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'supersecret_fallback';
 
-/**
- * Auth gate: only JWTs that identify a superadmin may proceed.
- *
- * Layout note: we mount this as `router.use((req,res,next) => ...)` so EVERY
- * endpoint under /api/admin is gated the same way and a future endpoint can't
- * accidentally leak outside the superadmin filter.
- *
- * The `is_superadmin` flag is on the users table (NOT the JWT) — we verify
- * the JWT's `userId`, then look up the user fresh on every request so revoking
- * superadmin status takes effect immediately rather than after the token's
- * 15-min lifetime.
- */
+// Auth gate: only JWTs that identify a superadmin may proceed.
+//
+// The `is_superadmin` flag is on the users table (NOT the JWT) — we verify
+// the JWT's `userId`, then look up the user fresh on every request so
+// revoking superadmin status takes effect immediately. requireAuth also
+// verifies tokenVersion so a revoked session cannot reach admin surfaces.
+router.use(requireAuth());
+router.use(csrfProtection);
+router.use(adminWriteLimiter);
 router.use(async (req, res, next) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader?.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-  const token = authHeader.split(' ')[1];
   try {
-    const payload = jwt.verify(token, JWT_SECRET) as any;
-    if (!payload?.userId) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-    const user = await db.select().from(users).where(eq(users.id, payload.userId)).get();
+    const user = await db.select().from(users).where(eq(users.id, (req as any).user.userId)).get();
     if (!user) {
       return res.status(401).json({ error: 'User not found' });
     }
-    // The flag could have been removed since the JWT was issued; check the
-    // DB row, not the token claim, every single time.
     if (!(user as any).isSuperadmin) {
       return res.status(403).json({ error: 'Forbidden — superadmin only' });
     }
-    // Stamp the resolved user onto the request for downstream handlers.
     (req as any).user = {
       userId: user.id,
       tenantId: user.tenantId,
@@ -50,7 +36,7 @@ router.use(async (req, res, next) => {
       email: user.email,
     };
     next();
-  } catch {
+  } catch (err) {
     res.status(401).json({ error: 'Invalid token' });
   }
 });

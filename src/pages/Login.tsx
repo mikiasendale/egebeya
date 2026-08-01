@@ -28,8 +28,8 @@ export function Login() {
       });
       const data = await res.json();
       if (res.ok) {
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('refreshToken', data.refreshToken);
+        // Session lives in httpOnly cookies set by the server. Only non-secret
+        // UI hints are stored here.
         if (data.tenantId) localStorage.setItem('tenantId', data.tenantId);
         if (data.tenant?.slug) localStorage.setItem('tenantSlug', data.tenant.slug);
         if (data.role) localStorage.setItem('role', data.role);
