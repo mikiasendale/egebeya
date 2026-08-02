@@ -161,8 +161,15 @@ router.post('/register', authLimiter, async (req, res) => {
     const userRecord = await db.select({ tokenVersion: users.tokenVersion }).from(users).where(eq(users.id, userId)).get();
     const tokenVersion = userRecord?.tokenVersion ?? 0;
 
+    // Mint a fresh refresh-token jti so old/stolen refresh tokens from any
+    // previous session become unusable. This is rotated again on every
+    // successful /auth/refresh call (see below) — replay-detection lives in
+    // the jti-vs-DB check, not in a stateless token.
+    const refreshJti = crypto.randomUUID();
+    await db.update(users).set({ refreshTokenId: refreshJti }).where(eq(users.id, userId));
+
     const token = jwt.sign({ userId, tenantId, role: 'owner', tokenVersion }, jwtSecret(), { expiresIn: '15m' });
-    const refreshToken = jwt.sign({ userId, tenantId, tokenVersion }, refreshSecret(), { expiresIn: '7d' });
+    const refreshToken = jwt.sign({ userId, tenantId, tokenVersion, jti: refreshJti }, refreshSecret(), { expiresIn: '7d' });
     setAuthCookies(res, token, refreshToken);
 
     res.json({
@@ -208,8 +215,14 @@ router.post('/login', authLimiter, async (req, res) => {
     const tokenVersion = (user as any).tokenVersion ?? 0;
     const isSuperadmin = !!(user as any).isSuperadmin;
 
+    // Issue a fresh refresh-token jti on every login so a refresh token from
+    // a previous (possibly compromised) session cannot be replayed once the
+    // user has logged in again.
+    const refreshJti = crypto.randomUUID();
+    await db.update(users).set({ refreshTokenId: refreshJti }).where(eq(users.id, user.id));
+
     const token = jwt.sign({ userId: user.id, tenantId: user.tenantId, role: user.role, tokenVersion }, jwtSecret(), { expiresIn: '15m' });
-    const refreshToken = jwt.sign({ userId: user.id, tenantId: user.tenantId, tokenVersion }, refreshSecret(), { expiresIn: '7d' });
+    const refreshToken = jwt.sign({ userId: user.id, tenantId: user.tenantId, tokenVersion, jti: refreshJti }, refreshSecret(), { expiresIn: '7d' });
     setAuthCookies(res, token, refreshToken);
 
     res.json({
@@ -248,9 +261,29 @@ router.post('/refresh', authLimiter, async (req, res) => {
         return res.status(403).json({ error: 'Refresh token has been revoked' });
       }
 
+      // Replay detection — the JWT's `jti` claim must match the user's
+      // currently-stored refresh_token_id. When the legitimate client
+      // refreshes, we ROTATE the stored id and re-issue tokens below; any
+      // token that arrives with the now-stale jti is an attempted replay and
+      // is rejected (and the session is fully revoked by bumping
+      // tokenVersion so any access-token derived from it is also dead).
+      const storedJti = (user as any).refreshTokenId || '';
+      if (!payload.jti || typeof payload.jti !== 'string' || payload.jti !== storedJti) {
+        await db.update(users)
+          .set({ tokenVersion: sql`token_version + 1` })
+          .where(eq(users.id, user.id));
+        return res.status(403).json({ error: 'Refresh token replay detected — all sessions revoked' });
+      }
+
       const tokenVersion = (user as any).tokenVersion ?? 0;
+      // Rotate the refresh-token jti on every successful refresh. The
+      // legitimate cookie is updated atomically; any captured copy of the
+      // previous refresh token is now invalid for the next /refresh call.
+      const newRefreshJti = crypto.randomUUID();
+      await db.update(users).set({ refreshTokenId: newRefreshJti }).where(eq(users.id, user.id));
+
       const newToken = jwt.sign({ userId: user.id, tenantId: user.tenantId, role: user.role, tokenVersion }, jwtSecret(), { expiresIn: '15m' });
-      const newRefresh = jwt.sign({ userId: user.id, tenantId: user.tenantId, tokenVersion }, refreshSecret(), { expiresIn: '7d' });
+      const newRefresh = jwt.sign({ userId: user.id, tenantId: user.tenantId, tokenVersion, jti: newRefreshJti }, refreshSecret(), { expiresIn: '7d' });
       setAuthCookies(res, newToken, newRefresh);
 
       res.json({ success: true });

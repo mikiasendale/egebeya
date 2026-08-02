@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
@@ -11,18 +11,100 @@ const SERVICES_DEMO: { geo: string; name: string; amName: string; duration: stri
   { geo: '፬',  name: 'Massage',   amName: 'ቁርጥጥ',  duration: '01:15', price: '1,200.00' },
 ];
 
-const QUEUE_DEMO = [
+/* The booking record's live slot pool — one afternoon at the salon. The
+   record reprints with each settling deposit; times roll forward and wrap. */
+const TX_POOL: { service: string; serviceAm: string; duration: string; time: string; price: string; staff: string }[] = [
+  { service: 'Manicure',  serviceAm: 'ጥፍር',   duration: '00:45', time: '15:00', price: '400.00',  staff: 'Sara M.' },
+  { service: 'Haircut',   serviceAm: 'ፀጉር',   duration: '00:30', time: '15:30', price: '200.00',  staff: 'Dawit G.' },
+  { service: 'Pedicure',  serviceAm: 'እግር',   duration: '01:00', time: '16:00', price: '500.00',  staff: 'Sara M.' },
+  { service: 'Massage',   serviceAm: 'ቁርጥጥ',  duration: '01:15', time: '16:30', price: '1,200.00', staff: 'Dawit G.' },
+  { service: 'Manicure',  serviceAm: 'ጥፍር',   duration: '00:45', time: '17:00', price: '400.00',  staff: 'Hanna T.' },
+  { service: 'Haircut',   serviceAm: 'ፀጉር',   duration: '00:30', time: '17:30', price: '200.00',  staff: 'Sara M.' },
+];
+
+type QueueStatus = 'DONE' | 'SERVING' | 'NEXT' | 'WAIT';
+
+interface QueueRow {
+  no: string;
+  time: string;
+  service: string;
+  staff: string;
+  status: QueueStatus;
+  statusAm: string;
+}
+
+const QUEUE_DEMO: QueueRow[] = [
   { no: '፭',    time: '09:00', service: 'Manicure', staff: 'Sara M.',   status: 'DONE',    statusAm: 'ተፈጸመ' },
   { no: '፮',    time: '10:30', service: 'Haircut',  staff: 'Dawit G.',  status: 'SERVING', statusAm: 'በአገልግሎት' },
   { no: '፯',    time: '13:00', service: 'Pedicure', staff: 'Sara M.',   status: 'NEXT',    statusAm: 'ቀጣይ'  },
   { no: '፰',    time: '14:00', service: 'Massage',  staff: 'Sara M.',   status: 'WAIT',    statusAm: 'በመጠበቅ' },
 ];
 
-const ISSUE_NO = 'ኢ-ገ-2026-' + (Math.floor(Math.random() * 9000) + 1000);
+/* The board's waiting sheet keeps serving numbers rolling in Ethiopic digits */
+const ETH_UNITS = ['', '፩', '፪', '፫', '፬', '፭', '፮', '፯', '፰', '፱'];
+const ETH_TENS = ['፲', '፳', '፴', '፵', '፶', '፷', '፸', '፹', '፺'];
+function toEth(n: number): string {
+  if (n < 10) return ETH_UNITS[n];
+  return ETH_TENS[Math.floor(n / 10) - 1] + ETH_UNITS[n % 10];
+}
+
+/* New-waiter slot values rotate through the same day's services */
+const QUEUE_NEW_POOL: { time: string; service: string; staff: string }[] = [
+  { time: '15:00', service: 'Manicure', staff: 'Sara M.' },
+  { time: '15:30', service: 'Haircut', staff: 'Dawit G.' },
+  { time: '16:00', service: 'Pedicure', staff: 'Sara M.' },
+  { time: '16:30', service: 'Massage', staff: 'Dawit G.' },
+];
+
+/* ── Printer sound (opt-in) — a tiny synthesized tick burst. Silent until
+   the visitor presses the SND control on the paper rail; the AudioContext
+   is created lazily on the first user gesture that enables it. ── */
+const soundState = { on: false };
+function setSoundOn(on: boolean) {
+  soundState.on = on;
+}
+function playPrintTick(kind: 'tick' | 'stamp') {
+  if (!soundState.on || typeof window === 'undefined') return;
+  try {
+    const Ctor: typeof AudioContext | undefined =
+      window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!Ctor) return;
+    const ctx = new Ctor();
+    const now = ctx.currentTime;
+    const burst = (t0: number, dur: number, freq: number, type: OscillatorType, gain: number) => {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = type;
+      osc.frequency.value = freq;
+      g.gain.setValueAtTime(0, t0);
+      g.gain.linearRampToValueAtTime(gain, t0 + 0.004);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      osc.connect(g).connect(ctx.destination);
+      osc.start(t0);
+      osc.stop(t0 + dur + 0.02);
+    };
+    if (kind === 'stamp') {
+      burst(now, 0.09, 130, 'sine', 0.12);
+      burst(now + 0.03, 0.05, 88, 'sine', 0.08);
+    } else {
+      for (let i = 0; i < 4; i++) {
+        burst(now + i * 0.055, 0.025, 2300 + Math.random() * 400, 'square', 0.018);
+      }
+    }
+  } catch {
+    /* audio unavailable — stay silent */
+  }
+}
 
 export function Landing() {
-  const [stamped, setStamped] = useState(false);
+  const [soundOn, setSoundOnState] = useState(false);
   const { t } = useTranslation();
+  const toggleSound = () => {
+    setSoundOnState((prev) => {
+      setSoundOn(!prev);
+      return !prev;
+    });
+  };
   return (
     <div
       className="min-h-screen"
@@ -33,7 +115,8 @@ export function Landing() {
       }}
     >
       <Navbar />
-      <Lead stamped={stamped} onStamp={() => setStamped(true)} />
+      <PaperRail soundOn={soundOn} onToggleSound={toggleSound} />
+      <Lead />
       <TrustBar />
       <PerfTear />
       <SearchSection />
@@ -44,6 +127,109 @@ export function Landing() {
       <CounterClose />
       <Footer />
     </div>
+  );
+}
+
+/* ── Paper rail — the receipt edge fixed left; it "prints" as you scroll ──
+   Now a real printer: sprocket feed-holes down the outer edge, an ink-black
+   print head gliding in lockstep with scroll, and a mirrored right rail.
+   The SND control opts into the synthesized printer audio (silent default). */
+function PaperRail({ soundOn, onToggleSound }: { soundOn: boolean; onToggleSound: () => void }) {
+  return (
+    <>
+      <div className="paper-rail">
+        <div className="paper-rail__holes" aria-hidden />
+        <div className="paper-rail__meter" aria-hidden />
+        <div className="paper-rail__head" aria-hidden>
+          <span className="paper-rail__led" />
+          <span className="paper-rail__head-label">PRT</span>
+        </div>
+        <span className="paper-rail__readout" aria-hidden>
+          PAPER
+        </span>
+        <button
+          type="button"
+          onClick={onToggleSound}
+          className="paper-rail__sound"
+          aria-label={soundOn ? 'Printer sound on — press to mute' : 'Printer sound off — press to enable'}
+          aria-pressed={soundOn}
+        >
+          <span className={`paper-rail__sound-dot${soundOn ? ' is-on' : ''}`} aria-hidden />
+          SND
+        </button>
+      </div>
+      <div className="paper-rail paper-rail--right" aria-hidden>
+        <div className="paper-rail__holes" />
+      </div>
+    </>
+  );
+}
+
+/* ── TypedLine — the hero prints itself, syllable by syllable ──
+   Chars are split per Unicode code point (safe for Ethiopic precomposed
+   syllables) and revealed on a timer with a telebirr print-cursor. Reduced
+   motion and no-JS show the full text immediately. Segments carry their own
+   color so the Amharic/Latin mix keeps its incumbent styling. */
+function TypedLine({
+  segments,
+  speed = 46,
+  startDelay = 0,
+  cursor = false,
+}: {
+  segments: { text: string; color?: string; font?: string; style?: React.CSSProperties }[];
+  speed?: number;
+  startDelay?: number;
+  cursor?: boolean;
+}) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [done, setDone] = useState(false);
+  const text = segments.map((s) => s.text).join('');
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const chars = Array.from<HTMLElement>(el.querySelectorAll<HTMLElement>('.tp-char'));
+    if (chars.length === 0) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      chars.forEach((c) => { c.style.opacity = '1'; });
+      setDone(true);
+      return;
+    }
+    chars.forEach((c) => { c.style.opacity = '0'; });
+    let i = 0;
+    let cancelled = false;
+    let interval: number | undefined;
+    const start = window.setTimeout(() => {
+      interval = window.setInterval(() => {
+        if (cancelled) return;
+        chars[i]!.style.opacity = '1';
+        if (i % 2 === 0) playPrintTick('tick');
+        i += 1;
+        if (i >= chars.length) {
+          window.clearInterval(interval);
+          setDone(true);
+          playPrintTick('stamp');
+        }
+      }, speed);
+    }, startDelay);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(start);
+      if (interval) window.clearInterval(interval);
+    };
+  }, [text, speed, startDelay]);
+  return (
+    <span ref={ref}>
+      {segments.map((seg, si) => (
+        <span key={si} style={{ color: seg.color, fontFamily: seg.font, ...seg.style }}>
+          {Array.from(seg.text).map((ch, ci) => (
+            <span key={ci} className="tp-char">
+              {ch === ' ' ? '\u00A0' : ch}
+            </span>
+          ))}
+        </span>
+      ))}
+      {cursor && <span aria-hidden className={`print-cursor${done ? ' is-done' : ''}`} />}
+    </span>
   );
 }
 
@@ -81,9 +267,27 @@ function PerfTear() {
   );
 }
 
-/* ── Live Ledger trust strip — what the ledger promises, in one line ── */
+/* ── Live Ledger trust strip — what the ledger promises, in one line ──
+   Below the promise runs the settling ledger: the most recent deposits to
+   clear, fed live by the booking record above. */
+const LEDGER_SEED: { ref: string; price: string; when: string }[] = [
+  { ref: 'EGB-2026-4829', price: 'Br 400.00',   when: '10:31 · ሐምሌ 27' },
+  { ref: 'EGB-2026-4828', price: 'Br 1,200.00', when: '10:31 · ሐምሌ 27' },
+  { ref: 'EGB-2026-4827', price: 'Br 200.00',   when: '10:30 · ሐምሌ 27' },
+];
+
 function TrustBar() {
   const { t } = useTranslation();
+  const [feed, setFeed] = useState(LEDGER_SEED);
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ ref: string; price: string; when: string }>).detail;
+      if (!detail) return;
+      setFeed((prev) => [detail, ...prev].slice(0, 3));
+    };
+    window.addEventListener('egebeya:settle', handler);
+    return () => window.removeEventListener('egebeya:settle', handler);
+  }, []);
   return (
     <section
       aria-label="The ledger promise"
@@ -112,6 +316,38 @@ function TrustBar() {
             <span aria-hidden style={{ color: 'var(--color-ink-rule-dashed)' }}>·</span>
             <span>{t('trustBar.noCard')}&nbsp;·&nbsp;{t('trustBar.noCardAm')}</span>
           </div>
+          <div
+            className="sm:ml-auto flex-1 sm:flex-none sm:max-w-xs min-w-0"
+            aria-label={t('liveFeed.settled')}
+          >
+            <div className="ledger-feed">
+              {feed.map((row, i) => (
+                <div
+                  key={row.ref}
+                  className={`ledger-feed__row${i > 0 ? ' is-old' : ''}`}
+                  style={{
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: i === 0 ? '0.7rem' : '0.62rem',
+                    letterSpacing: '0.05em',
+                  }}
+                >
+                  {i === 0 && (
+                    <span className="ledger-feed__live">
+                      <span className="ledger-feed__dot" aria-hidden />
+                      {t('liveFeed.live')}
+                    </span>
+                  )}
+                  <span className="truncate">
+                    <span className="ledger-feed__ref">{row.ref}</span>
+                    <span style={{ color: 'var(--color-ink-stamp)' }}>&nbsp;·&nbsp;{row.price}&nbsp;·&nbsp;{row.when}</span>
+                  </span>
+                  <span style={{ color: 'var(--color-telebirr-deep)' }}>
+                    {t('liveFeed.settled')}&nbsp;·&nbsp;{t('liveFeed.settledAm')}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -119,7 +355,7 @@ function TrustBar() {
 }
 
 /* ── Lead: offer reads as the top of a form being filled ── */
-function Lead({ stamped, onStamp }: { stamped: boolean; onStamp: () => void }) {
+function Lead() {
   const { t } = useTranslation();
   return (
     <section
@@ -175,10 +411,28 @@ function Lead({ stamped, onStamp }: { stamped: boolean; onStamp: () => void }) {
                 letterSpacing: '-0.01em',
               }}
             >
-              {t('lead.headingAm')}&nbsp;<span style={{ color: 'var(--color-telebirr)' }}>በውሉ</span><br />
-              <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, letterSpacing: '-0.025em' }}>
-                {t('lead.subheading')}
-              </span>
+              <TypedLine
+                cursor
+                speed={64}
+                segments={[
+                  { text: t('lead.headingAm'), color: 'var(--color-ink)' },
+                  { text: ' በውሉ', color: 'var(--color-telebirr)' },
+                ]}
+              />
+              <br />
+              <TypedLine
+                cursor
+                speed={38}
+                startDelay={640}
+                segments={[
+                  {
+                    text: t('lead.subheading'),
+                    color: 'var(--color-ink)',
+                    font: 'var(--font-display)',
+                    style: { fontWeight: 600, letterSpacing: '-0.025em' },
+                  },
+                ]}
+              />
             </h1>
             <p
               className="mt-7 max-w-[36rem] text-base sm:text-lg"
@@ -225,7 +479,7 @@ function Lead({ stamped, onStamp }: { stamped: boolean; onStamp: () => void }) {
 
           {/* DepositStamp proof object — the signed proof the deposit cleared */}
           <div className="lg:col-span-5">
-            <ProofForm stamped={stamped} onStamp={onStamp} />
+            <ProofForm />
           </div>
         </div>
       </div>
@@ -233,19 +487,127 @@ function Lead({ stamped, onStamp }: { stamped: boolean; onStamp: () => void }) {
   );
 }
 
-function ProofForm({ stamped, onStamp }: { stamped: boolean; onStamp: () => void }) {
+function ProofForm() {
   const { t } = useTranslation();
+  const cardRef = useRef<HTMLDivElement>(null);
+  /* Live loop state — the record is a slot on the day's ledger sheet */
+  const [slot, setSlot] = useState<{ id: number } & (typeof TX_POOL)[number]>(() => ({ ...TX_POOL[0], id: 0 }));
+  const [phase, setPhase] = useState<'idle' | 'incoming' | 'verifying' | 'settled'>('idle');
+  const [refNo, setRefNo] = useState(() => 4831 + Math.floor(Math.random() * 40));
+  const refNoRef = useRef(refNo);
+  const slotRef = useRef(slot);
+  const busyRef = useRef(false);
+  const timeoutsRef = useRef<number[]>([]);
+  slotRef.current = slot;
+
+  /* Settle the pending charge: slip in → VERIFIED → slip out, rows reprint,
+     stamp slams, the ledger feed hears about it. Pure clockwork, no side
+     effects outside the component. */
+  const completeSettle = useCallback(() => {
+    const next = TX_POOL[(slotRef.current.id + 1) % TX_POOL.length];
+    const nextId = slotRef.current.id + 1;
+    const nextRef = refNoRef.current + 1;
+    refNoRef.current = nextRef;
+    busyRef.current = false;
+    setRefNo(nextRef);
+    setSlot({ ...next, id: nextId });
+    setPhase('settled');
+    playPrintTick('stamp');
+    window.dispatchEvent(
+      new CustomEvent('egebeya:settle', {
+        detail: {
+          ref: `EGB-2026-${nextRef}`,
+          price: `Br ${next.price}`,
+          when: `${next.time} · ሐምሌ 27`,
+        },
+      })
+    );
+  }, []);
+
+  const settle = useCallback(() => {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setPhase('incoming');
+    playPrintTick('tick');
+    const t1 = window.setTimeout(() => setPhase('verifying'), 1600);
+    const t2 = window.setTimeout(completeSettle, 2150);
+    timeoutsRef.current.push(t1, t2);
+  }, [completeSettle]);
+
+  const settleRef = useRef(settle);
+  settleRef.current = settle;
+
+  /* The machine keeps feeding: one charge per cycle, paused offscreen or
+     when the visitor prefers reduced motion. */
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    let visible = true;
+    let io: IntersectionObserver | null = null;
+    if ('IntersectionObserver' in window && cardRef.current) {
+      io = new IntersectionObserver(
+        (entries) => entries.forEach((e) => { visible = e.isIntersecting; }),
+        { threshold: 0.2 }
+      );
+      io.observe(cardRef.current);
+    }
+    const id = window.setInterval(() => {
+      if (!visible || document.hidden || busyRef.current) return;
+      settleRef.current();
+    }, 8000);
+    return () => {
+      io?.disconnect();
+      window.clearInterval(id);
+      timeoutsRef.current.forEach((tid) => window.clearTimeout(tid));
+      timeoutsRef.current = [];
+    };
+  }, []);
+
+  /* Press the stamp: fast-forward a charge in flight, or start one now */
+  const pressStamp = useCallback(() => {
+    if (busyRef.current) {
+      timeoutsRef.current.forEach((id) => window.clearTimeout(id));
+      timeoutsRef.current = [];
+      completeSettle();
+    } else {
+      settle();
+    }
+  }, [settle, completeSettle]);
+
+  const pending = TX_POOL[(slot.id + 1) % TX_POOL.length];
+  const refLabel = `EGB-2026-${refNo}`;
+  const charging = phase === 'incoming' || phase === 'verifying';
+  const settled = phase === 'settled';
+
   return (
     <div
+      ref={cardRef}
       className="ticket-card relative p-6 sm:p-7"
       style={{
-        backgroundColor: 'var(--color-paper)',
+        backgroundColor: '#FFFFFF',
         border: '1px solid var(--color-ink)',
         borderRadius: 'var(--rd-card)',
       }}
     >
       {/* SPECIMEN — the shared faint diagonal label; the one paper cue on this surface */}
       <Specimen />
+      {/* Pay slip — the deposit being charged, printed and handed over */}
+      <div
+        className={`pay-slip${charging ? ' is-in' : ''}${phase === 'verifying' ? ' is-verified' : ''}`}
+        aria-hidden
+      >
+        <div className="pay-slip__row">
+          {phase === 'verifying' ? (
+            <span className="stamp fill">{t('liveFeed.verify')}&nbsp;·&nbsp;{t('liveFeed.verifyAm')}</span>
+          ) : (
+            <span>{t('liveFeed.incoming')}&nbsp;·&nbsp;{t('liveFeed.incomingAm')}</span>
+          )}
+          <span className="pay-slip__merchant truncate">
+            {pending.service}&nbsp;·&nbsp;Br&nbsp;{pending.price}
+          </span>
+        </div>
+        <div className="pay-slip__bar" />
+      </div>
       <div
         className="flex items-baseline justify-between gap-3 pb-3"
         style={{ borderBottom: '1px solid var(--color-ink-rule)' }}
@@ -263,31 +625,34 @@ function ProofForm({ stamped, onStamp }: { stamped: boolean; onStamp: () => void
           className="text-right"
           style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem', color: 'var(--color-ink-stamp)', letterSpacing: '0.06em' }}
         >
-          <div>{t('proofForm.ref')}&nbsp;{ISSUE_NO}</div>
+          <div>{t('proofForm.ref')}&nbsp;{refLabel}</div>
         </div>
       </div>
 
-      {/* The form body — rows of the booking record */}
+      {/* The form body — rows of the booking record; the record reprints
+          with each settling deposit */}
       <ol className="m-0 mt-4 p-0 list-none" role="list">
         <StaticRow geo="፩" label={t('proofForm.business')} value="Lux Nails & Spa" hint="ነፍስ ስፓ" />
-        <StaticRow geo="፪" label={t('proofForm.service')}  value="Manicure · 00:45" hint="ጥፍር" />
-        <StaticRow geo="፫" label={t('proofForm.staff')}    value="Sara M." hint="ሰራተኛ" />
-        <StaticRow geo="፬" label={t('proofForm.when')}     value="Mon 27 ሐምሌ · 10:30" hint="ሰዓት" />
-        <StaticRow geo="፭" label={t('proofForm.tariff')}   value="Br&nbsp;400.00" hint="ዋጋ" mono />
-        <StaticRow geo="፮" label={t('proofForm.deposit')}  value="Br&nbsp;400.00" hint="ቀዳሚ" mono positive />
-        <li
-          className="form-row is-active"
-          style={{ marginTop: 6, paddingLeft: '1.25rem' }}
-        >
-          <div className="form-row__index">፯</div>
-          <div>
-            <div className="form-row__label">{t('proofForm.balance')}</div>
-            <div className="text-xs" style={{ color: 'var(--color-ink-soft)', fontFamily: 'var(--font-mono)' }}>{t('proofForm.paidAtChair')}</div>
-          </div>
-          <div className="form-row__value" style={{ color: 'var(--color-ink)', fontWeight: 600 }}>
-            <span key={String(stamped)} className={stamped ? 'balance-flash' : undefined}>Br&nbsp;0.00</span>
-          </div>
-        </li>
+        <React.Fragment key={slot.id}>
+          <StaticRow geo="፪" label={t('proofForm.service')} value={`${slot.service} · ${slot.duration}`} hint={slot.serviceAm} />
+          <StaticRow geo="፫" label={t('proofForm.staff')} value={slot.staff} hint="ሰራተኛ" />
+          <StaticRow geo="፬" label={t('proofForm.when')} value={`Mon 27 ሐምሌ · ${slot.time}`} hint="ሰዓት" />
+          <StaticRow geo="፭" label={t('proofForm.tariff')} value={`Br&nbsp;${slot.price}`} hint="ዋጋ" mono />
+          <StaticRow geo="፮" label={t('proofForm.deposit')} value={`Br&nbsp;${slot.price}`} hint="ቀዳሚ" mono positive />
+          <li
+            className="form-row is-active"
+            style={{ marginTop: 6, paddingLeft: '1.25rem' }}
+          >
+            <div className="form-row__index">፯</div>
+            <div>
+              <div className="form-row__label">{t('proofForm.balance')}</div>
+              <div className="text-xs" style={{ color: 'var(--color-ink-soft)', fontFamily: 'var(--font-mono)' }}>{t('proofForm.paidAtChair')}</div>
+            </div>
+            <div className="form-row__value" style={{ color: 'var(--color-ink)', fontWeight: 600 }}>
+              <span key={String(settled)} className={settled ? 'balance-flash' : undefined}>Br&nbsp;0.00</span>
+            </div>
+          </li>
+        </React.Fragment>
       </ol>
 
       <div
@@ -296,15 +661,15 @@ function ProofForm({ stamped, onStamp }: { stamped: boolean; onStamp: () => void
       >
         <button
           type="button"
-          onClick={onStamp}
+          onClick={pressStamp}
           aria-label="Press the stamp"
-          aria-pressed={stamped}
+          aria-pressed={settled}
           className="deposit-stamp-btn cursor-pointer no-underline"
           style={{ all: 'unset', cursor: 'pointer' }}
         >
-          {stamped ? (
+          {settled ? (
             <span className="deposit-stamp stamp-press-in" aria-hidden>
-              <span className="deposit-stamp__ref">EGB-{ISSUE_NO.replace(/\D/g,'').slice(-4)}</span>
+              <span className="deposit-stamp__ref">{refLabel}</span>
               <span className="deposit-stamp__glyph">ተከከለ</span>
               <span className="deposit-stamp__date">10:32 · ሐምሌ 27</span>
             </span>
@@ -322,19 +687,21 @@ function ProofForm({ stamped, onStamp }: { stamped: boolean; onStamp: () => void
         </button>
         <div className="flex-1 min-w-0">
           <div
-            key={String(stamped)}
-            className={`stamp ${stamped ? 'fill stamp-bleed-in' : ''}`}
-            style={stamped ? undefined : { borderColor: 'var(--color-ink)' }}
+            key={String(settled)}
+            className={`stamp ${settled ? 'fill stamp-bleed-in' : ''}`}
+            style={settled ? undefined : { borderColor: 'var(--color-ink)' }}
           >
-            {stamped ? `${t('proofForm.cleared')} · ተከከለ` : `${t('proofForm.awaitingDeposit')} · በመጠበቅ`}
+            {settled ? `${t('proofForm.cleared')} · ተከከለ` : `${t('proofForm.awaitingDeposit')} · በመጠበቅ`}
           </div>
           <p
             className="mt-2 m-0 text-xs"
             style={{ color: 'var(--color-ink-soft)', fontFamily: 'var(--font-mono)', letterSpacing: '0.04em' }}
           >
-            {stamped
-              ? t('proofForm.verified')
-              : t('proofForm.pressStamp')}
+            {charging
+              ? t('liveFeed.charge')
+              : settled
+                ? t('proofForm.verified')
+                : t('proofForm.pressStamp')}
           </p>
           <p
             className="mt-1.5 m-0 text-xs"
@@ -351,7 +718,7 @@ function ProofForm({ stamped, onStamp }: { stamped: boolean; onStamp: () => void
           className="text-sm min-w-0 break-all"
           style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-ink)', letterSpacing: '0.1em' }}
         >
-          {t('proofForm.ref')}&nbsp;{ISSUE_NO}
+          {t('proofForm.ref')}&nbsp;{refLabel}
         </div>
         <div className="sm:ml-auto sm:text-right min-w-0">
           <span className="stamp" aria-hidden>STUB&nbsp;·&nbsp;KEEP&nbsp;THIS</span>
@@ -359,7 +726,7 @@ function ProofForm({ stamped, onStamp }: { stamped: boolean; onStamp: () => void
             className="mt-2 text-xs"
             style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-ink-stamp)', letterSpacing: '0.05em' }}
           >
-            {t('proofForm.ref')}&nbsp;{ISSUE_NO}
+            {t('proofForm.ref')}&nbsp;{refLabel}
           </div>
         </div>
       </div>
@@ -526,11 +893,84 @@ function TariffSection() {
   );
 }
 
-/* ── Queue section — the salon's live queue as a ledger page ── */
+/* Pure board advance: statuses cascade one step and a fresh waiter joins.
+   No side effects — safe under React StrictMode's double-invoked updaters. */
+function advanceQueue(prev: QueueRow[], nextNo: number): QueueRow[] {
+  const advanced = prev.map((r) => {
+    if (r.status === 'SERVING') return { ...r, status: 'DONE' as const, statusAm: 'ተፈጸመ' };
+    if (r.status === 'NEXT') return { ...r, status: 'SERVING' as const, statusAm: 'በአገልግሎት' };
+    if (r.status === 'WAIT') return { ...r, status: 'NEXT' as const, statusAm: 'ቀጣይ' };
+    return r;
+  });
+  const slot = QUEUE_NEW_POOL[(nextNo - 9) % QUEUE_NEW_POOL.length];
+  const fresh: QueueRow = {
+    no: toEth(nextNo),
+    time: slot.time,
+    service: slot.service,
+    staff: slot.staff,
+    status: 'WAIT',
+    statusAm: 'በመጠበቅ',
+  };
+  let out = [...advanced, fresh];
+  const doneCount = out.filter((r) => r.status === 'DONE').length;
+  if (doneCount > 2) {
+    const idx = out.findIndex((r) => r.status === 'DONE');
+    out = out.slice(0, idx).concat(out.slice(idx + 1));
+  }
+  return out;
+}
+
+/* ── Queue section — the salon's live queue as a ledger page ──
+   The board is alive: every ~4s the serving slot advances, the serving chip
+   rolls up a number, and a fresh waiter joins the bottom. Paused when the
+   section leaves the viewport, the tab hides, or motion is reduced. */
 function QueueSection() {
   const { t } = useTranslation();
+  const [sheet, setSheet] = useState(0);
+  const [queue, setQueue] = useState<QueueRow[]>(QUEUE_DEMO);
+  const noRef = useRef(9);
+  const boardRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    let visible = true;
+    let io: IntersectionObserver | null = null;
+    if ('IntersectionObserver' in window && boardRef.current) {
+      io = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((e) => {
+            visible = e.isIntersecting;
+          });
+        },
+        { threshold: 0.15 }
+      );
+      io.observe(boardRef.current);
+    }
+    const id = window.setInterval(() => {
+      if (!visible || document.hidden) return;
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      const nextNo = noRef.current;
+      noRef.current = nextNo + 1;
+      if (nextNo + 1 > 12) {
+        noRef.current = 9;
+        setSheet((s) => s + 1);
+        setQueue(QUEUE_DEMO);
+        return;
+      }
+      setQueue((prev) => advanceQueue(prev, nextNo));
+    }, 4200);
+    return () => {
+      io?.disconnect();
+      window.clearInterval(id);
+    };
+  }, []);
+
+  const serving = queue.find((r) => r.status === 'SERVING') ?? queue[0];
+
   return (
     <section
+      ref={boardRef}
       className="px-5 sm:px-8 lg:px-12 py-16 lg:py-24"
       aria-label="Today's queue"
     >
@@ -561,7 +1001,7 @@ function QueueSection() {
 
           <div className="lg:col-span-7">
             <div
-              className="relative p-4 sm:p-5"
+              className="queue-board relative p-4 sm:p-5"
               style={{ border: '1px solid var(--color-ink)', borderRadius: 'var(--rd-card)', backgroundColor: 'var(--color-paper)' }}
             >
               <Specimen />
@@ -585,12 +1025,14 @@ function QueueSection() {
                 className="flex items-center gap-3 py-2.5 px-1"
                 style={{ borderBottom: '1px solid var(--color-ink)' }}
               >
-                <span
-                  aria-hidden
-                  className="take-a-number"
-                  style={{ width: 22, height: 22, fontSize: '0.7rem' }}
-                >
-                  ፮
+                <span className="queue-chip-clip" aria-hidden>
+                  <span
+                    key={serving?.no}
+                    className="take-a-number queue-chip"
+                    style={{ width: 22, height: 22, fontSize: '0.7rem' }}
+                  >
+                    {serving?.no}
+                  </span>
                 </span>
                 <span className="stamp positive" aria-hidden>
                   {t('queueSection.nowServing')}&nbsp;·&nbsp;{t('queueSection.nowServingAm')}
@@ -599,11 +1041,11 @@ function QueueSection() {
                   className="truncate"
                   style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, fontSize: '0.95rem', color: 'var(--color-ink)' }}
                 >
-                  10:30
+                  {serving?.time}
                   <span style={{ color: 'var(--color-ink-soft)', fontWeight: 400 }}>&nbsp;·&nbsp;</span>
-                  Haircut
+                  {serving?.service}
                   <span style={{ color: 'var(--color-ink-soft)', fontWeight: 400 }}>&nbsp;·&nbsp;</span>
-                  Dawit G.
+                  {serving?.staff}
                 </span>
                 <span
                   className="ml-auto hidden sm:inline text-[0.65rem]"
@@ -615,13 +1057,13 @@ function QueueSection() {
               </div>
 
               <ol className="m-0 mt-2 p-0 list-none" role="list">
-                {QUEUE_DEMO.map((q) => {
+                {queue.map((q) => {
                   const done = q.status === 'DONE';
-                  const serving = q.status === 'SERVING';
+                  const servingRow = q.status === 'SERVING';
                   const next = q.status === 'NEXT';
                   return (
                     <li
-                      key={q.no}
+                      key={`${sheet}-${q.no}`}
                       className="form-row"
                       style={{
                         borderBottom: '1px solid var(--color-ink-rule)',
@@ -658,7 +1100,7 @@ function QueueSection() {
                           {q.statusAm} · {q.status}
                         </span>
                       ) : (
-                        <StatusStamp tone={serving ? 'confirmed' : next ? 'pending' : 'waiting'}>
+                        <StatusStamp tone={servingRow ? 'confirmed' : next ? 'pending' : 'waiting'}>
                           {q.statusAm} · {q.status}
                         </StatusStamp>
                       )}

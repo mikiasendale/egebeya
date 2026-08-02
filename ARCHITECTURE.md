@@ -143,7 +143,7 @@ re-serialised `req.body`:
 - Accepts `x-chapa-signature` or `chapa-signature` headers.
 - Manual HMAC-SHA256 (first) + SDK cross-check (`verifyWebhookSignature`).
 - Rejection logs a `webhook_signature_rejected` event and returns 401.
-- Test mode (no `CHAPA_WEBHOOK_SECRET`) falls back to Chapa's documented key: `CyNDCzoXF7JsaPig6GErkdT0`.
+- Test mode (no `CHAPA_WEBHOOK_SECRET`) rejects startup unless `server/tests/_setup.ts` generates a runtime-random secret (committed secrets have been removed).
 
 ### 2. Idempoency
 

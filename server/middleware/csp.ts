@@ -23,6 +23,16 @@ const STRICT_CSP = [
 export function strictCsp(_req: Request, res: Response, next: NextFunction) {
   res.setHeader('Content-Security-Policy', STRICT_CSP);
   res.setHeader('X-Content-Type-Options', 'nosniff');
+  // Referrer-Policy — never leak the public-site URL (which can include
+  // the tenant slug + booking date in the query string) to third-party
+  // link targets, image hosts, or CDN refferer logs crossed from these
+  // surfaces.
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  // Frame-ancestors is already locked via CSP `frame-src`, but defence in
+  // depth: an explicit X-Frame-Options: DENY here guarantees legacy user
+  // agents that don't understand CSP frame-ancestors also reject attempts
+  // to embed public surfaces.
+  res.setHeader('X-Frame-Options', 'DENY');
   // HSTS — force HTTPS for these surfaces so SSL-stripping can't downgrade
   // first visits. Applied here (and globally via helmet) for defence in depth.
   if (process.env.NODE_ENV === 'production') {

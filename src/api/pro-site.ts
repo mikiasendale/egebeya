@@ -65,12 +65,17 @@ export async function requireProPlan(req: any, res: any) {
  * with a fresh 14-day trial. Idempotent.
  *
  * SECURITY: this is a DEV/TEST-ONLY trial path. There is no payment
- * verification, so it MUST NOT be reachable in production. It is only
- * mounted when NOT in production, or when ENABLE_TEST_ENDPOINTS=true (for
- * staging). Real production billing must route through the Chapa payment
- * gateway before granting Pro.
+ * verification, so it MUST NOT be reachable in production under any
+ * circumstance — including ENABLE_TEST_ENDPOINTS=true in production. The
+ * mount condition explicitly rejects production so a misconfigured operator
+ * cannot accidentally expose a free-Pro upgrade on a live deployment.
+ *
+ * In non-production environments the endpoint stays mounted so dev and
+ * vitest suites can exercise the trial path. Real production billing must
+ * route through the Chapa payment gateway (webhook-driven) before granting
+ * Pro.
  */
-if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_TEST_ENDPOINTS === 'true') {
+if (process.env.NODE_ENV !== 'production') {
   router.post('/subscription/upgrade', async (req, res) => {
     const { tenantId } = (req as any).user;
     try {

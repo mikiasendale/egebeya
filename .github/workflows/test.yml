@@ -34,6 +34,10 @@ jobs:
         run: npm test
         env:
           NODE_ENV: test
-          JWT_SECRET: test-jwt-secret-xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-          REFRESH_SECRET: test-refresh-secret-yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
-          CHAPA_WEBHOOK_SECRET: CyNDCzoXF7JsaPig6GErkdT0
+          # Test secrets are injected from GitHub Secrets. Do NOT commit
+          # literal secret values to this file — see server/tests/_setup.ts
+          # which falls back to runtime-generated random secrets when the
+          # operator has not configured any.
+          JWT_SECRET: ${{ secrets.JWT_SECRET_TEST }}
+          REFRESH_SECRET: ${{ secrets.REFRESH_SECRET_TEST }}
+          CHAPA_WEBHOOK_SECRET: ${{ secrets.CHAPA_WEBHOOK_SECRET_TEST }}
