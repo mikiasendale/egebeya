@@ -115,7 +115,11 @@ router.post('/webhook', webhookLimiter, async (req, res) => {
     }
 
     // Insert the processed marker FIRST so a concurrent duplicate hits the
-    // unique index and fails cleanly.
+    // unique index and fails cleanly. libsql/Drizzle wraps the underlying
+    // SQLite driver error, so the SQLITE_CONSTRAINT code can land on either
+    // `err.code` (top-level wrapper) OR `err.cause.code` (driver error).
+    // Check both — missing `cause` was the root cause of an idempotency
+    // race that returned 500 on legitimate concurrent Chapa retries.
     try {
       await db.insert(processedWebhookEvents).values({
         id: crypto.randomUUID(),
@@ -128,11 +132,9 @@ router.post('/webhook', webhookLimiter, async (req, res) => {
         receivedAt: Date.now(),
       });
     } catch (insertErr: any) {
-      // libsql nests the error code on `err.cause.code` — check both surfaces so
-      // a concurrent duplicate returns 200 `duplicate:true` instead of a 500.
-      const code = String(insertErr?.code ?? insertErr?.cause?.code ?? '');
-      const message = String(insertErr?.message ?? insertErr?.cause?.message ?? '');
-      if (code.includes('SQLITE_CONSTRAINT') || message.includes('UNIQUE')) {
+      const code = String(insertErr?.code || insertErr?.cause?.code || '');
+      const msg = String(insertErr?.message || insertErr?.cause?.message || '');
+      if (code.includes('SQLITE_CONSTRAINT') || msg.includes('UNIQUE')) {
         return res.json({ success: true, duplicate: true });
       }
       throw insertErr;

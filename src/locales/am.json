@@ -288,5 +288,16 @@
   "setup": {
     "welcome": "እንኳን ወደ ኢ-ገበያ በደህና መጡ",
     "welcomeAm": "እንኳን ወደ ኢ-ገበያ በደህና መጡ"
+  },
+  "liveFeed": {
+    "incoming": "ክፍያ እየገባ ነው",
+    "incomingAm": "PAYMENT INCOMING",
+    "verify": "ተረጋገጠ",
+    "verifyAm": "VERIFIED",
+    "settled": "ተፈጸመ",
+    "settledAm": "SETTLED",
+    "live": "ቀጥታ",
+    "charge": "የቴሌቢር ክፍያ እየገባ ነው…",
+    "chargeAm": "charging Telebirr…"
   }
 }

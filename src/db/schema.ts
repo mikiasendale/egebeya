@@ -23,6 +23,10 @@ export const users = sqliteTable('users', {
   isSuperadmin: integer('is_superadmin', { mode: 'boolean' }).default(false),
   consentGivenAt: integer('consent_given_at'),
   tokenVersion: integer('token_version').default(0).notNull(),
+  // Server-issued opaque jti included in every refresh-token JWT. Rotated on
+  // every successful /auth/refresh so a stolen RT cannot be replayed once the
+  // legitimate client has refreshed.
+  refreshTokenId: text('refresh_token_id').notNull().default(''),
   createdAt: integer('created_at').notNull(),
 });
 

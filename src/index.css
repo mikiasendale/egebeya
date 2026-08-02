@@ -127,6 +127,36 @@ body {
   }
 }
 
+/* ─── Live queue board — the counter machine at work ───
+   Rows enter from the rail when the board starts a fresh sheet, and the
+   serving chip rolls up a number each time the queue advances. */
+.queue-board .form-row {
+  animation: queue-row-in 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes queue-row-in {
+  from { transform: translateY(-8px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+.queue-chip-clip {
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
+  overflow: hidden;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.queue-chip {
+  animation: queue-chip-roll 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes queue-chip-roll {
+  from { transform: translateY(120%); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .queue-board .form-row { animation: none; }
+  .queue-chip { animation: none; }
+}
+
 /* ─── Surface graphite — espresso counter band (dashboard, counter-close) ─── */
 .surface-graphite {
   background-color: var(--color-counter);
@@ -183,6 +213,9 @@ body {
   background: var(--color-paper);
   position: relative;
   transform: rotate(-2deg);
+}
+.ticket-card .deposit-stamp {
+  background: #ffffff;
 }
 .deposit-stamp::before {
   content: "";
@@ -271,6 +304,221 @@ body {
 }
 .perf-tear::before { left: 0; }
 .perf-tear::after  { right: 0; }
+
+/* ─── Scroll-driven receipt unroll (progressive) ───
+   Where scroll-driven animations are supported the perforations tear in
+   lockstep with the scroll position — the receipt being pulled out of the
+   counter printer. Unsupported browsers keep the IntersectionObserver
+   fade-in above. */
+@keyframes tear-draw {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+@supports (animation-timeline: scroll()) {
+  .perf-tear {
+    animation: tear-draw linear both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 35%;
+    transition: none;
+  }
+}
+
+/* ─── Paper rail — the receipt edge, fixed left; it "prints" as you scroll ───
+   The page is one thermal roll running through a real printer: a column of
+   sprocket feed-holes runs the outer edge, an ink-black print head glides
+   down the rail in lockstep with scroll, and a telebirr wedge of printed
+   ink trails from above it. The mono readout counts the printed millimetres.
+   Purely decorative; hidden where scroll-driven animations are unsupported
+   or the visitor prefers motion reduced. */
+.paper-rail {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 34px;
+  z-index: 10;
+  display: none;
+  border-right: 1px dashed var(--color-ink-rule-dashed);
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0 7px,
+    var(--color-ink-rule-dashed) 7px 8px
+  );
+  pointer-events: none;
+}
+/* Sprocket feed-holes — punched along the outer edge of the roll */
+.paper-rail__holes {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 10px;
+  background-image: radial-gradient(
+    circle 3px at 50% 50%,
+    transparent 2.3px,
+    rgba(26, 20, 17, 0.22) 2.3px 2.7px,
+    transparent 2.7px
+  );
+  background-size: 10px 18px;
+  background-position: 0 9px;
+}
+.paper-rail__meter {
+  position: absolute;
+  left: 10px;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  transform: scaleY(0);
+  transform-origin: top;
+  background-color: var(--color-telebirr-deep);
+}
+/* The print head — ink-black carriage whose green contact line marks the
+   leading edge of the printed wedge. Rides the same scroll timeline. */
+.paper-rail__head {
+  position: absolute;
+  top: 0;
+  left: 10px;
+  right: 0;
+  height: 26px;
+  background-color: var(--color-ink);
+  color: var(--color-paper);
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px;
+  z-index: 2;
+}
+.paper-rail__head::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background-color: var(--color-telebirr);
+}
+.paper-rail__led {
+  width: 4px;
+  height: 4px;
+  background-color: var(--color-telebirr);
+  flex-shrink: 0;
+}
+.paper-rail__head-label {
+  font-family: var(--font-mono);
+  font-size: 0.5rem;
+  letter-spacing: 0.1em;
+  color: var(--color-paper);
+  line-height: 1;
+}
+/* Printer sound — opt-in only; silent until the visitor presses it */
+.paper-rail__sound {
+  position: absolute;
+  bottom: 8px;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.5rem;
+  letter-spacing: 0.12em;
+  color: var(--color-ink-soft);
+  padding: 4px 0;
+  z-index: 3;
+}
+.paper-rail__sound-dot {
+  width: 4px;
+  height: 4px;
+  background-color: var(--color-ink-stamp);
+  flex-shrink: 0;
+}
+.paper-rail__sound-dot.is-on {
+  background-color: var(--color-telebirr);
+  animation: stamp-pulse 1.6s ease-in-out infinite;
+}
+.paper-rail__sound:hover { color: var(--color-ink); }
+.paper-rail__sound:focus-visible {
+  outline: 1px solid var(--color-focus);
+  outline-offset: -1px;
+}
+/* Mirrored right rail — the far edge of the same roll; holes only */
+.paper-rail--right {
+  left: auto;
+  right: 0;
+  width: 26px;
+  border-right: none;
+  border-left: 1px dashed var(--color-ink-rule-dashed);
+}
+.paper-rail--right .paper-rail__holes {
+  left: auto;
+  right: 0;
+  background-position: 0 9px;
+}
+.paper-rail__readout {
+  position: absolute;
+  top: 14px;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-family: var(--font-mono);
+  font-size: 0.55rem;
+  letter-spacing: 0.1em;
+  color: var(--color-ink-soft);
+  writing-mode: vertical-rl;
+  z-index: 4;
+}
+@property --paper-printed {
+  syntax: '<integer>';
+  initial-value: 0;
+  inherits: false;
+}
+@keyframes paper-print {
+  from { transform: scaleY(0); }
+  to   { transform: scaleY(1); }
+}
+@keyframes head-drop {
+  from { transform: translateY(0); }
+  to   { transform: translateY(calc(100vh - 26px)); }
+}
+@keyframes paper-count {
+  to { --paper-printed: 300; }
+}
+@supports (animation-timeline: scroll()) {
+  .paper-rail {
+    display: block;
+  }
+  .paper-rail__head {
+    display: flex;
+    animation: head-drop linear both;
+    animation-timeline: scroll();
+  }
+  .paper-rail__meter {
+    animation: paper-print linear both;
+    animation-timeline: scroll();
+  }
+  .paper-rail__readout::after {
+    counter-reset: printed var(--paper-printed);
+    content: " " counter(printed, decimal-leading-zero) "mm";
+    animation: paper-count linear both;
+    animation-timeline: scroll();
+  }
+}
+@media (max-width: 1023px) {
+  .paper-rail { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .paper-rail { display: none; }
+  @supports (animation-timeline: scroll()) {
+    .perf-tear { animation: none; }
+  }
+}
 
 /* ─── Rubber stamp — squared stamp with ink-bleed inner ring + tilt ─── */
 .stamp {
@@ -638,6 +886,182 @@ button:hover .num-roller {
 }
 .animate-toast-out {
   animation: toast-out 160ms ease-in forwards;
+}
+
+/* ─── Overdrive: typed hero headline ─────────────────────────────────────
+   The hero types itself on first load, syllable by syllable, with a
+   telebirr print-cursor leading the line. Chars are pre-rendered and
+   revealed by JS; reduced-motion and no-JS both show the full text. */
+.tp-char {
+  display: inline-block;
+  opacity: 0;
+  white-space: pre;
+}
+.print-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1.05em;
+  margin-left: 3px;
+  background-color: var(--color-telebirr);
+  vertical-align: text-bottom;
+  animation: cursor-blink 0.9s steps(2, jump-none) infinite;
+}
+@keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+.print-cursor.is-done {
+  animation: none;
+  transform-origin: left center;
+  transform: scaleX(4);
+  transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1), opacity 300ms ease-out;
+  opacity: 0.8;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tp-char { opacity: 1; }
+  .print-cursor { display: none; }
+}
+
+/* ─── Overdrive: scroll-printed ledger lines ─────────────────────────────
+   Where scroll-driven animations are supported, tariff rows and plan cards
+   "print" line-by-line as the print head passes over them (steps timing =
+   mechanical print, not fade). Unsupported browsers keep them fully
+   visible. */
+@keyframes row-print {
+  from { clip-path: inset(0 100% 0 0); }
+  to   { clip-path: inset(0 0 0 0); }
+}
+@keyframes card-print {
+  from { clip-path: inset(100% 0 0 0); }
+  to   { clip-path: inset(0 0 0 0); }
+}
+@supports (animation-timeline: scroll()) {
+  .tariff-hover-row {
+    animation: row-print linear both;
+    animation-timeline: view();
+    animation-range: entry 6% entry 40%;
+    animation-timing-function: steps(12, jump-none);
+  }
+  .tariff-hover-row:nth-child(2) { animation-range: entry 11% entry 45%; }
+  .tariff-hover-row:nth-child(3) { animation-range: entry 16% entry 50%; }
+  .tariff-hover-row:nth-child(4) { animation-range: entry 21% entry 55%; }
+  .plan-card {
+    animation: card-print linear both;
+    animation-timeline: view();
+    animation-range: entry 4% entry 38%;
+    animation-timing-function: steps(16, jump-none);
+  }
+  .plan-card:nth-child(2) { animation-range: entry 10% entry 44%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tariff-hover-row { animation: none; }
+  .plan-card { animation: none; }
+}
+
+/* ─── Overdrive: payment slip ────────────────────────────────────────────
+   A freshly printed Telebirr slip hangs off the top edge of the booking
+   record while a deposit is charging: mono charge line, a fill bar that
+   ticks across, then the VERIFIED stamp. Retracts when the deposit clears. */
+.pay-slip {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  margin-bottom: 8px;
+  z-index: 4;
+  background-color: var(--color-paper-bleached);
+  border: 1px solid var(--color-ink);
+  border-radius: var(--rd-card);
+  opacity: 0;
+  transform: translateY(10px);
+  pointer-events: none;
+  transition:
+    transform 220ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 180ms ease-out;
+}
+.pay-slip.is-in {
+  opacity: 1;
+  transform: translateY(0);
+}
+.pay-slip__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.55rem 0.7rem;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-ink);
+}
+.pay-slip__merchant {
+  color: var(--color-ink-soft);
+}
+.pay-slip__bar {
+  height: 2px;
+  background-color: var(--color-telebirr);
+  transform-origin: left;
+  transform: scaleX(0);
+}
+.pay-slip.is-in .pay-slip__bar {
+  animation: strip-fill 1.5s steps(24, jump-none) both;
+}
+.pay-slip.is-verified .pay-slip__bar {
+  animation: none;
+  transform: scaleX(1);
+}
+@keyframes strip-fill {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pay-slip { display: none; }
+}
+
+/* ─── Overdrive: settling ledger feed (trust bar) ────────────────────────
+   The latest settled deposit slides in on the left with a LIVE marker;
+   older rows recede to stamp-faded ink. */
+.ledger-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.ledger-feed__row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  min-width: 0;
+  animation: ledger-in 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes ledger-in {
+  from { transform: translateX(-12px); opacity: 0; }
+  to   { transform: translateX(0); opacity: 1; }
+}
+.ledger-feed__row.is-old {
+  animation: none;
+  opacity: 0.55;
+}
+.ledger-feed__live {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--color-telebirr);
+  flex-shrink: 0;
+}
+.ledger-feed__dot {
+  width: 6px;
+  height: 6px;
+  background-color: var(--color-telebirr);
+  flex-shrink: 0;
+}
+.ledger-feed__ref {
+  font-weight: 600;
+  color: var(--color-ink);
+}
+@media (prefers-reduced-motion: reduce) {
+  .ledger-feed__row { animation: none; }
 }
 
 :root {

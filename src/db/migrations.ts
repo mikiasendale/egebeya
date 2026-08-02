@@ -174,6 +174,16 @@ export async function ensureSchemaMigrations(): Promise<Record<string, string[]>
       column: 'is_superadmin',
       sql: `ALTER TABLE users ADD COLUMN is_superadmin INTEGER NOT NULL DEFAULT 0`,
     },
+    {
+      // refresh_token_id — opaque server-issued jti that travels inside the
+      // refresh-token JWT. Rotated on every successful /auth/refresh so a
+      // stolen RT cannot be replayed once the legitimate client has refreshed
+      // (replay → mismatched jti → 403). Backfilled to a UUID for existing
+      // users so they get a clean rotation at next login.
+      table: 'users',
+      column: 'refresh_token_id',
+      sql: `ALTER TABLE users ADD COLUMN refresh_token_id TEXT NOT NULL DEFAULT ''`,
+    },
   ];
 
   for (const m of migrations) {

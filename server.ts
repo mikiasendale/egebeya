@@ -53,6 +53,14 @@ app.use(helmet({
           'base-uri': ["'self'"],
         } }
       : false,
+  // The SPA itself can be iframed only from egebeya.et origins (required
+  // for the Egebeya widget iframes /book/{slug} to render on the same
+  // domain). Cross-origin framing by arbitrary third parties is still
+  // blocked. The strictCsp middleware adds an explicit X-Frame-Options:
+  // DENY on the public JSON API so admin/tenant surfaces are doubly
+  // protected there.
+  frameguard: { action: 'sameorigin' },
+  referrerPolicy: { policy: 'no-referrer' },
 }));
 
 // CORS restricted to local dev, the egebeya.et platform/subdomains, and an

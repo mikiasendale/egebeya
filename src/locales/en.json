@@ -288,5 +288,16 @@
   "setup": {
     "welcome": "Welcome to Egebeya",
     "welcomeAm": "እንኳን ወደ ኢ-ገበያ በደህና መጡ"
+  },
+  "liveFeed": {
+    "incoming": "PAYMENT INCOMING",
+    "incomingAm": "ክፍያ እየገባ ነው",
+    "verify": "VERIFIED",
+    "verifyAm": "ተረጋገጠ",
+    "settled": "SETTLED",
+    "settledAm": "ተፈጸመ",
+    "live": "LIVE",
+    "charge": "charging Telebirr…",
+    "chargeAm": "የቴሌቢር ክፍያ እየገባ ነው…"
   }
 }

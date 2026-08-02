@@ -81,10 +81,19 @@ export function Bookings() {
 
     function escapeCell(value: any): string {
       const s = value == null ? '' : String(value);
-      if (s.includes(',') || s.includes('"') || s.includes('\n')) {
-        return `"${s.replace(/"/g, '""')}"`;
+      // CSV-formula-injection guard: when a cell starts with one of the
+      // characters Excel/Sheets/LibreOffice interpret as a formula (=, +,
+      // -, @, tab, CR), prepend a single quote so the spreadsheet renders
+      // the value as text instead of evaluating it (which could otherwise
+      // execute DDE/network actions on the owner's machine when they open
+      // an export containing attacker-controlled customer_name strings).
+      const needsQuote = /^[=+\-@\t\r]/.test(s);
+      let escaped = s;
+      if (needsQuote) escaped = `'${escaped}`;
+      if (escaped.includes(',') || escaped.includes('"') || escaped.includes('\n')) {
+        return `"${escaped.replace(/"/g, '""')}"`;
       }
-      return s;
+      return escaped;
     }
 
     function formatStartTime(ms: number): string {

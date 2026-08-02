@@ -384,26 +384,45 @@ router.get('/availability', async (req, res) => {
   }
 });
 
+// Reasonable length caps so a 2MB customer_name / phones / emails payload
+// cannot consume memory or trigger a generic 500 in the storage layer. Phone
+// and email are additionally normalised/validated downstream.
 const BookingSchema = z.object({
   staff_id: z.string().uuid(),
   service_id: z.string().uuid(),
   start_time: z.string().datetime({ offset: true }),
-  customer_name: z.string().min(1),
-  customer_phone: z.string().min(1),
+  customer_name: z.string().min(1).max(120),
+  customer_phone: z.string().min(1).max(40),
   // Empty string is normalised to undefined so it is stored as NULL (never
   // '' ) and never sent to Chapa as a blank email.
   customer_email: z
-    .union([z.string().email('Invalid email'), z.literal('')])
+    .union([z.string().email('Invalid email').max(254), z.literal('')])
     .optional()
     .transform((v) => (v === '' || v === undefined ? undefined : v)),
 });
 
-async function assertSlotAllowed(tenant: any, startTimeMs: number): Promise<{ code: string; error: string } | null> {
+async function assertSlotAllowed(
+  tenant: any,
+  startTimeMs: number,
+  staffId?: string,
+): Promise<{ code: string; error: string } | null> {
   if (!Number.isFinite(startTimeMs)) {
     return { code: 'INVALID_TIME', error: 'Invalid start_time. Expected an ISO 8601 timestamp.' };
   }
   if (startTimeMs <= Date.now()) {
     return { code: 'PAST_DATE', error: 'Cannot book a time in the past.' };
+  }
+
+  // Enforce 30-minute slot alignment so an attacker cannot craft a
+  // start_time at ":07" the published availability grid does not expose —
+  // it lets them bypass the grid without changing price (no arbitrage) but
+  // does let them book off-grid slots the staff member never published, and
+  // their start would land mid-appointment. The grid is generated at :00 and
+  // :30 offsets in GET /availability, so require the same minute alignment.
+  const SLOT_MINUTES = 30;
+  const minuteOfDay = new Date(startTimeMs).getUTCMinutes();
+  if (minuteOfDay % SLOT_MINUTES !== 0) {
+    return { code: 'INVALID_SLOT', error: 'Start time must align to a 30-minute slot boundary.' };
   }
 
   const slotStartDate = new Date(startTimeMs);
@@ -422,6 +441,43 @@ async function assertSlotAllowed(tenant: any, startTimeMs: number): Promise<{ co
   ).get();
   if (businessHours?.isClosed) {
     return { code: 'CLOSED_DAY', error: 'The business is closed on this day of the week.' };
+  }
+
+  // When a staff id is supplied, additionally verify the staff has
+  // published availability for that day-of-week (if any windows exist for
+  // the day) AND that the requested slot falls inside one of them. The
+  // staffAvailability table holds HH:MM strings in Addis local time, which
+  // is what we render against the day grid; comparing in the same frame
+  // keeps the alignment honest. When the staff has no published windows
+  // for the day (the inherits-tenant-hours case many tenants rely on)
+  // we deliberately fall back to the business-hours-only check above so we
+  // don't silently revoke availability from staff members a tenant has
+  // never explicitly configured. Without the inside-check a crafted ISO
+  // timestamp could book a slot outside the staff member's published
+  // hours while remaining inside the tenant's looser business-hours
+  // window.
+  if (staffId) {
+    const availabilities = await db.select().from(staffAvailability).where(
+      and(eq(staffAvailability.staffId, staffId), eq(staffAvailability.dayOfWeek, slotDayOfWeek))
+    ).all();
+
+    if (availabilities.length > 0) {
+      const addisMidnight = parseAddisDate(slotDateString);
+      const slotMinuteOfDay = Math.round((startTimeMs - addisMidnight.getTime()) / 60000);
+      const parseTime = (t: string) => {
+        const [h, m] = t.split(':').map(Number);
+        return h * 60 + m;
+      };
+
+      const insideAnyWindow = availabilities.some((a) => {
+        const start = parseTime(a.startTime);
+        const end = parseTime(a.endTime);
+        return slotMinuteOfDay >= start && slotMinuteOfDay < end;
+      });
+      if (!insideAnyWindow) {
+        return { code: 'OUTSIDE_AVAILABILITY', error: 'The selected staff member is not available at this time.' };
+      }
+    }
   }
 
   return null;
@@ -484,7 +540,7 @@ router.post('/bookings', bookingWriteLimiter, async (req, res) => {
     const startTimeMs = new Date(data.start_time).getTime();
     const endTimeMs = startTimeMs + service.durationMinutes * 60000;
 
-    const slotError = await assertSlotAllowed(tenant, startTimeMs);
+    const slotError = await assertSlotAllowed(tenant, startTimeMs, data.staff_id);
     if (slotError) {
       return res.status(422).json(slotError);
     }
@@ -608,7 +664,13 @@ router.post('/bookings', bookingWriteLimiter, async (req, res) => {
       }).catch(console.error);
     }
 
-    const owner = await db.select().from(users).where(eq(users.tenantId, tenant.id)).get();
+    // Notify the tenant owner (filtered by role='owner' rather than the
+    // naive "first user for tenant" the previous code used — staff invites
+    // create rows with role='staff', and an insert-order drift would have
+    // sent the booking alert to a staff member instead of the owner).
+    const owner = await db.select().from(users)
+      .where(and(eq(users.tenantId, tenant.id), eq(users.role, 'owner')))
+      .get();
     if (owner && owner.email) {
       sendMail({
         to: owner.email,
@@ -704,7 +766,7 @@ router.post('/bookings/:id/reschedule', bookingWriteLimiter, async (req, res) =>
     }
     const endTimeMs = startTimeMs + service.durationMinutes * 60000;
 
-    const slotError = await assertSlotAllowed(tenant, startTimeMs);
+    const slotError = await assertSlotAllowed(tenant, startTimeMs, appt.staffId);
     if (slotError) return res.status(422).json(slotError);
 
     const conflict = await findSlotConflict(tenant.id, appt.staffId, startTimeMs, endTimeMs, appt.id);
@@ -741,7 +803,6 @@ router.get('/appointments', async (req, res) => {
     const addisDayEnd = new Date(addisMidnight.getTime() + 24 * 3600 * 1000);
 
     const rows = await db.select({
-      id: appointments.id,
       startTime: appointments.startTime,
       endTime: appointments.endTime,
       status: appointments.status,
@@ -761,7 +822,11 @@ router.get('/appointments', async (req, res) => {
 
     const publicRows = rows
       .map((r) => ({
-        id: r.id,
+        // Note: the internal appointment `id` is intentionally NOT returned.
+        // UUIDs are internal correlated by other surfaces (bookings/
+        // reschedule/cancel) and exposing them here lets a passer-by infer
+        // stable PII anchors ("is this the same person across days?") and
+        // probe the cancel/reschedule routes.
         startTime: formatAddisSlotTime(r.startTime),
         status: r.status,
         serviceName: r.serviceName,
