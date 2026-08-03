@@ -393,8 +393,8 @@ export function StaffPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-xl font-bold text-gray-900">Staff</h2>
-          <p className="text-sm text-gray-500">
+          <h2 className="text-xl font-bold text-ink">Staff</h2>
+          <p className="text-sm text-ink-soft">
             Manage staff, the services they offer, and their weekly availability.
           </p>
         </div>
@@ -404,9 +404,9 @@ export function StaffPage() {
         </Button>
       </div>
 
-      <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+      <div className="bg-white rounded-lg border border-ink-rule shadow-sm">
         {loading ? (
-          <div className="flex items-center justify-center gap-2 p-12 text-sm text-gray-500">
+          <div className="flex items-center justify-center gap-2 p-12 text-sm text-ink-soft">
             <Loader2 className="h-4 w-4 animate-spin" />
             Loading staff…
           </div>
@@ -414,11 +414,11 @@ export function StaffPage() {
           <div className="p-8 text-center text-sm text-red-600">{error}</div>
         ) : staff.length === 0 ? (
           <div className="p-12 text-center">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-gray-100">
-              <Plus className="h-6 w-6 text-gray-400" />
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-paper-raised">
+              <Plus className="h-6 w-6 text-ink-stamp" />
             </div>
-            <p className="font-medium text-gray-900">No staff yet. Add your first team member.</p>
-            <p className="text-sm text-gray-500 mt-1">
+            <p className="font-medium text-ink">No staff yet. Add your first team member.</p>
+            <p className="text-sm text-ink-soft mt-1">
               Staff are the people customers can book appointments with.
             </p>
             <Button className="mt-4" onClick={openCreate}>
@@ -440,10 +440,10 @@ export function StaffPage() {
             <TableBody>
               {staff.map(s => (
                 <TableRow key={s.id}>
-                  <TableCell className="font-medium text-gray-900">{s.name}</TableCell>
+                  <TableCell className="font-medium text-ink">{s.name}</TableCell>
                   <TableCell>{s.title || '—'}</TableCell>
                   <TableCell className="max-w-xs">
-                    <span className="block truncate text-gray-700" title={servicesCellText(s)}>
+                    <span className="block truncate text-ink-soft" title={servicesCellText(s)}>
                       {servicesCellText(s)}
                     </span>
                   </TableCell>
@@ -557,7 +557,7 @@ export function StaffPage() {
             <DialogTitle>Delete staff</DialogTitle>
             <DialogDescription>
               Are you sure you want to delete{' '}
-              <span className="font-semibold text-gray-900">{deleteTarget?.name}</span>? This
+              <span className="font-semibold text-ink">{deleteTarget?.name}</span>? This
               will also remove their service assignments and availability. This action cannot
               be undone.
             </DialogDescription>
@@ -656,9 +656,9 @@ export function StaffPage() {
           </DialogHeader>
 
           {services.length === 0 ? (
-            <p className="text-sm text-gray-500">
-              You haven’t created any services yet. Add services first, then assign them here.
-            </p>
+        <p className="text-sm text-ink-soft">
+          You haven't created any services yet. Add services first, then assign them here.
+        </p>
           ) : (
             <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
               {services.map(sv => {
@@ -666,10 +666,10 @@ export function StaffPage() {
                 return (
                   <label
                     key={sv.id}
-                    className="flex cursor-pointer items-center gap-3 rounded-md border border-gray-200 px-3 py-2 text-sm hover:bg-gray-50"
+                    className="flex cursor-pointer items-center gap-3 rounded-md border border-ink-rule px-3 py-2 text-sm hover:bg-paper-raised"
                   >
                     <Checkbox checked={checked} onChange={() => toggleService(sv.id)} />
-                    <span className="text-gray-900">{sv.name}</span>
+                    <span className="text-ink">{sv.name}</span>
                   </label>
                 );
               })}
@@ -709,10 +709,10 @@ export function StaffPage() {
           </DialogHeader>
 
           {loadingAvailability ? (
-            <div className="flex items-center justify-center gap-2 py-8 text-sm text-gray-500">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Loading availability…
-            </div>
+          <div className="flex items-center justify-center gap-2 py-8 text-sm text-ink-soft">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Loading availability…
+          </div>
           ) : (
             <div className="space-y-3">
               {DAYS_OF_WEEK.map(day => {
@@ -721,9 +721,9 @@ export function StaffPage() {
                 return (
                   <div
                     key={day.value}
-                    className="flex flex-col gap-3 rounded-md border border-gray-200 p-3 sm:flex-row sm:items-center"
+                    className="flex flex-col gap-3 rounded-md border border-ink-rule p-3 sm:flex-row sm:items-center"
                   >
-                    <label className="flex w-40 shrink-0 cursor-pointer items-center gap-3 text-sm font-medium text-gray-900">
+                    <label className="flex w-40 shrink-0 cursor-pointer items-center gap-3 text-sm font-medium text-ink">
                       <Checkbox
                         checked={checked}
                         onChange={() => toggleAvailabilityDay(day.value)}
@@ -747,7 +747,7 @@ export function StaffPage() {
                         disabled={!checked}
                         aria-label={`${day.label} start time`}
                       />
-                      <span className="text-gray-400">to</span>
+                      <span className="text-ink-stamp">to</span>
                       <Input
                         type="time"
                         value={entry?.endTime ?? '17:00'}

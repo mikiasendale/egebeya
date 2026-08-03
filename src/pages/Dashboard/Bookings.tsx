@@ -181,8 +181,8 @@ export function Bookings() {
                       <span className="font-bold text-lg text-ink">{format(new Date(booking.startTime), 'HH:mm')}</span>
                       <span className={`px-2.5 py-1 text-xs font-semibold rounded-full 
                         ${booking.status === 'confirmed' ? 'bg-telebirr/10 text-telebirr-deep' : ''}
-                        ${booking.status === 'pending' ? 'bg-amber-100 text-amber-800' : ''}
-                        ${booking.status === 'cancelled' ? 'bg-red-100 text-red-800' : ''}
+      ${booking.status === 'pending' ? 'bg-accent-secondary/10 text-accent-secondary-deep' : ''}
+      ${booking.status === 'cancelled' ? 'bg-accent text-accent-deep' : ''}
                         ${booking.status === 'completed' ? 'bg-ink/10 text-ink' : ''}
                         ${booking.status === 'no_show' ? 'bg-paper-raised text-ink-soft' : ''}
                       `}>

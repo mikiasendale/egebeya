@@ -205,8 +205,8 @@ export function ServicesPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-xl font-bold text-gray-900">Services</h2>
-          <p className="text-sm text-gray-500">Manage the services customers can book.</p>
+<h2 className="text-xl font-bold text-ink">Services</h2>
+        <p className="text-sm text-ink-soft">Manage the services customers can book.</p>
         </div>
         <Button onClick={openCreate}>
           <Plus className="h-4 w-4" />
@@ -214,9 +214,9 @@ export function ServicesPage() {
         </Button>
       </div>
 
-      <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+      <div className="bg-white rounded-lg border border-ink-rule shadow-sm">
         {loading ? (
-          <div className="flex items-center justify-center gap-2 p-12 text-sm text-gray-500">
+          <div className="flex items-center justify-center gap-2 p-12 text-sm text-ink-soft">
             <Loader2 className="h-4 w-4 animate-spin" />
             Loading services…
           </div>
@@ -224,11 +224,11 @@ export function ServicesPage() {
           <div className="p-8 text-center text-sm text-red-600">{error}</div>
         ) : services.length === 0 ? (
           <div className="p-12 text-center">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-gray-100">
-              <Plus className="h-6 w-6 text-gray-400" />
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-paper-raised">
+              <Plus className="h-6 w-6 text-ink-stamp" />
             </div>
-            <p className="font-medium text-gray-900">No services yet. Add your first service.</p>
-            <p className="text-sm text-gray-500 mt-1">
+            <p className="font-medium text-ink">No services yet. Add your first service.</p>
+            <p className="text-sm text-ink-soft mt-1">
               Services appear on your booking page for customers to choose from.
             </p>
             <Button className="mt-4" onClick={openCreate}>
@@ -250,7 +250,7 @@ export function ServicesPage() {
             <TableBody>
               {services.map((svc) => (
                 <TableRow key={svc.id}>
-                  <TableCell className="font-medium text-gray-900">{svc.name}</TableCell>
+                  <TableCell className="font-medium text-ink">{svc.name}</TableCell>
                   <TableCell>{formatDuration(svc.durationMinutes)}</TableCell>
                   <TableCell>{formatPrice(svc.price)}</TableCell>
                   <TableCell>
@@ -344,7 +344,7 @@ export function ServicesPage() {
               </div>
             </div>
 
-            <label className="flex items-center gap-2 text-sm text-gray-700">
+            <label className="flex items-center gap-2 text-sm text-ink-soft">
               <Checkbox {...register('active')} />
               Active
             </label>
@@ -378,7 +378,7 @@ export function ServicesPage() {
             <DialogTitle>Delete service</DialogTitle>
             <DialogDescription>
               Are you sure you want to delete{' '}
-              <span className="font-semibold text-gray-900">
+              <span className="font-semibold text-ink">
                 {deleteTarget?.name}
               </span>
               ? This action cannot be undone.

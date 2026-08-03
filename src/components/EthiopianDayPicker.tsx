@@ -42,13 +42,13 @@ export function EthiopianDayPicker({ selected, onSelect, disabled }: Props) {
   return (
     <div className="p-4 border rounded-lg bg-white inline-block">
       <div className="flex justify-between items-center mb-4">
-        <button onClick={prevMonth} className="px-2 py-1 bg-gray-100 rounded hover:bg-gray-200">&lt;</button>
+        <button onClick={prevMonth} className="px-2 py-1 rounded bg-paper-raised hover:bg-paper-raised">&lt;</button>
         <div className="font-bold">
           {ETHIOPIAN_MONTHS[currentMonth - 1]} {currentYear}
         </div>
-        <button onClick={nextMonth} className="px-2 py-1 bg-gray-100 rounded hover:bg-gray-200">&gt;</button>
+        <button onClick={nextMonth} className="px-2 py-1 rounded bg-paper-raised hover:bg-paper-raised">&gt;</button>
       </div>
-      <div className="grid grid-cols-7 gap-1 text-center text-sm mb-2 font-medium text-gray-500">
+      <div className="grid grid-cols-7 gap-1 text-center text-sm mb-2 font-medium text-ink-soft">
         <div>Su</div><div>Mo</div><div>Tu</div><div>We</div><div>Th</div><div>Fr</div><div>Sa</div>
       </div>
       <div className="grid grid-cols-7 gap-1 text-center">
@@ -64,9 +64,9 @@ export function EthiopianDayPicker({ selected, onSelect, disabled }: Props) {
               disabled={isDisabled}
               onClick={() => onSelect(date)}
               className={`p-2 rounded-full w-9 h-9 flex items-center justify-center ${
-                isDisabled ? 'text-gray-300 cursor-not-allowed' :
-                isSelected ? 'bg-blue-600 text-white font-bold' :
-                'hover:bg-gray-100'
+                isDisabled ? 'text-ink-stamp cursor-not-allowed' :
+                isSelected ? 'bg-primary-deep text-paper font-bold' :
+                'hover:bg-paper-raised'
               }`}
             >
               {day}

@@ -6,7 +6,7 @@ export function Footer() {
   const year = new Date().getFullYear();
   return (
     <footer
-      className="surface-graphite px-5 sm:px-8 lg:px-12 py-14"
+      className="surface-graphite px-5 sm:px-8 lg:px-12 py-14 scroll-reveal"
       aria-label="Egebeya footer"
     >
       <div className="mx-auto max-w-6xl">

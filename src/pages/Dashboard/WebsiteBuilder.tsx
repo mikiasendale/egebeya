@@ -211,17 +211,20 @@ function WebsiteBuilderInner() {
     <div className="flex h-[calc(100vh-128px)] flex-col gap-3">
       {/* Top bar */}
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-ink-rule bg-paper-bleached px-4 py-3">
-        <div className="flex items-center gap-3">
-          <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-ink/10 text-ink">
-            {mode === 'puck' ? <PencilRuler className="h-5 w-5" /> : <Code2 className="h-5 w-5" />}
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center gap-2">
+          <span className="inline-flex h-6 w-6 items-center justify-center rounded bg-ink/10 text-ink">
+            {mode === 'puck' ? <PencilRuler className="h-3.5 w-3.5" /> : <Code2 className="h-3.5 w-3.5" />}
           </span>
-          <div>
-            <h1 className="text-base font-bold text-ink leading-tight">Website Builder</h1>
-            <p className="text-xs text-ink-soft">
-              {mode === 'puck' ? 'Visual mode — drag, drop, arrange.' : 'Code mode — edit raw HTML with a live preview.'}
-            </p>
-          </div>
+          <h1 className="text-sm font-bold text-ink leading-tight">Website Builder</h1>
         </div>
+        <div className="flex items-center gap-2">
+          <p className="text-[0.7rem] text-ink-soft">
+            {mode === 'puck' ? 'Visual mode — drag, drop, arrange.' : 'Code mode — edit raw HTML with a live preview.'}
+          </p>
+          <Badge variant={mode === 'puck' ? 'secondary' : 'default'} className="text-[0.65rem] px-1.5 py-0 h-4 leading-none">{mode === 'puck' ? 'Visual' : 'Code'}</Badge>
+        </div>
+      </div>
 
         <div className="flex flex-wrap items-center gap-3">
           <SaveStatusIndicator status={mode === 'puck' ? puckSaveStatus : codeSaveStatus} />
@@ -237,7 +240,7 @@ function WebsiteBuilderInner() {
             </Button>
           )}
           <Button size="sm" variant="outline" onClick={handleAiClick} title="AI Assistant">
-            <Sparkles className="h-4 w-4 text-[#1E3A8A]" /> AI
+            <Sparkles className="h-4 w-4 text-accent-secondary-deep" /> AI
           </Button>
         </div>
       </div>
@@ -273,19 +276,19 @@ function WebsiteBuilderInner() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setAiOpen(false)}>
           <div className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="mb-3 flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-[#1E3A8A]" />
-              <h2 className="text-lg font-bold text-gray-900">AI Assistant</h2>
+        <Sparkles className="h-5 w-5 text-accent-secondary-deep" />
+        <h2 className="text-lg font-bold text-ink">AI Assistant</h2>
             </div>
-            <p className="mb-3 text-sm text-gray-600">
-              Describe the change. The prompt and current {mode === 'puck' ? 'Puck JSON' : 'Sandpack HTML'} state are logged
-              to the console (LLM integration is staged for later).
-            </p>
-            <textarea
-              value={aiPrompt}
-              onChange={(e) => setAiPrompt(e.target.value)}
-              rows={4}
-              placeholder="e.g. Add a booking widget section…"
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]/30"
+      <p className="mb-3 text-sm text-ink-soft">
+        Describe the change. The prompt and current {mode === 'puck' ? 'Puck JSON' : 'Sandpack HTML'} state are logged
+        to the console (LLM integration is staged for later).
+      </p>
+      <textarea
+        value={aiPrompt}
+        onChange={(e) => setAiPrompt(e.target.value)}
+        rows={4}
+        placeholder="e.g. Add a booking widget section…"
+        className="w-full rounded-md border border-ink-rule px-3 py-2 text-sm text-ink placeholder-ink-stamp focus:outline-none focus:ring-2 focus:ring-accent-secondary/30"
             />
             <div className="mt-4 flex justify-end gap-2">
               <Button variant="outline" size="sm" onClick={() => setAiOpen(false)}>
@@ -526,8 +529,8 @@ function DisclaimerModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onCancel}>
       <div className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
-        <h2 className="text-lg font-bold text-gray-900">Switch to {isCode ? 'Code Editor' : 'Visual Editor'}?</h2>
-        <p className="mt-2 text-sm text-gray-600">
+      <h2 className="text-lg font-bold text-ink">Switch to {isCode ? 'Code Editor' : 'Visual Editor'}?</h2>
+      <p className="mt-2 text-sm text-ink-soft">
           {isCode
             ? 'WARNING: Switching to the Code Editor will overwrite your drag-and-drop progress. Are you sure?'
             : 'WARNING: Switching to Visual Editor will overwrite your custom code. Are you sure?'}
@@ -551,10 +554,10 @@ function SubscribeModal({ open, onClose }: { open: boolean; onClose: () => void 
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-2">
-          <Sparkles className="h-5 w-5 text-[#1E3A8A]" />
-          <h2 className="text-lg font-bold text-gray-900">Code Editor & AI are Pro features</h2>
-        </div>
-        <p className="mt-2 text-sm text-gray-600">
+        <Sparkles className="h-5 w-5 text-accent-secondary-deep" />
+        <h2 className="text-lg font-bold text-ink">Code Editor & AI are Pro features</h2>
+      </div>
+      <p className="mt-2 text-sm text-ink-soft">
           Upgrade to the Pro plan to edit your site's raw code, publish custom HTML, and use the AI assistant.
           Your visual editor remains available on every plan.
         </p>
@@ -581,8 +584,8 @@ function SaveStatusIndicator({ status }: { status: SaveStatus }) {
   }
   if (status === 'saved') {
     return (
-      <span className="inline-flex items-center gap-1 text-xs text-emerald-600" aria-live="polite">
-        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Saved
+        <span className="inline-flex items-center gap-1 text-xs text-primary" aria-live="polite">
+          <span className="h-1.5 w-1.5 rounded-full bg-primary" /> Saved
       </span>
     );
   }

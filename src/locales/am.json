@@ -30,6 +30,10 @@
     "label": "SPECIMEN",
     "labelAm": "ምሳሌ"
   },
+  "clock": {
+    "captionAria": "Live Addis Ababa time",
+    "zone": "EAT"
+  },
   "trustBar": {
     "ledger": "LIVE LEDGER",
     "ledgerAm": "የቀጥታ መዝገብ",
@@ -92,7 +96,9 @@
     "addis": "ADDIS TIME",
     "privacy": "ለግላዊነት የደንበኞች ስም አይታይም — ሰዓት እና አገልግሎት ብቻ።",
     "with": "with",
-    "staffLabel": "ሰራተኛ"
+    "staffLabel": "ሰራተኛ",
+    "chairOpen": "in the chair",
+    "chairOpenAria": "Time the current chair has been in service"
   },
   "pricing": {
     "eyebrow": "Pricing",

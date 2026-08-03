@@ -252,7 +252,7 @@ function QuickActions() {
   const actions: { name: string; to: string; icon: any; accent: string }[] = [
     { name: 'Add Service', to: '/dashboard/services', icon: Plus, accent: 'bg-ink/10 text-ink' },
     { name: 'Add Staff', to: '/dashboard/staff', icon: CalendarPlus, accent: 'bg-telebirr/10 text-telebirr-deep' },
-    { name: 'View Media', to: '/dashboard/media', icon: ImagePlus, accent: 'bg-amber-50 text-amber-700' },
+    { name: 'View Media', to: '/dashboard/media', icon: ImagePlus, accent: 'bg-accent-secondary/10 text-accent-secondary-deep' },
   ];
   return (
     <section>

@@ -36,13 +36,13 @@ function AdminGuard() {
   const isSuperadmin = typeof window !== 'undefined' && localStorage.getItem('isSuperadmin') === 'true';
   if (!isSuperadmin) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-surface-raised flex items-center justify-center">
         <div className="mx-auto max-w-xl text-center px-6">
-          <h1 className="text-2xl font-bold text-gray-900">Access Denied</h1>
-          <p className="mt-3 text-sm text-gray-600">
+          <h1 className="text-2xl font-bold text-ink">Access Denied</h1>
+          <p className="mt-3 text-sm text-ink-soft">
             You don't have superadmin access to this page. Sign in with an account that has superadmin privileges.
           </p>
-          <a href="/login?next=/admin" className="mt-6 inline-block rounded-md bg-[#1E3A8A] px-4 py-2 text-sm font-medium text-white hover:bg-blue-800">
+          <a href="/login?next=/admin" className="mt-6 inline-block rounded-md bg-primary-deep px-4 py-2 text-sm font-medium text-paper hover:bg-ink">
             Sign in
           </a>
         </div>

@@ -9,7 +9,7 @@ export function PricingSection() {
   return (
     <section
       id="pricing"
-      className="px-5 sm:px-8 lg:px-12 py-16 lg:py-24"
+      className="px-5 sm:px-8 lg:px-12 py-16 lg:py-24 scroll-reveal"
       style={{ backgroundColor: 'var(--color-paper-bleached)' }}
     >
       <div className="mx-auto max-w-6xl">
