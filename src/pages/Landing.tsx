@@ -1,8 +1,34 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+/* ══════════════════════════════════════════════════════════════════════
+   OVERDRIVE · Direction contract — Generative atmosphere shader (C)
+   THESIS: The landing surface is the atmosphere itself — a living generative
+   shader of Ethiopia's material world (coffee, spice, ink, telebirr green)
+   with massive typography that writes itself against flowing color fields.
+   The receipt identity is abstracted into motion, not discarded.
+   OWN-WORLD: Deep espresso (#3B2820), telebirr (#0FA958, #063F2D), ink
+   (#1A1411), gold spice (#F4E8C1, #F59E0B), signal (#D33426). Typography:
+   Noto Serif Ethiopic for Amharic, Bricolage Grotesque for display, Inter
+   for body, JetBrains Mono for data. No literal paper card — cards float
+   on semi-transparent dark surfaces over the shader.
+   STORY: A visitor lands inside Ethiopia's service economy before reading a
+   word; scroll and cursor move the atmosphere; sections emerge from the
+   depth, not from a scroll-rail. The proof form stays interactive (press,
+   settle, audio) but now floats above the generative field.
+   FIRST VIEWPORT: Full-bleed shader background; hero headline types itself
+   in 6vw serif-ethiopic over a flowing ink-green field; the proof card and
+   CTAs sit on a translucent dark glass panel anchored bottom-right.
+   FORM: Persuade mode — one authored interactive moment (the live proof),
+   one authored motion system (shader + scroll-driven reveals), and graceful
+   fallbacks for reduced motion and small screens.
+   SEED: user-selected direction C (generative atmosphere shader) via
+   overdrive command. No script roll used — user directly confirmed.
+   ══════════════════════════════════════════════════════════════════════ */
+
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
 import { PricingSection } from '../components/PricingSection';
+import { AtmosphereCanvas } from '../components/AtmosphereCanvas';
 
 const SERVICES_DEMO: { geo: string; name: string; amName: string; duration: string; price: string }[] = [
   { geo: '፩',  name: 'Manicure',  amName: 'ጥፍር',   duration: '00:45', price: '400.00' },
@@ -57,8 +83,8 @@ const QUEUE_NEW_POOL: { time: string; service: string; staff: string }[] = [
 ];
 
 /* ── Printer sound (opt-in) — a tiny synthesized tick burst. Silent until
-   the visitor presses the SND control on the paper rail; the AudioContext
-   is created lazily on the first user gesture that enables it. ── */
+    the visitor presses the SND control on the paper rail; the AudioContext
+    is created lazily on the first user gesture that enables it. ── */
 const soundState = { on: false };
 function setSoundOn(on: boolean) {
   soundState.on = on;
@@ -96,6 +122,100 @@ function playPrintTick(kind: 'tick' | 'stamp') {
   }
 }
 
+/* ── overdrive · Addis clock ─────────────────────────────────────────────
+   One live timekeeper for the whole landing, shared by the masthead ledger
+   header and the NOW SERVING elapsed counter. Africa/Addis_Ababa via
+   Intl.DateTimeFormat, ticked once per ~250ms through requestAnimationFrame.
+   Frozen on first render where the visitor prefers reduced motion, and
+   paused in the background tab. Two string outputs: the wall time and the
+   Ethiopic-numeral mirror that hides itself when English is selected.
+
+   The same Addis clock that labels the receipt (and that the booking row
+   writes into the tx_ref) is the page's only ticking source — one authored
+   moment, threaded through three surfaces, exactly as the kebele receipt
+   already stamps Addis time onto every deposited block. */
+
+export interface AddisClock {
+  /** Addis hh:mm:ss in 24-hour Latin (mono tabular) */
+  hms: string;
+  /** The seconds separator blinks while the clock runs; static when frozen */
+  running: boolean;
+  /** Ethiopic-numeral mirror of HH:MM:SS, or '' when reduced motion is on */
+  hmsEth: string;
+}
+
+function formatEthiopicTime(parts: { hour: number; minute: number; second: number }): string {
+  const hh = toEth2(parts.hour);
+  const mm = parts.minute < 10 ? ETH_UNITS[parts.minute] : toEth2(parts.minute);
+  const ss = parts.second < 10 ? ETH_UNITS[parts.second] : toEth2(parts.second);
+  return `${hh}:${mm}:${ss}`;
+}
+function toEth2(n: number): string {
+  if (n < 10) return ETH_UNITS[n];
+  return ETH_TENS[Math.floor(n / 10) - 1] + ETH_UNITS[n % 10];
+}
+function useAddisClock(): AddisClock {
+  const initial = useMemo(() => readAddis(new Date()), []);
+  const [clock, setClock] = useState<AddisClock>(initial);
+  useEffect(() => {
+    const el = typeof document !== 'undefined' ? document : null;
+    if (typeof window === 'undefined' || !el) return;
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduced) return;
+    let raf = 0;
+    let lastUpdate = 0;
+    const loop = (now: number) => {
+      raf = window.requestAnimationFrame(loop);
+      if (el.hidden) return;
+      if (now - lastUpdate < 220) return;
+      lastUpdate = now;
+      setClock(readAddis(new Date()));
+    };
+    raf = window.requestAnimationFrame(loop);
+    const onVis = () => {
+      if (!el.hidden) {
+        lastUpdate = 0;
+        setClock(readAddis(new Date()));
+      }
+    };
+    el.addEventListener('visibilitychange', onVis);
+    return () => {
+      window.cancelAnimationFrame(raf);
+      el.removeEventListener('visibilitychange', onVis);
+    };
+  }, []);
+  return clock;
+}
+function readAddis(d: Date): AddisClock {
+  if (typeof Intl === 'undefined' || !Intl.DateTimeFormat) {
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    return { hms: `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`, running: false, hmsEth: '' };
+  }
+  let fmt: Intl.DateTimeFormat;
+  try {
+    fmt = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Africa/Addis_Ababa',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    });
+  } catch {
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    return { hms: `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`, running: false, hmsEth: '' };
+  }
+  const parts = fmt.formatToParts(d);
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? '00';
+  const hour = Number(get('hour'));
+  const minute = Number(get('minute'));
+  const second = Number(get('second'));
+  const hms = `${get('hour')}:${get('minute')}:${get('second')}`;
+  const hmsEth = formatEthiopicTime({ hour, minute, second });
+  return { hms, running: true, hmsEth };
+}
+
+
+
 export function Landing() {
   const [soundOn, setSoundOnState] = useState(false);
   const { t } = useTranslation();
@@ -109,23 +229,28 @@ export function Landing() {
     <div
       className="min-h-screen"
       style={{
-        backgroundColor: 'var(--color-paper)',
+        backgroundColor: 'transparent',
         color: 'var(--color-ink)',
         fontFamily: 'var(--font-body)',
+        position: 'relative',
+        zIndex: 1,
       }}
     >
-      <Navbar />
-      <PaperRail soundOn={soundOn} onToggleSound={toggleSound} />
-      <Lead />
-      <TrustBar />
-      <PerfTear />
-      <SearchSection />
-      <TariffSection />
-      <PricingSection />
-      <PerfTear />
-      <QueueSection />
-      <CounterClose />
-      <Footer />
+      <AtmosphereCanvas />
+      <div style={{ position: 'relative', zIndex: 2 }}>
+        <Navbar />
+        <PaperRail soundOn={soundOn} onToggleSound={toggleSound} />
+        <Lead />
+        <TrustBar />
+        <PerfTear />
+        <SearchSection />
+        <TariffSection />
+        <PricingSection />
+        <PerfTear />
+        <QueueSection />
+        <CounterClose />
+        <Footer />
+      </div>
     </div>
   );
 }
@@ -291,7 +416,7 @@ function TrustBar() {
   return (
     <section
       aria-label="The ledger promise"
-      className="px-5 sm:px-8 lg:px-12"
+      className="px-5 sm:px-8 lg:px-12 scroll-reveal"
     >
       <div className="mx-auto max-w-6xl">
         <div
@@ -354,19 +479,95 @@ function TrustBar() {
   );
 }
 
+/* ── overdrive · scroll-reveal narrative ────────────────────────────────
+   Hides the masthead ledger header on initial mount (so the hero opens
+   full-screen with the booking-record front-and-center). Reveals it once
+   the visitor has scrolled *once* (the lock-open moment) AND then returned
+   back to the top — closing the loop, like the ledger surfaces back when
+   you come home to the booking wall. Bound once on mount; passive listener;
+   silent under reduced motion. */
+function useLedgerMastVisible(): boolean {
+  const [visible, setVisible] = useState(false);
+  const lockRef = useRef(false);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    let rafPending = false;
+    const compute = () => {
+      rafPending = false;
+      const y = window.scrollY ?? 0;
+      const top = y < 80;
+      if (!lockRef.current && y > 240) {
+        lockRef.current = true;
+      }
+      if (top && lockRef.current) setVisible(true);
+      else if (!top) setVisible(false);
+    };
+    const onScroll = () => {
+      if (rafPending) return;
+      rafPending = true;
+      window.requestAnimationFrame(compute);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll, { passive: true });
+    compute();
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+    };
+  }, []);
+  return visible;
+}
+
+/* ── Addis clock view — receipt-mono lockup that boots once for the page ── */
+function AddisClockView({
+  clock,
+  caption,
+}: {
+  clock: AddisClock;
+  caption?: React.ReactNode;
+}) {
+  const { t } = useTranslation();
+  /* Static form when reduced motion freezes the clock: render the same lockup
+     but without the blinking separator, so the surface's muted tone stays. */
+  if (!clock.running) {
+    return (
+      <div className="addis-clock" aria-label={t('clock.captionAria')}>
+        <span className="addis-clock__time addis-clock__time-static">{clock.hms}</span>
+        {clock.hmsEth && <span className="addis-clock__eth">{clock.hmsEth}</span>}
+        <span className="addis-clock__zone">{t('clock.zone')}</span>
+      </div>
+    );
+  }
+  const [hh, mm, ss] = clock.hms.split(':');
+  return (
+    <div className="addis-clock" aria-label={t('clock.captionAria')}>
+      <span className="addis-clock__time">{hh}</span>
+      <span className="addis-clock__sep" aria-hidden>:</span>
+      <span className="addis-clock__time">{mm}</span>
+      <span className="addis-clock__sep" aria-hidden>:</span>
+      <span className="addis-clock__time">{ss}</span>
+      {clock.hmsEth && <span className="addis-clock__eth">{clock.hmsEth}</span>}
+      <span className="addis-clock__zone">{t('clock.zone')}</span>
+    </div>
+  );
+}
+
 /* ── Lead: offer reads as the top of a form being filled ── */
 function Lead() {
   const { t } = useTranslation();
+  const clock = useAddisClock();
+  const mastVisible = useLedgerMastVisible();
   return (
     <section
-      className="px-5 sm:px-8 lg:px-12 pt-24 sm:pt-28 pb-16 lg:pb-24"
+      className="px-5 sm:px-8 lg:px-12 pt-24 sm:pt-28 pb-16 lg:pb-24 scroll-reveal is-hero"
       aria-label="Egebeya · the deposit confirms the booking"
     >
-      <div className="mx-auto max-w-6xl">
-        {/* Receipt-style ledger header — replaces the wordmark + stamps bar */}
+      <div className="mx-auto max-w-6xl lead-hero">
+        {/* Receipt-style ledger header — hidden on first load; revealed once
+            the visitor scrolls once and then returns to the top (the
+            "ledger surfaces back" moment). The dashed rule re-grows in. */}
         <div
-          className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 pb-4"
-          style={{ borderBottom: '1px dashed var(--color-ink-rule-dashed)' }}
+          className={`ledger-mast flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4${mastVisible ? ' is-open' : ''}`}
         >
           <div
             style={{
@@ -383,18 +584,10 @@ function Lead() {
             <div>Deposit confirms before the chair is held</div>
           </div>
           <div
-            style={{
-              fontFamily: 'var(--font-mono)',
-              fontWeight: 500,
-              fontSize: '0.72rem',
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-              color: 'var(--color-ink-soft)',
-              textAlign: 'right' as const,
-              paddingTop: 2,
-            }}
+            className="flex flex-col items-start sm:items-end gap-2"
+            style={{ paddingTop: 2 }}
           >
-            Fintech Platform · Ethiopia
+            <AddisClockView clock={clock} />
           </div>
         </div>
 
@@ -479,7 +672,7 @@ function Lead() {
 
           {/* DepositStamp proof object — the signed proof the deposit cleared */}
           <div className="lg:col-span-5">
-            <ProofForm />
+            <ProofForm clock={clock} />
           </div>
         </div>
       </div>
@@ -487,7 +680,7 @@ function Lead() {
   );
 }
 
-function ProofForm() {
+function ProofForm({ clock }: { clock: AddisClock }) {
   const { t } = useTranslation();
   const cardRef = useRef<HTMLDivElement>(null);
   /* Live loop state — the record is a slot on the day's ledger sheet */
@@ -500,6 +693,15 @@ function ProofForm() {
   const timeoutsRef = useRef<number[]>([]);
   slotRef.current = slot;
 
+  /* Snapshot the live Addis clock at settle time; the dispatched event's
+     `when` reads against the Addis wall clock at the second the stamp
+     slammed, so the ledger feed's top row carries a real EAT timestamp
+     rather than a fixed "10:31". The ledger feed consumes the string
+     unchanged. */
+  const clockRef = useRef(clock);
+  clockRef.current = clock;
+  const [stampTime, setStampTime] = useState('--:--:--');
+
   /* Settle the pending charge: slip in → VERIFIED → slip out, rows reprint,
      stamp slams, the ledger feed hears about it. Pure clockwork, no side
      effects outside the component. */
@@ -509,16 +711,18 @@ function ProofForm() {
     const nextRef = refNoRef.current + 1;
     refNoRef.current = nextRef;
     busyRef.current = false;
+    const t0 = clockRef.current.hms;
     setRefNo(nextRef);
     setSlot({ ...next, id: nextId });
     setPhase('settled');
+    setStampTime(t0);
     playPrintTick('stamp');
     window.dispatchEvent(
       new CustomEvent('egebeya:settle', {
         detail: {
           ref: `EGB-2026-${nextRef}`,
           price: `Br ${next.price}`,
-          when: `${next.time} · ሐምሌ 27`,
+          when: `${t0} · ሐምሌ 27`,
         },
       })
     );
@@ -671,7 +875,7 @@ function ProofForm() {
             <span className="deposit-stamp stamp-press-in" aria-hidden>
               <span className="deposit-stamp__ref">{refLabel}</span>
               <span className="deposit-stamp__glyph">ተከከለ</span>
-              <span className="deposit-stamp__date">10:32 · ሐምሌ 27</span>
+              <span className="deposit-stamp__date">{stampTime} · ሐምሌ 27</span>
             </span>
           ) : (
             <span
@@ -801,10 +1005,76 @@ function StaticRow({
 /* ── Tariff section — services as rows of the form ── */
 function TariffSection() {
   const { t } = useTranslation();
+  const listRef = useRef<HTMLUListElement>(null);
+
+  /* overdrive · cursor writes the tariff ink. One pointer listener bound on
+     the list (capture phase, rAF-throttled) sets each row's --ink-progress to
+     the cursor's fractional X position across that row. Never binds on touch
+     pointers or where motion is reduced — the hover-static fallback stays. */
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduced) return;
+    const fine = window.matchMedia('(pointer: fine)').matches;
+    if (!fine) return;
+    const list = listRef.current;
+    if (!list) return;
+
+    let rafPending = false;
+    let lastX = -1;
+    let lastY = -1;
+
+    const onMove = (e: PointerEvent) => {
+      if (rafPending) return;
+      lastX = e.clientX;
+      lastY = e.clientY;
+      rafPending = true;
+      window.requestAnimationFrame(() => {
+        rafPending = false;
+        const rows = list.querySelectorAll<HTMLElement>('li[data-ink-pen="1"]');
+        rows.forEach((row) => {
+          const rect = row.getBoundingClientRect();
+          if (lastY < rect.top || lastY > rect.bottom) {
+            if (row.dataset.inkActive === '1') {
+              row.style.setProperty('--ink-progress', '0');
+              row.dataset.inkActive = '0';
+            }
+            return;
+          }
+          row.dataset.inkActive = '1';
+          const frac = Math.max(0, Math.min(1, (lastX - rect.left) / rect.width));
+          row.style.setProperty('--ink-progress', String(frac));
+        });
+      });
+    };
+
+    const onLeave = () => {
+      if (rafPending) return;
+      rafPending = true;
+      window.requestAnimationFrame(() => {
+        rafPending = false;
+        const rows = list.querySelectorAll<HTMLElement>('li[data-ink-pen="1"]');
+        rows.forEach((row) => {
+          row.style.setProperty('--ink-progress', '0');
+          row.dataset.inkActive = '0';
+        });
+      });
+    };
+
+    list.addEventListener('pointermove', onMove);
+    list.addEventListener('pointerleave', onLeave);
+    list.addEventListener('pointercancel', onLeave);
+    return () => {
+      list.removeEventListener('pointermove', onMove);
+      list.removeEventListener('pointerleave', onLeave);
+      list.removeEventListener('pointercancel', onLeave);
+    };
+  }, []);
+
   return (
     <section
       id="tariff"
-      className="px-5 sm:px-8 lg:px-12 py-16 lg:py-24"
+      className="px-5 sm:px-8 lg:px-12 py-16 lg:py-24 scroll-reveal"
       aria-label="Today's tariff"
     >
       <div className="mx-auto max-w-6xl">
@@ -843,10 +1113,11 @@ function TariffSection() {
           style={{ border: '1px solid var(--color-ink)', borderRadius: 'var(--rd-card)', backgroundColor: 'var(--color-paper)' }}
         >
           <Specimen />
-          <ul className="m-0 p-0 list-none" role="list">
+          <ul ref={listRef} className="m-0 p-0 list-none" role="list">
             {SERVICES_DEMO.map((s) => (
               <li
                 key={s.name}
+                data-ink-pen="1"
                 className="form-row tariff-hover-row group"
                 style={{ gap: '1.25rem', cursor: 'default', transition: 'background-color 120ms ease-out', position: 'relative' }}
                 onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--color-paper-raised)')}
@@ -877,13 +1148,46 @@ function TariffSection() {
                     className="tariff-price text-right"
                     style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, fontSize: '1.05rem', color: 'var(--color-ink)' }}
                   >
-                    <span style={{ color: 'var(--color-ink-stamp)', fontWeight: 400 }}>Br&nbsp;</span>
+                    <span className="tariff-price__br" aria-hidden>Br&nbsp;</span>
                     {s.price}
                   </span>
                   <span className="stamp positive rubber tariff-book" aria-hidden>
                     {t('tariffSection.book')}&nbsp;·&nbsp;{t('tariffSection.bookAm')}
                   </span>
                 </div>
+                {/* Ink mirror — telebirr-deep duplicate of each row cell, opened
+                    left→right by --ink-progress as the cursor passes across. */}
+                <span className="tariff-ink-body" aria-hidden>
+                  <span>{s.geo}</span>
+                  <span>
+                    <span
+                      style={{
+                        display: 'block',
+                        fontFamily: 'var(--font-display)',
+                        fontWeight: 600,
+                        fontSize: 'clamp(1.25rem, 2.4vw, 1.75rem)',
+                        letterSpacing: '-0.015em',
+                      }}
+                    >
+                      {s.name}
+                    </span>
+                    <span
+                      style={{
+                        display: 'block',
+                        marginTop: '0.125rem',
+                        fontFamily: 'var(--font-ethiopic-label)',
+                        fontSize: '0.875rem',
+                        letterSpacing: '0.02em',
+                      }}
+                    >
+                      {s.amName} · {s.duration} {t('tariffSection.min')} · {t('tariffSection.staffOfChoice')}
+                    </span>
+                  </span>
+                  <span>
+                    Br&nbsp;{s.price}
+                  </span>
+                </span>
+                <span className="tariff-ink-rule" aria-hidden />
               </li>
             ))}
           </ul>
@@ -924,6 +1228,52 @@ function advanceQueue(prev: QueueRow[], nextNo: number): QueueRow[] {
    The board is alive: every ~4s the serving slot advances, the serving chip
    rolls up a number, and a fresh waiter joins the bottom. Paused when the
    section leaves the viewport, the tab hides, or motion is reduced. */
+/* ── overdrive · NOW SERVING elapsed counter ──────────────────────────
+   Reads as "the chair has been open for +2:37" running against the same
+   Addis-time bank as the masthead clock. Resets whenever the serving slot
+   itself changes (every ~4.2s the serving row's key flips, the counter
+   restarts). Frozen on the static "+0:00" while reduced motion is on, so
+   the live board still scans but doesn't tick. */
+function useServingElapsed(servingKey: string | number | undefined): number {
+  const [elapsed, setElapsed] = useState(0);
+  const startRef = useRef<number>(Date.now());
+  useEffect(() => {
+    startRef.current = Date.now();
+    setElapsed(0);
+  }, [servingKey]);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    let raf = 0;
+    let last = 0;
+    const loop = (now: number) => {
+      raf = window.requestAnimationFrame(loop);
+      if (document.hidden) return;
+      if (now - last < 480) return;
+      last = now;
+      setElapsed(Math.floor((Date.now() - startRef.current) / 1000));
+    };
+    raf = window.requestAnimationFrame(loop);
+    const onVis = () => {
+      if (!document.hidden) {
+        last = 0;
+        setElapsed(Math.floor((Date.now() - startRef.current) / 1000));
+      }
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      window.cancelAnimationFrame(raf);
+      document.removeEventListener('visibilitychange', onVis);
+    };
+  }, []);
+  return elapsed;
+}
+function formatElapsed(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `+${m}:${s < 10 ? '0' : ''}${s}`;
+}
+
 function QueueSection() {
   const { t } = useTranslation();
   const [sheet, setSheet] = useState(0);
@@ -967,11 +1317,12 @@ function QueueSection() {
   }, []);
 
   const serving = queue.find((r) => r.status === 'SERVING') ?? queue[0];
+  const servingElapsed = useServingElapsed(serving ? `${sheet}-${serving.no}` : undefined);
 
   return (
     <section
       ref={boardRef}
-      className="px-5 sm:px-8 lg:px-12 py-16 lg:py-24"
+      className="px-5 sm:px-8 lg:px-12 py-16 lg:py-24 scroll-reveal"
       aria-label="Today's queue"
     >
       <div className="mx-auto max-w-6xl">
@@ -1055,6 +1406,13 @@ function QueueSection() {
                   {t('queueSection.addis')}
                 </span>
               </div>
+              <div
+                className="now-serving-elapsed -mt-1 mb-1 px-1"
+                aria-label={t('queueSection.chairOpenAria')}
+              >
+                <span className="now-serving-elapsed__num">{formatElapsed(servingElapsed)}</span>
+                <span>&nbsp;{t('queueSection.chairOpen')}</span>
+              </div>
 
               <ol className="m-0 mt-2 p-0 list-none" role="list">
                 {queue.map((q) => {
@@ -1127,7 +1485,7 @@ function CounterClose() {
   const { t } = useTranslation();
   return (
     <section
-      className="surface-graphite px-5 sm:px-8 lg:px-12 py-20 lg:py-28"
+      className="surface-graphite px-5 sm:px-8 lg:px-12 py-20 lg:py-28 scroll-reveal"
       aria-label="If you own the business / If you're the customer"
     >
       <div className="mx-auto max-w-6xl">
@@ -1302,7 +1660,7 @@ export function Wordmark({
 function SearchSection() {
   return (
     <section
-      className="px-5 sm:px-8 lg:px-12 py-8 lg:pb-16"
+      className="px-5 sm:px-8 lg:px-12 py-8 lg:pb-16 scroll-reveal"
       aria-label="Find a business"
     >
       <div className="mx-auto max-w-6xl">

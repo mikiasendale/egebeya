@@ -22,9 +22,14 @@ export function Navbar() {
     if (sections.length === 0) return;
     const observer = new IntersectionObserver(
       (entries) => {
+        // Recompute from scratch each time so the active state clears when
+        // no section is in the band (scroll back to top), instead of
+        // sticking to the last section ever intersected.
+        let current: string | null = null;
         for (const entry of entries) {
-          if (entry.isIntersecting) setActiveSection(`#${entry.target.id}`);
+          if (entry.isIntersecting) current = `#${entry.target.id}`;
         }
+        setActiveSection(current);
       },
       { rootMargin: '-35% 0px -55% 0px', threshold: 0 },
     );

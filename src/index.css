@@ -43,11 +43,17 @@
   --color-link: #063F2D;             /* = telebirr-deep; links + focus treatments */
   --color-focus: #063F2D;           /* = telebirr-deep; focus ring */
 
-  /* Form-language alias: Tailwind v4 derives `rounded-card` from this.
-     `--rd-card` stays for backward compat with existing inline-style uses. */
-  --radius-card: 2px;
-  --rd-card: 2px;
-  --rd-stamp: 0px;
+ /* Accent-secondary — amber/gold for Dashboard pending-status badges,
+  * the View Media quick-action icon, and media progress chips.
+  * Paired with --color-accent (signal-red) per the existing semantic bundle. */
+ --color-accent-secondary: #F59E0B;
+ --color-accent-secondary-deep: #D97706;
+
+ /* Form-language alias: Tailwind v4 derives `rounded-card` from this.
+  * `--rd-card` stays for backward compat with existing inline-style uses. */
+ --radius-card: 2px;
+ --rd-card: 2px;
+ --rd-stamp: 0px;
 
   --font-serif-ethiopic: "Noto Serif Ethiopic", serif;
   --font-display: "Bricolage Grotesque", system-ui, sans-serif;
@@ -1062,6 +1068,292 @@ button:hover .num-roller {
 }
 @media (prefers-reduced-motion: reduce) {
   .ledger-feed__row { animation: none; }
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   OVERDRIVE · Addis clock — one live timekeeper for the masthead and the
+   queue's NOW SERVING readout. Africa/Addis_Ababa via Intl; ticks once per
+   ~250ms through requestAnimationFrame. The seconds colon blinks to make the
+   "alive" legible without a 60fps cost. Frozen (one static render) where the
+   visitor prefers reduced motion; paused in the background tab. ───────── */
+
+.addis-clock {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-ink-soft);
+}
+.addis-clock__time {
+  color: var(--color-ink);
+  font-variant-numeric: tabular-nums;
+}
+.addis-clock__sep {
+  display: inline-block;
+  width: 1ch;
+  text-align: center;
+  color: var(--color-ink-soft);
+  animation: addis-clock-blink 1s steps(1, jump-none) infinite;
+}
+.addis-clock__zone {
+  color: var(--color-ink-stamp);
+}
+.addis-clock__eth {
+  font-family: var(--font-ethiopic-label);
+  letter-spacing: 0.04em;
+  color: var(--color-ink-stamp);
+  font-size: 0.72rem;
+}
+@keyframes addis-clock-blink {
+  0%, 50% { opacity: 1; }
+  50.01%, 100% { opacity: 0.25; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .addis-clock__sep { animation: none; }
+  .addis-clock__time-static { color: var(--color-ink); }
+}
+
+/* Now-serving elapsed readout — counts up from when the serving slot began.
+   Lives on a single line below the queue chip's stamp; the same rAF loop
+   feeds the masthead clock so there is one ticking source on the page. */
+.now-serving-elapsed {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+  color: var(--color-ink-soft);
+  font-size: 0.72rem;
+}
+.now-serving-elapsed__num {
+  color: var(--color-ink);
+  font-weight: 600;
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   OVERDRIVE · Cursor writes the tariff row. @property-registered
+   --ink-progress scrubs left→right as the pointer traverses a row. Three
+   coordinated reactions, all driven by the same value:
+
+   1. The row's ink body (a duplicate, monochrome receipt-mono) is unmasked
+      by a clip-path that grows from 0→100% with the cursor.
+   2. The bottom hairline rule under the price darkens cell-by-cell, mirroring
+      the same progress — the tariff literally being underlined as you read.
+   3. The "Br" glyph in the tariff-price absorbs a green ink stain at the
+      cursor's X position, not the row's — the pen colours the currency.
+
+   Pointer capture is added once per row pointerdown and torn down on
+   pointerup; pointermove is rAF-throttled. Touch pointers never bind:
+   the row's hover-static fallback stays. Reduced-motion never binds. ─── */
+
+@property --ink-progress {
+  syntax: '<number>';
+  initial-value: 0;
+  inherits: false;
+}
+
+.tariff-hover-row {
+  --ink-progress: 0;
+}
+.tariff-hover-row[data-ink-pen='1'] {
+  position: relative;
+  transition: background-color 120ms ease-out;
+}
+
+/* Ink mirror — a carbon-copy of the row overlaid on the static body,
+   unmasked left→right by --ink-progress as the pointer traverses the row.
+   The grid geometry (3 cols: 2.5rem / 1fr / auto) and padding+gap mirror
+   .form-row exactly so the cells stack over their originals cell-by-cell. */
+.tariff-ink-body {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 2.5rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 0.85rem 0.5rem;
+  pointer-events: none;
+  color: var(--color-telebirr-deep);
+  clip-path: inset(0 calc(100% - (var(--ink-progress) * 100%)) 0 0);
+  /* Mirror exactly the row's cell flow with no extra wrap; we lock the
+     inner spans into the grid slots via direct child placing. */
+  font-family: var(--font-body);
+}
+.tariff-ink-body > span:nth-child(1) {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 0.95rem;
+  text-align: center;
+}
+.tariff-ink-body > span:nth-child(2) {
+  min-width: 0;
+}
+.tariff-ink-body > span:nth-child(3) {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 1.05rem;
+  justify-self: end;
+  white-space: nowrap;
+}
+.tariff-ink-rule {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 1px;
+  background: var(--color-ink);
+  transform: scaleX(var(--ink-progress));
+  transform-origin: left center;
+  pointer-events: none;
+}
+.tariff-price__br {
+  position: relative;
+  background: linear-gradient(
+    90deg,
+    var(--color-telebirr-deep) 0%,
+    var(--color-telebirr-deep) calc(var(--ink-progress) * 100%),
+    var(--color-ink-stamp) calc(var(--ink-progress) * 100%),
+    var(--color-ink-stamp) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tariff-ink-rule { transform: scaleX(0); }
+  .tariff-price__br {
+    background: none;
+    -webkit-background-clip: border;
+    background-clip: border-box;
+    color: var(--color-ink-stamp);
+  }
+}
+
+/* ═════════════════════════════════════════════════════════════════════
+   OVERDRIVE · scroll-reveal narrative — hero pinned full-screen, the rest
+   of the receipt unfurls as each section enters the viewport. The hidden
+   top-of-hero ledger masthead stays collapsed on first load (one authored
+   "open the page" moment), unfolds the first time the user scrolls back to
+   the very top — a return-home cue, the way the ledger surfaces when the
+   visitor comes back to the booking wall. ──────────────────────────── */
+
+/* The hero (Lead) is pinned full-screen on first load: it fills the viewport
+   above the navbar and centers its content. Svh so the Android URL bar shifts
+   don't clip the proof card. */
+.lead-hero {
+  min-height: calc(100svh - 4rem);
+  display: grid;
+  align-items: center;
+}
+
+/* The ledger masthead collapses on first load; this is its static (hidden)
+   state. Hooks toggle .is-open via JS, so when revealed it slides down and
+   the dashed ledger rule below it grows back in. */
+.ledger-mast {
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  margin: 0;
+  padding: 0;
+  border-bottom: 0 dashed var(--color-ink-rule-dashed);
+  transition:
+    max-height 480ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 320ms ease-out,
+    padding 480ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-bottom-width 240ms ease-out;
+  pointer-events: none;
+}
+.ledger-mast > * {
+  /* The flex row above stays put; only the masthead's own content gates. */
+  transform: translateY(-6px);
+  transition: transform 480ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.ledger-mast.is-open {
+  max-height: 220px;
+  opacity: 1;
+  padding-bottom: 1rem;
+  border-bottom-width: 1px;
+  pointer-events: auto;
+}
+.ledger-mast.is-open > * {
+  transform: translateY(0);
+}
+@media (prefers-reduced-motion: reduce) {
+  .ledger-mast,
+  .ledger-mast > * { transition: none; }
+  .ledger-mast { max-height: 220px; opacity: 1; padding-bottom: 1rem; border-bottom-width: 1px; pointer-events: auto; }
+  .ledger-mast > * { transform: none; }
+}
+
+/* Scroll-reveal: each section after the hero is pinned to full-screen-ish
+   and fades in once 40% of the next section has crossed the bottom edge of
+   the viewport. Uses scroll-driven animations (Chrome/Edge/Safari); in
+   Firefox and older browsers the @supports guard keeps everything visible
+   so the page is fully content-complete without any积极参加 reveals. */
+@supports (animation-timeline: view()) {
+  .scroll-reveal {
+    opacity: 0;
+    transform: translateY(28px);
+    animation: scroll-reveal-up ease-out both;
+    animation-timeline: view();
+    animation-range: entry 5% cover 22%;
+  }
+  @keyframes scroll-reveal-up {
+    to { opacity: 1; transform: translateY(0); }
+  }
+  /* Hero is always-content — keep it visible regardless. */
+  .scroll-reveal.is-hero {
+    opacity: 1;
+    transform: none;
+    animation: none;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .scroll-reveal { animation: none; opacity: 1; transform: none; }
+  }
+}
+
+/* ═════════════════════════════════════════════════════════════════════
+   OVERDRIVE · Direction A — the receipt re-rolls itself via View Transitions.
+   When the deposit clears (ProofForm fires the settle), the whole receipt
+   card is wrapped in document.startViewTransition(): the old card translates
+   up beyond the slot, the new one feeds up from below with a perforation
+   snap between them. Same-authored paper-rail print-head ride.
+
+   Firefox/Safari (no startViewTransition on the element) get today's
+   instant settle swap — already a known authored moment, the VT layer
+   elevates it to "the receipt was physically replaced." ─────────────── */
+
+::view-transition-group(receipt) {
+  animation-duration: 720ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+::view-transition-old(receipt) {
+  animation-duration: 380ms;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.6, 1);
+  /* Old receipt slides up out of the paper-rail slot */
+  animation-name: receipt-old-out;
+}
+::view-transition-new(receipt) {
+  animation-duration: 540ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  /* Fresh receipt feeds up from below the print head */
+  animation-name: receipt-new-in;
+}
+@keyframes receipt-old-out {
+  to { transform: translateY(-118%); opacity: 0.55; }
+}
+@keyframes receipt-new-in {
+  from { transform: translateY(118%); opacity: 0; clip-path: inset(0 0 100% 0); }
+  to   { transform: translateY(0); opacity: 1; clip-path: inset(0 0 0 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(receipt),
+  ::view-transition-old(receipt),
+  ::view-transition-new(receipt) { animation: none; }
 }
 
 :root {

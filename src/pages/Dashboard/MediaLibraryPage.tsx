@@ -249,10 +249,10 @@ export function MediaLibraryPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-xl font-bold text-gray-900">Media Library</h2>
-          <p className="text-sm text-gray-500">
-            Upload images to use across your website, services, and staff profiles.
-         </p>
+<h2 className="text-xl font-bold text-ink">Media Library</h2>
+        <p className="text-sm text-ink-soft">
+          Upload images to use across your website, services, and staff profiles.
+        </p>
        </div>
         <Button onClick={openFilePicker} disabled={uploading}>
           {uploading ? (
@@ -273,23 +273,23 @@ export function MediaLibraryPage() {
      </div>
 
       {uploadError && (
-        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+        <div className="rounded-md border border-accent bg-surface-raised px-3 py-2 text-sm text-accent">
           {uploadError}
        </div>
       )}
 
       {uploadQueue.length > 0 && (
-        <div className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
-            Upload progress
-         </p>
-          <ul className="space-y-1.5">
-            {uploadQueue.map(entry => (
-              <li
-                key={entry.id}
-                className="flex items-center justify-between gap-3 rounded-md bg-gray-50 px-3 py-2 text-sm"
-              >
-                <span className="truncate text-gray-700" title={entry.file.name}>
+      <div className="rounded-lg border border-ink-rule bg-white p-3 shadow-sm">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-soft">
+          Upload progress
+        </p>
+        <ul className="space-y-1.5">
+          {uploadQueue.map(entry => (
+            <li
+              key={entry.id}
+              className="flex items-center justify-between gap-3 rounded-md bg-paper-raised px-3 py-2 text-sm"
+            >
+              <span className="truncate text-ink-soft" title={entry.file.name}>
                   {entry.file.name}
                </span>
                 <span className="shrink-0">
@@ -314,24 +314,24 @@ export function MediaLibraryPage() {
        </div>
       )}
 
-      <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+<div className="bg-white rounded-lg border border-ink-rule shadow-sm">
         {loading ? (
-          <div className="flex items-center justify-center gap-2 p-12 text-sm text-gray-500">
+          <div className="flex items-center justify-center gap-2 p-12 text-sm text-ink-soft">
             <Loader2 className="h-4 w-4 animate-spin" />
             Loading media…
-         </div>
+          </div>
         ) : error ? (
           <div className="p-8 text-center text-sm text-red-600">{error}</div>
         ) : sortedItems.length === 0 ? (
           <div className="p-12 text-center">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-gray-100">
-              <ImageIcon className="h-6 w-6 text-gray-400" />
-           </div>
-            <p className="font-medium text-gray-900">No media uploaded</p>
-            <p className="text-sm text-gray-500 mt-1">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-paper-raised">
+              <ImageIcon className="h-6 w-6 text-ink-stamp" />
+            </div>
+            <p className="font-medium text-ink">No media uploaded</p>
+            <p className="text-sm text-ink-soft mt-1">
               Upload your first image to get started — logos, staff photos,
               service banners, and more.
-           </p>
+            </p>
             <Button className="mt-4" onClick={openFilePicker} disabled={uploading}>
               <Upload className="h-4 w-4" />
               Upload Media
@@ -367,9 +367,9 @@ export function MediaLibraryPage() {
             <DialogTitle>Delete media</DialogTitle>
             <DialogDescription>
               Are you sure you want to delete{' '}
-              <span className="font-semibold text-gray-900">
-                {deleteTarget?.originalName}
-             </span>
+        <span className="font-semibold text-ink">
+          {deleteTarget?.originalName}
+        </span>
               ? The file will be removed from storage and unlinked from any pages
               that reference it. This action cannot be undone.
            </DialogDescription>
@@ -411,8 +411,8 @@ function MediaCard({ item, copied, onCopy, onDelete }: MediaCardProps) {
   const image = isImage(item.mimeType);
   const url = absoluteUrl(item.path);
   return (
-    <li className="group relative flex flex-col overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md">
-      <div className="relative aspect-square w-full overflow-hidden bg-gray-100">
+  <li className="group relative flex flex-col overflow-hidden rounded-lg border border-ink-rule bg-white shadow-sm transition-shadow hover:shadow-md">
+    <div className="relative aspect-square w-full overflow-hidden bg-paper-raised">
         {image ? (
           // Native img with object-cover keeps the grid uniform without
           // pre-computed thumbnails on the server.
@@ -424,7 +424,7 @@ function MediaCard({ item, copied, onCopy, onDelete }: MediaCardProps) {
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center">
-            <FileIcon className="h-10 w-10 text-gray-400" />
+            <FileIcon className="h-10 w-10 text-ink-stamp" />
          </div>
         )}
 
@@ -433,7 +433,7 @@ function MediaCard({ item, copied, onCopy, onDelete }: MediaCardProps) {
             type="button"
             onClick={onCopy}
             aria-label={copied ? 'Copied link' : 'Copy link'}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-white/90 text-gray-700 shadow ring-1 ring-black/5 backdrop-blur transition-colors hover:bg-white"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-white/90 text-ink shadow ring-1 ring-black/5 backdrop-blur transition-colors hover:bg-white"
           >
             {copied ? (
               <Check className="h-4 w-4 text-green-600" />
@@ -453,13 +453,13 @@ function MediaCard({ item, copied, onCopy, onDelete }: MediaCardProps) {
      </div>
 
       <div className="flex flex-col gap-1 p-3">
-        <p
-          className="truncate text-sm font-medium text-gray-900"
-          title={item.originalName}
-        >
+  <p
+        className="truncate text-sm font-medium text-ink"
+        title={item.originalName}
+      >
           {item.originalName}
        </p>
-        <div className="flex items-center justify-between text-xs text-gray-500">
+        <div className="flex items-center justify-between text-xs text-ink-soft">
           <span>{formatBytes(item.size)}</span>
           <time dateTime={new Date(item.createdAt).toISOString()}>
             {formatDate(item.createdAt)}
@@ -469,7 +469,7 @@ function MediaCard({ item, copied, onCopy, onDelete }: MediaCardProps) {
           href={url}
           target="_blank"
           rel="noreferrer"
-          className="truncate text-xs text-[#1E3A8A] hover:underline"
+          className="truncate text-xs text-accent-secondary-deep hover:underline"
           title={url}
         >
           Open file

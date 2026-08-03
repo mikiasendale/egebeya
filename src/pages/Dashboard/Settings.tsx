@@ -216,7 +216,7 @@ export function Settings() {
                     }
                   }}
                   disabled={!settings.slug}
-                  className="inline-flex items-center px-3 rounded-r-md border border-l-0 border-ink-rule bg-paper-bleached text-gray-600 hover:bg-paper-raised disabled:opacity-50 text-sm"
+                  className="inline-flex items-center px-3 rounded-r-md border border-l-0 border-ink-rule bg-paper-bleached text-ink-soft hover:bg-paper-raised disabled:opacity-50 text-sm"
                   title="Copy subdomain URL"
                 >
                   Copy

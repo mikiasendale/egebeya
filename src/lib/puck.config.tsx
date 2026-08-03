@@ -87,10 +87,10 @@ const ImageUploaderField = ({ value, onChange }: any) => {
         value={value || ''} 
         onChange={e => onChange(e.target.value)} 
         placeholder="Image URL"
-        className="border border-gray-300 rounded p-1.5 text-sm"
+        className="border border-ink-rule rounded p-1.5 text-sm"
       />
       <div className="flex items-center gap-2">
-        <label className="bg-gray-100 border border-gray-300 rounded px-3 py-1 cursor-pointer hover:bg-gray-200 text-sm">
+        <label className="bg-paper-raised border border-ink-rule rounded px-3 py-1 cursor-pointer hover:bg-paper-raised text-sm">
           {uploading ? 'Uploading...' : 'Upload Image'}
           <input type="file" accept="image/*" onChange={handleUpload} className="hidden" disabled={uploading} />
         </label>
@@ -141,18 +141,18 @@ export const config: Config<Props> = {
         }, [subdomain]);
 
         return (
-          <div className="py-16 bg-gray-50">
-            <div className="max-w-5xl mx-auto px-4">
-              <h2 className="text-3xl font-bold text-center mb-10 text-gray-900">Our Services</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {services.map(s => (
-                  <div key={s.id} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                    <h3 className="text-xl font-bold mb-2">{s.name}</h3>
-                    <p className="text-gray-500 mb-4">{s.durationMinutes} mins</p>
-                    <p className="text-[var(--color-telebirr-deep)] font-bold text-lg">{(s.price / 100).toLocaleString()} ETB</p>
-                  </div>
-                ))}
-                {services.length === 0 && <p className="text-center col-span-full text-gray-500">No services available or loading...</p>}
+    <div className="py-16 bg-surface-raised">
+      <div className="max-w-5xl mx-auto px-4">
+        <h2 className="text-3xl font-bold text-center mb-10 text-ink">Our Services</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {services.map(s => (
+            <div key={s.id} className="bg-white p-6 rounded-xl shadow-sm border border-ink-rule">
+              <h3 className="text-xl font-bold mb-2">{s.name}</h3>
+              <p className="text-ink-soft mb-4">{s.durationMinutes} mins</p>
+              <p className="text-primary-deep font-bold text-lg">{(s.price / 100).toLocaleString()} ETB</p>
+            </div>
+          ))}
+          {services.length === 0 && <p className="text-center col-span-full text-ink-soft">No services available or loading...</p>}
               </div>
             </div>
           </div>
@@ -176,12 +176,12 @@ export const config: Config<Props> = {
         ]
       },
       render: ({ images }) => (
-        <div className="py-16 bg-white">
-          <div className="max-w-5xl mx-auto px-4">
-            <h2 className="text-3xl font-bold text-center mb-10 text-gray-900">Gallery</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              {images.map((img, i) => (
-                <div key={i} className="relative group overflow-hidden rounded-lg aspect-square bg-gray-100">
+    <div className="py-16 bg-white">
+      <div className="max-w-5xl mx-auto px-4">
+        <h2 className="text-3xl font-bold text-center mb-10 text-ink">Gallery</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+          {images.map((img, i) => (
+            <div key={i} className="relative group overflow-hidden rounded-lg aspect-square bg-paper-raised">
                   <img src={img.url} alt={img.caption} className="object-cover w-full h-full transition-transform duration-300 group-hover:scale-110" />
                   {img.caption && (
                     <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-60 text-white p-2 text-sm translate-y-full group-hover:translate-y-0 transition-transform">
@@ -203,10 +203,10 @@ export const config: Config<Props> = {
         content: 'We are a premier service provider committed to excellence.'
       },
       render: ({ content }) => (
-        <div className="py-16 bg-gray-50 text-center">
-          <div className="max-w-3xl mx-auto px-4">
-            <h2 className="text-3xl font-bold mb-6 text-gray-900">About Us</h2>
-            <p className="text-lg text-gray-700 leading-relaxed">{content}</p>
+    <div className="py-16 bg-surface-raised text-center">
+      <div className="max-w-3xl mx-auto px-4">
+        <h2 className="text-3xl font-bold mb-6 text-ink">About Us</h2>
+        <p className="text-lg text-ink-soft leading-relaxed">{content}</p>
           </div>
         </div>
       )
@@ -223,17 +223,17 @@ export const config: Config<Props> = {
         mapUrl: ''
       },
       render: ({ phone, address, mapUrl }) => (
-        <div className="py-16 bg-white">
-          <div className="max-w-5xl mx-auto px-4 grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-            <div>
-              <h2 className="text-3xl font-bold mb-6 text-gray-900">Contact Us</h2>
-              <div className="space-y-4 text-lg text-gray-700">
+    <div className="py-16 bg-white">
+      <div className="max-w-5xl mx-auto px-4 grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+        <div>
+          <h2 className="text-3xl font-bold mb-6 text-ink">Contact Us</h2>
+          <div className="space-y-4 text-lg text-ink-soft">
                 <p><strong>Phone:</strong> {phone}</p>
                 <p><strong>Address:</strong> {address}</p>
               </div>
             </div>
-            {mapUrl && (
-              <div className="h-64 bg-gray-200 rounded-xl overflow-hidden">
+      {mapUrl && (
+        <div className="h-64 bg-paper-raised rounded-xl overflow-hidden">
                 <iframe src={safeEmbed(mapUrl)} width="100%" height="100%" style={{ border: 0 }} allowFullScreen loading="lazy"></iframe>
               </div>
             )}
@@ -259,19 +259,19 @@ export const config: Config<Props> = {
         const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
         return (
-          <div className="py-16 bg-gray-50">
-            <div className="max-w-xl mx-auto px-4 bg-white p-8 rounded-xl shadow-sm border border-gray-100">
-              <h2 className="text-2xl font-bold text-center mb-6 text-gray-900">Business Hours</h2>
-              <div className="space-y-3">
-                {hours.sort((a, b) => a.dayOfWeek - b.dayOfWeek).map((h, i) => (
-                  <div key={i} className="flex justify-between items-center border-b border-gray-50 pb-2">
-                    <span className="font-medium text-gray-700">{days[h.dayOfWeek]}</span>
-                    <span className="text-gray-500">
-                      {h.isClosed ? 'Closed' : `${h.openTime} - ${h.closeTime}`}
-                    </span>
-                  </div>
-                ))}
-                {hours.length === 0 && <p className="text-center text-gray-500">Loading hours...</p>}
+    <div className="py-16 bg-surface-raised">
+      <div className="max-w-xl mx-auto px-4 bg-white p-8 rounded-xl shadow-sm border border-ink-rule">
+        <h2 className="text-2xl font-bold text-center mb-6 text-ink">Business Hours</h2>
+        <div className="space-y-3">
+          {hours.sort((a, b) => a.dayOfWeek - b.dayOfWeek).map((h, i) => (
+            <div key={i} className="flex justify-between items-center border-b border-ink-rule pb-2">
+              <span className="font-medium text-ink-soft">{days[h.dayOfWeek]}</span>
+              <span className="text-ink-stamp">
+                {h.isClosed ? 'Closed' : `${h.openTime} - ${h.closeTime}`}
+              </span>
+            </div>
+          ))}
+          {hours.length === 0 && <p className="text-center text-ink-soft">Loading hours...</p>}
               </div>
             </div>
           </div>
@@ -286,15 +286,15 @@ export const config: Config<Props> = {
         mapUrl: 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d126115.11523419086!2d38.70247954932313!3d8.963176766481026!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x164b85cef5ab402d%3A0x8467b6b037a24d49!2sAddis%20Ababa!5e0!3m2!1sen!2set!4v1700000000000!5m2!1sen!2set',
       },
       render: ({ mapUrl }) => (
-        <div className="py-16 bg-white">
-          <div className="max-w-5xl mx-auto px-4">
-            <h2 className="text-3xl font-bold text-center mb-10 text-gray-900">Our Location</h2>
-            {mapUrl ? (
-              <div className="h-96 bg-gray-200 rounded-xl overflow-hidden shadow-sm border border-gray-100">
+    <div className="py-16 bg-white">
+      <div className="max-w-5xl mx-auto px-4">
+        <h2 className="text-3xl font-bold text-center mb-10 text-ink">Our Location</h2>
+        {mapUrl ? (
+          <div className="h-96 bg-paper-raised rounded-xl overflow-hidden shadow-sm border border-ink-rule">
                 <iframe src={safeEmbed(mapUrl)} width="100%" height="100%" style={{ border: 0 }} allowFullScreen loading="lazy"></iframe>
               </div>
             ) : (
-              <p className="text-center text-gray-500">Map not configured</p>
+              <p className="text-center text-ink-soft">Map not configured</p>
             )}
           </div>
         </div>
@@ -316,20 +316,20 @@ export const config: Config<Props> = {
         items: [],
       },
       render: ({ items }) => (
-        <div className="py-16 bg-blue-50">
-          <div className="max-w-6xl mx-auto px-4">
-            <h2 className="text-3xl font-bold text-center mb-12 text-gray-900">What Our Clients Say</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {items.map((item, i) => (
-                <div key={i} className="bg-white p-8 rounded-2xl shadow-sm border border-blue-100 relative">
-                  <div className="text-[#1E3A8A] text-4xl font-serif absolute top-6 left-6 opacity-20">"</div>
-                  <p className="text-gray-700 italic mb-6 relative z-10">{item.quote}</p>
-                  <div className="flex items-center">
-                    {item.avatar && <img src={item.avatar} alt={item.name} className="w-12 h-12 rounded-full mr-4 object-cover" />}
-                    <h4 className="font-bold text-gray-900">{item.name}</h4>
-                  </div>
-                </div>
-              ))}
+    <div className="py-16 bg-surface-raised">
+      <div className="max-w-6xl mx-auto px-4">
+        <h2 className="text-3xl font-bold text-center mb-12 text-ink">What Our Clients Say</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {items.map((item, i) => (
+            <div key={i} className="bg-white p-8 rounded-2xl shadow-sm border border-ink-rule relative">
+              <div className="text-primary-deep text-4xl font-serif absolute top-6 left-6 opacity-20">"</div>
+              <p className="text-ink-soft italic mb-6 relative z-10">{item.quote}</p>
+              <div className="flex items-center">
+                {item.avatar && <img src={item.avatar} alt={item.name} className="w-12 h-12 rounded-full mr-4 object-cover" />}
+                <h4 className="font-bold text-ink">{item.name}</h4>
+              </div>
+            </div>
+          ))}
             </div>
           </div>
         </div>
@@ -360,12 +360,12 @@ export const config: Config<Props> = {
         }
 
         return (
-          <div className="py-12 bg-white text-center border-t border-gray-100">
-            <div className="flex justify-center space-x-8">
-              {safeLink(telegram) && <a href={safeLink(telegram)} target="_blank" rel="noreferrer" className="text-gray-600 hover:text-[#1E3A8A] transition-colors font-medium">Telegram</a>}
-              {safeLink(facebook) && <a href={safeLink(facebook)} target="_blank" rel="noreferrer" className="text-gray-600 hover:text-[#1E3A8A] transition-colors font-medium">Facebook</a>}
-              {safeLink(instagram) && <a href={safeLink(instagram)} target="_blank" rel="noreferrer" className="text-gray-600 hover:text-[#1E3A8A] transition-colors font-medium">Instagram</a>}
-              {safeLink(tiktok) && <a href={safeLink(tiktok)} target="_blank" rel="noreferrer" className="text-gray-600 hover:text-[#1E3A8A] transition-colors font-medium">TikTok</a>}
+    <div className="py-12 bg-white text-center border-t border-ink-rule">
+      <div className="flex justify-center space-x-8">
+        {safeLink(telegram) && <a href={safeLink(telegram)} target="_blank" rel="noreferrer" className="text-ink-soft hover:text-accent-secondary-deep transition-colors font-medium">Telegram</a>}
+        {safeLink(facebook) && <a href={safeLink(facebook)} target="_blank" rel="noreferrer" className="text-ink-soft hover:text-accent-secondary-deep transition-colors font-medium">Facebook</a>}
+        {safeLink(instagram) && <a href={safeLink(instagram)} target="_blank" rel="noreferrer" className="text-ink-soft hover:text-accent-secondary-deep transition-colors font-medium">Instagram</a>}
+        {safeLink(tiktok) && <a href={safeLink(tiktok)} target="_blank" rel="noreferrer" className="text-ink-soft hover:text-accent-secondary-deep transition-colors font-medium">TikTok</a>}
             </div>
           </div>
         );
@@ -376,7 +376,7 @@ export const config: Config<Props> = {
       render: () => {
         const subdomain = getSubdomain();
         return (
-          <div className="py-16 bg-gray-50" id="booking">
+          <div className="py-16 bg-surface-raised" id="booking">
             <PublicBooking tenant={null} subdomain={subdomain} />
           </div>
         );

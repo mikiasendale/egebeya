@@ -149,7 +149,7 @@ function StatsBoard() {
   const cards = [
     { label: 'Tenants', value: stats.tenants, tone: 'bg-ink/10 text-ink' },
     { label: 'Bookings', value: stats.bookings, tone: 'bg-telebirr/10 text-telebirr-deep' },
-    { label: 'Suspended', value: stats.suspended, tone: 'bg-amber-50 text-amber-700' },
+    { label: 'Suspended', value: stats.suspended, tone: 'bg-accent-secondary/10 text-accent-secondary-deep' },
   ];
   return (
     <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
