@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useChat } from '@ai-sdk/react';
+import { DefaultChatTransport } from 'ai';
 import { Puck } from '@measured/puck';
 import '@measured/puck/dist/index.css';
 import {
@@ -8,7 +10,7 @@ import {
   SandpackPreview,
   useSandpack,
 } from '@codesandbox/sandpack-react';
-import { Sparkles, Code2, PencilRuler, Loader2, Rocket, Send, Puzzle, PanelRightClose, PanelRightOpen, History, ExternalLink, RotateCcw, Check } from 'lucide-react';
+import { Sparkles, Code2, PencilRuler, Loader2, Rocket, Send, Puzzle, PanelRightClose, PanelRightOpen, History, ExternalLink, RotateCcw, Check, X, FileText, CheckCircle, XCircle, MessageSquare, ChevronDown, ChevronUp } from 'lucide-react';
 import { authFetch } from '../../lib/api';
 import { fetchSubscription, isProActive, type SubscriptionSummary } from '../../lib/subscription';
 import { config } from '../../lib/puck.config';
@@ -76,7 +78,6 @@ function WebsiteBuilderInner() {
   const [disclaimer, setDisclaimer] = useState<BuilderMode | null>(null);
   const [subscribeOpen, setSubscribeOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
-  const [aiPrompt, setAiPrompt] = useState('');
   const [codeSaveStatus, setCodeSaveStatus] = useState<SaveStatus>('idle');
 
   const slug = typeof window !== 'undefined' ? localStorage.getItem('tenantSlug') || '' : '';
@@ -161,13 +162,18 @@ function WebsiteBuilderInner() {
     }
   }, []);
 
-  // ---- Free-user gating helpers ----
+  // ---- AI Assistant ----
   const handleAiClick = () => {
     if (!planState.isPro) {
       setSubscribeOpen(true);
       return;
     }
-    setAiOpen(true);
+    if (mode === 'code') {
+      setAiOpen((o) => !o); // toggle panel
+    }
+    if (mode === 'puck') {
+      showToast('AI Assistant (Visual)', 'AI-powered Visual Mode edits are coming soon.');
+    }
   };
 
   const handleCodeClick = () => {
@@ -185,27 +191,6 @@ function WebsiteBuilderInner() {
       setDisclaimer('puck');
     }
   };
-
-  // ---- AI generate (stub, wired for future LLM) ----
-  const handleAiGenerate = useCallback(() => {
-    // FUTURE LLM INTEGRATION: Pass the `widgetRoutes.ts` routing config to the
-    // AI's system prompt. The AI must use these exact routes and the user's
-    // business_id to generate accurate iframe embeds.
-    // Prompt + state are only ever logged in dev builds — never in production
-    // (avoids leaking tenant content / AI prompts to the console).
-    if (import.meta.env.DEV) {
-      if (mode === 'puck') {
-        console.log('AI Prompt (Visual Mode):', aiPrompt);
-        console.log('Current Puck JSON state:', JSON.stringify(puckContent));
-      } else {
-        console.log('AI Prompt (Code Mode):', aiPrompt);
-        console.log('Current Sandpack HTML state:', codeHtml);
-      }
-    }
-    showToast('AI prompt logged', import.meta.env.DEV ? 'Check the browser console for prompt and current state.' : 'AI generation is staged for a future release.');
-    setAiPrompt('');
-    setAiOpen(false);
-  }, [aiPrompt, mode, puckContent, codeHtml]);
 
   if (booting || planState.loading) {
     return <CenteredNotice icon={<Loader2 className="h-5 w-5 animate-spin" />} title="Loading your builder…" />;
@@ -275,6 +260,8 @@ function WebsiteBuilderInner() {
             setShareBarKey((k) => k + 1);
             setDeployHistoryKey((k) => k + 1);
           }}
+          aiOpen={aiOpen}
+          onAiClose={() => setAiOpen(false)}
         />
       )}
 
@@ -293,37 +280,6 @@ function WebsiteBuilderInner() {
 
       {/* Subscribe-to-Pro modal */}
       <SubscribeModal open={subscribeOpen} onClose={() => setSubscribeOpen(false)} />
-
-      {/* AI prompt modal */}
-      {aiOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setAiOpen(false)}>
-          <div className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <div className="mb-3 flex items-center gap-2">
-        <Sparkles className="h-5 w-5 text-accent-secondary-deep" />
-        <h2 className="text-lg font-bold text-ink">AI Assistant</h2>
-            </div>
-      <p className="mb-3 text-sm text-ink-soft">
-        Describe the change. The prompt and current {mode === 'puck' ? 'Puck JSON' : 'Sandpack HTML'} state are logged
-        to the console (LLM integration is staged for later).
-      </p>
-      <textarea
-        value={aiPrompt}
-        onChange={(e) => setAiPrompt(e.target.value)}
-        rows={4}
-        placeholder="e.g. Add a booking widget section…"
-        className="w-full rounded-md border border-ink-rule px-3 py-2 text-sm text-ink placeholder-ink-stamp focus:outline-none focus:ring-2 focus:ring-accent-secondary/30"
-            />
-            <div className="mt-4 flex justify-end gap-2">
-              <Button variant="outline" size="sm" onClick={() => setAiOpen(false)}>
-                Cancel
-              </Button>
-              <Button size="sm" onClick={handleAiGenerate}>
-                <Send className="h-4 w-4" /> Generate
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -343,6 +299,8 @@ function CodeMode({
   saveStatus,
   onSaveStatus,
   onPublished,
+  aiOpen,
+  onAiClose,
 }: {
   slug: string;
   initialHtml: string | null;
@@ -350,6 +308,8 @@ function CodeMode({
   saveStatus: SaveStatus;
   onSaveStatus: (s: SaveStatus) => void;
   onPublished?: () => void;
+  aiOpen: boolean;
+  onAiClose: () => void;
 }) {
   const [files, setFiles] = useState<Record<string, string>>(() => ({
     '/index.html': initialHtml || DEFAULT_CODE_TEMPLATE,
@@ -374,6 +334,8 @@ function CodeMode({
             saveStatus={saveStatus}
             onSaveStatus={onSaveStatus}
             onPublished={onPublished}
+            aiOpen={aiOpen}
+            onAiClose={onAiClose}
           />
         </SandpackProvider>
       </div>
@@ -388,6 +350,8 @@ function CodeModeInner({
   saveStatus,
   onSaveStatus,
   onPublished,
+  aiOpen,
+  onAiClose,
 }: {
   slug: string;
   initialHtml: string | null;
@@ -395,6 +359,8 @@ function CodeModeInner({
   saveStatus: SaveStatus;
   onSaveStatus: (s: SaveStatus) => void;
   onPublished?: () => void;
+  aiOpen: boolean;
+  onAiClose: () => void;
 }) {
   const { sandpack } = useSandpack();
   const [publishing, setPublishing] = useState(false);
@@ -559,6 +525,7 @@ function CodeModeInner({
   }, [sandpack.files, onPublished]);
 
   return (
+    <>
     <div className="flex h-full flex-row">
       {/* Sidebar */}
       <div
@@ -650,7 +617,15 @@ function CodeModeInner({
           </div>
         </div>
       </div>
-    </div>
+      </div>
+
+      {/* AI Chat Overlay — slides over the right side of the editor */}
+      <AiChatOverlay
+        open={aiOpen}
+        onClose={onAiClose}
+        sandpack={sandpack}
+      />
+    </>
   );
 }
 
@@ -894,6 +869,349 @@ function CenteredNotice({ icon, title, subtitle }: { icon?: React.ReactNode; tit
       {icon && <div className="text-ink-soft">{icon}</div>}
       <h2 className="text-lg font-bold text-ink">{title}</h2>
       {subtitle && <p className="max-w-md text-sm text-ink-soft">{subtitle}</p>}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// AI Chat Overlay — real chat with Claude via OpenRouter, per-file diff review
+// ---------------------------------------------------------------------------
+
+interface AiChatChange {
+  file: string;
+  oldContent: string;
+  newContent: string;
+  description: string;
+}
+
+interface AiChatResponse {
+  message: string;
+  changes: AiChatChange[];
+  remaining: number;
+}
+
+function AiChatOverlay({
+  open,
+  onClose,
+  sandpack,
+}: {
+  open: boolean;
+  onClose: () => void;
+  sandpack: any;
+}) {
+  const [pendingChanges, setPendingChanges] = useState<AiChatChange[]>([]);
+  const [appliedFiles, setAppliedFiles] = useState<Set<string>>(new Set());
+  const [rejectedFiles, setRejectedFiles] = useState<Set<string>>(new Set());
+  const [input, setInput] = useState('');
+
+  const { messages, sendMessage, status, error } = useChat({
+    transport: new DefaultChatTransport({
+      api: '/api/tenant/site/ai-chat',
+    }),
+    onFinish: (event) => {
+      // In v4, the assistant message has `parts` instead of `content`.
+      // Extract the full text from parts.
+      const assistantMessage = event.message;
+      const textParts = assistantMessage.parts.filter(
+        (p: any) => p.type === 'text'
+      );
+      const fullText = textParts.map((p: any) => p.text).join('');
+
+      // Parse JSON change block from the assistant's response
+      try {
+        const jsonMatch = fullText.match(/```json\s*([\s\S]*?)```/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[1].trim());
+          if (parsed.changes && Array.isArray(parsed.changes)) {
+            setPendingChanges(parsed.changes);
+            setAppliedFiles(new Set());
+            setRejectedFiles(new Set());
+            return;
+          }
+        }
+        // Try to parse the entire text as JSON
+        const fullParsed = JSON.parse(fullText);
+        if (fullParsed.changes) {
+          setPendingChanges(fullParsed.changes);
+          setAppliedFiles(new Set());
+          setRejectedFiles(new Set());
+        }
+      } catch {
+        // Not parseable — no structured changes
+        setPendingChanges([]);
+      }
+    },
+  });
+
+  // Build the current file map
+  const getFileContents = useCallback(() => {
+    const indexHtml = sandpack?.files?.['/index.html']?.code ?? '';
+    const styleCss = sandpack?.files?.['/styles.css']?.code ?? '';
+    const scriptJs = sandpack?.files?.['/script.js']?.code ?? '';
+    return { indexHtml, styleCss, scriptJs };
+  }, [sandpack]);
+
+  const onSubmit = useCallback(
+    (e: React.FormEvent<HTMLFormElement>) => {
+      e.preventDefault();
+      if (!input.trim()) return;
+      const files = getFileContents();
+      setPendingChanges([]);
+      setAppliedFiles(new Set());
+      setRejectedFiles(new Set());
+      sendMessage(
+        { text: input },
+        {
+          body: {
+            indexHtml: files.indexHtml,
+            styleCss: files.styleCss,
+            scriptJs: files.scriptJs,
+          },
+        }
+      );
+      setInput('');
+    },
+    [getFileContents, sendMessage, input],
+  );
+
+  const handleApply = useCallback(
+    (change: AiChatChange) => {
+      const filePath = change.file.startsWith('/') ? change.file : `/${change.file}`;
+      const sandpackPath = filePath === '/style.css' ? '/styles.css' :
+                           filePath === '/script.js' ? '/script.js' :
+                           filePath === '/index.html' ? '/index.html' : filePath;
+      const currentCode = sandpack?.files?.[sandpackPath]?.code ?? '';
+      if (currentCode.includes(change.oldContent)) {
+        const updated = currentCode.replace(change.oldContent, change.newContent);
+        sandpack.updateFile(sandpackPath, updated);
+        showToast('Applied', `${change.file} updated.`);
+      } else {
+        sandpack.updateFile(sandpackPath, change.newContent);
+        showToast('Applied', `${change.file} updated (full replacement).`);
+      }
+      setAppliedFiles((prev) => new Set(prev).add(change.file));
+      setRejectedFiles((prev) => {
+        const next = new Set(prev);
+        next.delete(change.file);
+        return next;
+      });
+    },
+    [sandpack],
+  );
+
+  const handleReject = useCallback(
+    (change: AiChatChange) => {
+      setRejectedFiles((prev) => new Set(prev).add(change.file));
+      setAppliedFiles((prev) => {
+        const next = new Set(prev);
+        next.delete(change.file);
+        return next;
+      });
+      showToast('Rejected', `Change to ${change.file} discarded.`);
+    },
+    [],
+  );
+
+  const handleInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      setInput(e.target.value);
+    },
+    [],
+  );
+
+  if (!open) return null;
+
+  const isLoading = status === 'submitted' || status === 'streaming';
+
+  return (
+    <div className="fixed inset-0 z-50 flex">
+      {/* Backdrop */}
+      <div className="flex-1 bg-black/20" onClick={onClose} />
+
+      {/* Panel */}
+      <div className="w-[420px] flex flex-col bg-white border-l border-ink-rule shadow-xl">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-ink-rule px-4 py-3">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-accent-secondary-deep" />
+            <h2 className="text-sm font-bold text-ink">AI Assistant</h2>
+          </div>
+          <button onClick={onClose} className="rounded p-1 text-ink-soft hover:bg-ink/5 hover:text-ink transition-colors cursor-pointer">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {messages.length === 0 && (
+            <div className="text-center py-8">
+              <MessageSquare className="h-8 w-8 text-ink-stamp mx-auto mb-2" />
+              <p className="text-xs text-ink-soft">
+                Describe the change you want. For example: "Make the hero background amber and add a testimonials section"
+              </p>
+            </div>
+          )}
+
+          {messages.map((m) => {
+            // Extract text from parts (v4 UIMessage)
+            const textParts = (m as any).parts?.filter((p: any) => p.type === 'text') ?? [];
+            const textContent = textParts.map((p: any) => p.text).join('');
+
+            return (
+              <div key={m.id} className="text-sm">
+                {m.role === 'user' ? (
+                  <div className="text-right">
+                    <div className="inline-block rounded-lg bg-accent-secondary/10 px-3 py-2 text-ink max-w-[85%] text-left">
+                      {textContent}
+                    </div>
+                  </div>
+                ) : textContent ? (
+                  <div className="space-y-2">
+                    <div className="rounded-lg bg-paper-bleached border border-ink-rule px-3 py-2 text-ink text-xs leading-relaxed whitespace-pre-wrap max-h-48 overflow-y-auto">
+                      {textContent.length > 600 ? textContent.slice(0, 600) + '...' : textContent}
+                    </div>
+
+                    {/* Pending file diffs (from last assistant message) */}
+                    {pendingChanges.length > 0 && (
+                      <div className="space-y-2 mt-3 border-t border-ink-rule pt-3">
+                        <p className="text-[0.65rem] font-semibold uppercase tracking-wider text-ink-stamp px-1">
+                          Proposed changes - review and apply:
+                        </p>
+                        {pendingChanges.map((change, idx) => (
+                          <FileDiffCard
+                            key={idx}
+                            change={change}
+                            onApply={() => handleApply(change)}
+                            onReject={() => handleReject(change)}
+                            applied={appliedFiles.has(change.file)}
+                            rejected={rejectedFiles.has(change.file)}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+
+          {isLoading && (
+            <div className="flex items-center gap-2 text-xs text-ink-soft">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Thinking...
+            </div>
+          )}
+
+          {error && (
+            <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
+              {error.message || 'Something went wrong. Please try again.'}
+            </div>
+          )}
+        </div>
+
+        {/* Input */}
+        <form onSubmit={onSubmit} className="border-t border-ink-rule p-3">
+          <div className="flex gap-2">
+            <textarea
+              value={input}
+              onChange={handleInputChange}
+              rows={2}
+              placeholder="Describe the edit..."
+              className="flex-1 rounded-md border border-ink-rule px-3 py-1.5 text-xs text-ink placeholder-ink-stamp resize-none focus:outline-none focus:ring-2 focus:ring-accent-secondary/30"
+            />
+            <Button
+              type="submit"
+              size="sm"
+              disabled={isLoading || !input.trim()}
+              className="self-end"
+            >
+              {isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function FileDiffCard({
+  change,
+  onApply,
+  onReject,
+  applied,
+  rejected,
+}: {
+  key?: string | number;
+  change: AiChatChange;
+  onApply: () => void;
+  onReject: () => void;
+  applied: boolean;
+  rejected: boolean;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  const fileName = change.file.replace(/^\//, '');
+  const fileIcon = fileName === 'index.html' ? '🔶' : fileName === 'style.css' ? '🎨' : '⚡';
+
+  return (
+    <div className={`rounded-lg border text-xs ${
+      applied ? 'border-green-300 bg-green-50' :
+      rejected ? 'border-red-300 bg-red-50' :
+      'border-ink-rule bg-white'
+    }`}>
+      {/* Header */}
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex w-full items-center justify-between px-2.5 py-2 hover:bg-ink/5 transition-colors cursor-pointer"
+      >
+        <div className="flex items-center gap-1.5">
+          <span>{fileIcon}</span>
+          <span className="font-mono text-[0.65rem] font-semibold text-ink">{fileName}</span>
+          {applied && <CheckCircle className="h-3 w-3 text-green-600" />}
+          {rejected && <XCircle className="h-3 w-3 text-red-500" />}
+        </div>
+        <div className="flex items-center gap-1">
+          {expanded ? <ChevronUp className="h-3 w-3 text-ink-soft" /> : <ChevronDown className="h-3 w-3 text-ink-soft" />}
+        </div>
+      </button>
+
+      {/* Description */}
+      {change.description && (
+        <p className="px-2.5 pb-1 text-[0.6rem] text-ink-soft">{change.description}</p>
+      )}
+
+      {/* Diff (expanded) */}
+      {expanded && (
+        <div className="px-2.5 pb-2 space-y-1">
+          <div className="rounded border border-red-200 bg-red-50 p-1.5 overflow-x-auto">
+            <pre className="text-[0.55rem] leading-tight text-red-800 whitespace-pre-wrap">{change.oldContent.slice(0, 300)}</pre>
+          </div>
+          <div className="rounded border border-green-200 bg-green-50 p-1.5 overflow-x-auto">
+            <pre className="text-[0.55rem] leading-tight text-green-800 whitespace-pre-wrap">{change.newContent.slice(0, 300)}</pre>
+          </div>
+          {(change.oldContent.length > 300 || change.newContent.length > 300) && (
+            <p className="text-[0.5rem] text-ink-stamp">Content truncated for display</p>
+          )}
+        </div>
+      )}
+
+      {/* Actions */}
+      {!applied && !rejected && (
+        <div className="flex gap-1 px-2.5 pb-2">
+          <button
+            onClick={onApply}
+            className="flex items-center gap-1 rounded bg-green-600 px-2 py-1 text-[0.6rem] font-medium text-white hover:bg-green-700 transition-colors cursor-pointer"
+          >
+            <Check className="h-2.5 w-2.5" /> Apply
+          </button>
+          <button
+            onClick={onReject}
+            className="flex items-center gap-1 rounded border border-ink-rule bg-white px-2 py-1 text-[0.6rem] font-medium text-ink-soft hover:bg-ink/5 transition-colors cursor-pointer"
+          >
+            <X className="h-2.5 w-2.5" /> Reject
+          </button>
+        </div>
+      )}
     </div>
   );
 }

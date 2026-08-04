@@ -1,14 +1,16 @@
 import { Router } from 'express';
 import authRoutes from './auth';
 import tenantRoutes from './tenant';
-import bookingsRoutes from './bookings';
+import bookingsRoutes, { walkInRouter } from './bookings';
 import publicRoutes from './public';
 import paymentRoutes from './payments';
 import testRoutes from './test';
 import proSiteRoutes from './pro-site';
 import siteSettingsRoutes from './site-settings';
+import siteGeneratorRoutes from './site-generator';
 import adminRoutes from './admin';
 import healthRoutes from './health';
+import aiChatRoutes from './ai-chat';
 
 const router = Router();
 
@@ -16,6 +18,9 @@ router.use('/auth', authRoutes);
 router.use('/tenant', tenantRoutes);
 router.use('/tenant', proSiteRoutes);
 router.use('/tenant', siteSettingsRoutes);
+router.use('/tenant', siteGeneratorRoutes);
+router.use('/tenant', aiChatRoutes);
+router.use('/tenant/bookings', walkInRouter);
 router.use('/bookings', bookingsRoutes);
 router.use('/public', publicRoutes);
 router.use('/payments', paymentRoutes);
