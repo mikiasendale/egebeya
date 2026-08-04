@@ -8,7 +8,7 @@ import {
   SandpackPreview,
   useSandpack,
 } from '@codesandbox/sandpack-react';
-import { Sparkles, Code2, PencilRuler, Loader2, Rocket, Send, Cuboid, Puzzle } from 'lucide-react';
+import { Sparkles, Code2, PencilRuler, Loader2, Rocket, Send, Puzzle, PanelRightClose, PanelRightOpen, History, ExternalLink, RotateCcw, Check } from 'lucide-react';
 import { authFetch } from '../../lib/api';
 import { fetchSubscription, isProActive, type SubscriptionSummary } from '../../lib/subscription';
 import { config } from '../../lib/puck.config';
@@ -17,8 +17,8 @@ import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { StaffRedirect } from './StaffRedirect';
 import { useBuilderMode } from './BuilderModeContext';
-import { getAllWidgets } from '../../lib/widgetRoutes';
-import { sanitizePublishedCode } from '../../lib/sanitizePublishedCode';
+import { getAllWidgets, type WidgetSpec } from '../../lib/widgetRoutes';
+import { ShareSiteBar } from './ShareSiteBar';
 
 type BuilderMode = 'puck' | 'code';
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
@@ -138,6 +138,8 @@ function WebsiteBuilderInner() {
 
   // ---- Puck save (via Puck's own Publish button) ----
   const [puckSaveStatus, setPuckSaveStatus] = useState<SaveStatus>('idle');
+  const [shareBarKey, setShareBarKey] = useState(0);
+  const [deployHistoryKey, setDeployHistoryKey] = useState(0);
   const handlePuckPublish = useCallback(async (data: any) => {
     setPuckContent(data);
     setPuckSaveStatus('saving');
@@ -148,7 +150,12 @@ function WebsiteBuilderInner() {
         body: JSON.stringify({ content: data }),
       });
       setPuckSaveStatus(res.ok ? 'saved' : 'error');
-      if (res.ok) showToast('Page saved', 'Your visual layout is persisted.');
+      if (res.ok) {
+        showToast('Page saved', 'Your visual layout is persisted.');
+        // Surfacing the share bar after a published save is the "share your
+        // new site" hook — re-mount it so it re-reads the share link.
+        setShareBarKey((k) => k + 1);
+      }
     } catch {
       setPuckSaveStatus('error');
     }
@@ -245,7 +252,13 @@ function WebsiteBuilderInner() {
         </div>
       </div>
 
-      {/* Editor body */}
+      {/* Share hook — appears on load (if already published) and re-mounts
+          after every successful publish so the owner can share instantly. */}
+      <div className="flex-shrink-0">
+        <ShareSiteBar key={shareBarKey} />
+      </div>
+
+        {/* Editor body */}
       {mode === 'puck' ? (
         <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-ink-rule bg-white">
           <Puck config={config} data={puckContent} onPublish={handlePuckPublish} />
@@ -257,7 +270,17 @@ function WebsiteBuilderInner() {
           onHtmlChange={(html) => setCodeHtml(html)}
           saveStatus={codeSaveStatus}
           onSaveStatus={setCodeSaveStatus}
+          onPublished={() => {
+            // Refresh the share bar and deploy history after a successful publish.
+            setShareBarKey((k) => k + 1);
+            setDeployHistoryKey((k) => k + 1);
+          }}
         />
+      )}
+
+      {/* Deploy history panel — Code Mode only */}
+      {mode === 'code' && (
+        <DeployHistory refreshKey={deployHistoryKey} onPublished={() => setDeployHistoryKey((k) => k + 1)} />
       )}
 
       {/* Disclaimer modal */}
@@ -319,12 +342,14 @@ function CodeMode({
   onHtmlChange,
   saveStatus,
   onSaveStatus,
+  onPublished,
 }: {
   slug: string;
   initialHtml: string | null;
   onHtmlChange: (html: string) => void;
   saveStatus: SaveStatus;
   onSaveStatus: (s: SaveStatus) => void;
+  onPublished?: () => void;
 }) {
   const [files, setFiles] = useState<Record<string, string>>(() => ({
     '/index.html': initialHtml || DEFAULT_CODE_TEMPLATE,
@@ -348,6 +373,7 @@ function CodeMode({
             onHtmlChange={onHtmlChange}
             saveStatus={saveStatus}
             onSaveStatus={onSaveStatus}
+            onPublished={onPublished}
           />
         </SandpackProvider>
       </div>
@@ -361,15 +387,20 @@ function CodeModeInner({
   onHtmlChange,
   saveStatus,
   onSaveStatus,
+  onPublished,
 }: {
   slug: string;
   initialHtml: string | null;
   onHtmlChange: (html: string) => void;
   saveStatus: SaveStatus;
   onSaveStatus: (s: SaveStatus) => void;
+  onPublished?: () => void;
 }) {
   const { sandpack } = useSandpack();
   const [publishing, setPublishing] = useState(false);
+  const [publishError, setPublishError] = useState<string | null>(null);
+  const [publishUrl, setPublishUrl] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const widgets = useMemo(() => getAllWidgets(slug), [slug]);
 
   const setStatus = (s: SaveStatus) => onSaveStatus(s);
@@ -459,55 +490,313 @@ function CodeModeInner({
 
   const handlePublish = useCallback(async () => {
     setPublishing(true);
+    setPublishError(null);
     try {
-      const rawHtml = getCurrentHtml();
-      const sanitized = await sanitizePublishedCode(rawHtml, [import.meta.env.VITE_APP_URL].filter(Boolean));
-      if (import.meta.env.DEV) {
-        console.log('Sanitized Published HTML:', sanitized);
-      }
-      await authFetch('/api/tenant/site', {
-        method: 'PATCH',
+      // 1. Save the current Sandpack files to pro_site_files so the publish
+      //    endpoint has something to read.
+      const fileMap: Record<string, string> = {};
+      const indexHtml = (sandpack.files['/index.html'] as any)?.code ?? '';
+      const stylesCss = (sandpack.files['/styles.css'] as any)?.code ?? '';
+      const scriptJs = (sandpack.files['/script.js'] as any)?.code ?? '';
+      if (indexHtml) fileMap['index.html'] = indexHtml;
+      if (stylesCss) fileMap['style.css'] = stylesCss;
+      if (scriptJs) fileMap['script.js'] = scriptJs;
+
+      const saveRes = await authFetch('/api/tenant/pro-site/files', {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ builderMode: 'code', publishedCodeHtml: sanitized }),
+        body: JSON.stringify(fileMap),
       });
-      showToast('Published', 'Sanitized HTML saved to your site config.');
-    } catch (err) {
+      if (!saveRes.ok) {
+        const errBody = await saveRes.json().catch(() => ({}));
+        const errMsg = errBody?.error || `Failed to save files (HTTP ${saveRes.status})`;
+        showToast('Save failed', errMsg, 'destructive');
+        setPublishError(errMsg);
+        return;
+      }
+
+      // 2. Call the real publish endpoint.
+      const res = await authFetch('/api/tenant/site/publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        const errMsg = errBody?.error || `Publish failed (HTTP ${res.status})`;
+        showToast('Publish failed', errMsg, 'destructive');
+        setPublishError(errMsg);
+        return;
+      }
+
+      const data = await res.json();
+      const publicUrl: string | null = data.publicUrl ?? null;
+
+      // Success: toast + show the live public URL.
+      setPublishUrl(publicUrl);
+      if (publicUrl) {
+        showToast(
+          'Published!',
+          `Your site is live at ${publicUrl}`,
+        );
+      } else {
+        showToast(
+          'Published!',
+          `Build ${data.buildId?.slice(0, 8) || ''} is live. Set a public slug to get a public URL.`,
+        );
+      }
+      setPublishError(null);
+      // Trigger DeployHistory refresh via onPublished callback.
+      onPublished?.();
+    } catch (err: any) {
+      const msg = err?.message || 'An unexpected error occurred during publish.';
       console.error('Publish failed:', err);
-      showToast('Publish failed', 'Could not sanitize/save.', 'destructive');
+      showToast('Publish failed', msg, 'destructive');
+      setPublishError(msg);
     } finally {
       setPublishing(false);
     }
-  }, [getCurrentHtml]);
+  }, [sandpack.files, onPublished]);
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex min-h-0 flex-1">
-        <SandpackLayout>
-          <SandpackCodeEditor showLineNumbers showInlineErrors showTabs className="min-w-0 flex-1" />
-          <SandpackPreview showOpenInCodeSandbox={false} showRefreshButton style={{ flex: 1, minWidth: 380 }} />
-        </SandpackLayout>
+    <div className="flex h-full flex-row">
+      {/* Sidebar */}
+      <div
+        className={`flex-shrink-0 border-r border-ink-rule bg-paper-bleached transition-all duration-200 ease-in-out ${
+          sidebarOpen ? 'w-56' : 'w-10'
+        }`}
+      >
+        <div className="flex h-full flex-col">
+          {/* Sidebar header with toggle */}
+          <div className="flex items-center justify-between border-b border-ink-rule px-2 py-1.5">
+            {sidebarOpen && (
+              <span className="text-[0.7rem] font-bold uppercase tracking-wider text-ink-stamp">Widgets</span>
+            )}
+            <button
+              onClick={() => setSidebarOpen((o) => !o)}
+              className="rounded p-1 text-ink-soft hover:bg-ink/5 hover:text-ink transition-colors"
+              title={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+            >
+              {sidebarOpen ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
+            </button>
+          </div>
+
+          {/* Widget list */}
+          <div className="flex-1 overflow-y-auto p-2 space-y-2">
+            {sidebarOpen ? (
+              /* Expanded: show full labels with descriptions */
+              widgets.map((w) => (
+                <button
+                  key={w.id}
+                  onClick={() => injectWidgetAtCursor(w.snippet, w.label)}
+                  className="w-full rounded-lg border border-ink-rule bg-white p-2.5 text-left transition-colors hover:border-accent-secondary/40 hover:bg-accent-secondary/5 active:bg-accent-secondary/10 group cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    <Puzzle className="h-3.5 w-3.5 text-accent-secondary flex-shrink-0" />
+                    <span className="text-xs font-semibold text-ink">{w.label}</span>
+                  </div>
+                  <p className="mt-0.5 text-[0.65rem] leading-snug text-ink-soft">{w.description}</p>
+                </button>
+              ))
+            ) : (
+              /* Collapsed: icon-only buttons */
+              widgets.map((w) => (
+                <button
+                  key={w.id}
+                  onClick={() => injectWidgetAtCursor(w.snippet, w.label)}
+                  className="flex w-full items-center justify-center rounded-lg border border-ink-rule bg-white p-2 text-ink-soft transition-colors hover:border-accent-secondary/40 hover:text-accent-secondary group cursor-pointer"
+                  title={w.label}
+                >
+                  <Puzzle className="h-4 w-4" />
+                </button>
+              ))
+            )}
+          </div>
+        </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-ink-rule bg-paper-bleached px-3 py-2">
-        <div className="flex items-center gap-2">
-          <SaveStatusIndicator status={saveStatus} />
-          <Button size="sm" onClick={handlePublish} disabled={publishing}>
-            {publishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />}
-            Publish
-          </Button>
+      {/* Main editor area */}
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="flex min-h-0 flex-1">
+          <SandpackLayout>
+            <SandpackCodeEditor showLineNumbers showInlineErrors showTabs className="min-w-0 flex-1" />
+            <SandpackPreview showOpenInCodeSandbox={false} showRefreshButton style={{ flex: 1, minWidth: 380 }} />
+          </SandpackLayout>
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-2 rounded-md border border-ink-rule bg-paper px-2.5 py-1.5 text-xs font-medium text-ink">
-            <Cuboid className="h-4 w-4 text-ink-stamp" />
-            Egebeya Widgets
-          </span>
-          {widgets.map((w) => (
-            <Button key={w.id} size="sm" variant="outline" onClick={() => injectWidgetAtCursor(w.snippet, w.label)}>
-              <Puzzle className="h-4 w-4" /> {w.label}
+        <div className="flex items-center justify-between gap-3 border-t border-ink-rule bg-paper-bleached px-3 py-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <SaveStatusIndicator status={publishing ? 'saving' : saveStatus} />
+            <Button size="sm" onClick={handlePublish} disabled={publishing}>
+              {publishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />}
+              {publishing ? 'Publishing…' : 'Publish'}
             </Button>
-          ))}
+            {publishError && (
+              <span className="text-xs text-red-600 max-w-md truncate" title={publishError}>
+                {publishError}
+              </span>
+            )}
+            {publishUrl && !publishError && (
+              <a
+                href={publishUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+              >
+                <ExternalLink className="h-3 w-3" />
+                Live at {publishUrl}
+              </a>
+            )}
+          </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Deploy History panel — lists past builds and lets the owner reactivate
+ * (rollback) to an earlier one. Reuses the pro-build rollback pattern: old
+ * build directories stay on disk, and activating updates active_build_id +
+ * published_code_html.
+ */
+function DeployHistory({ refreshKey, onPublished }: { refreshKey: number; onPublished?: () => void }) {
+  const [builds, setBuilds] = useState<Array<{
+    buildId: string;
+    createdAt: number;
+    createdAtIso: string;
+    size: number;
+    isActive: boolean;
+  }>>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [activatingId, setActivatingId] = useState<string | null>(null);
+
+  const loadBuilds = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await authFetch('/api/tenant/site/builds');
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      setBuilds(data.builds ?? []);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to load deploy history.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadBuilds();
+  }, [loadBuilds, refreshKey]);
+
+  const handleActivate = useCallback(async (buildId: string) => {
+    setActivatingId(buildId);
+    try {
+      const res = await authFetch(`/api/tenant/site/builds/${buildId}/activate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const errMsg = body?.error || `Failed to activate build (HTTP ${res.status})`;
+        showToast('Reactivation failed', errMsg, 'destructive');
+        return;
+      }
+      showToast(
+        'Build reactivated',
+        body.publicUrl
+          ? `Your live site now serves an earlier build.\n${body.publicUrl}`
+          : 'Your live site now serves the earlier build.',
+      );
+      onPublished?.();
+      // Reload builds list to reflect the new active flag.
+      loadBuilds();
+    } catch (err: any) {
+      showToast('Reactivation failed', err?.message || 'Unexpected error.', 'destructive');
+    } finally {
+      setActivatingId(null);
+    }
+  }, [loadBuilds, onPublished]);
+
+  if (loading) {
+    return (
+      <div className="flex-shrink-0 rounded-xl border border-ink-rule bg-white px-4 py-2.5">
+        <div className="flex items-center gap-2 text-xs text-ink-soft">
+          <Loader2 className="h-3 w-3 animate-spin" /> Loading deploy history…
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex-shrink-0 rounded-xl border border-ink-rule bg-white px-4 py-2.5">
+        <div className="text-xs text-red-600">{error}</div>
+      </div>
+    );
+  }
+
+  if (builds.length === 0) {
+    return null; // Don't clutter the UI before the first publish.
+  }
+
+  return (
+    <div className="flex-shrink-0 rounded-xl border border-ink-rule bg-paper-bleached px-3 py-2.5">
+      <div className="flex items-center gap-1.5 mb-2">
+        <History className="h-3.5 w-3.5 text-ink-soft" />
+        <span className="text-xs font-bold uppercase tracking-wider text-ink-stamp">Deploy History</span>
+        <Badge variant="secondary" className="text-[0.6rem] px-1.5 py-0 h-4 leading-none">{builds.length}</Badge>
+      </div>
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        {builds.map((b) => {
+          const date = new Date(b.createdAt);
+          const label = date.toLocaleString(undefined, {
+            month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+          });
+          return (
+            <div
+              key={b.buildId}
+              className={`flex-shrink-0 rounded-lg border px-3 py-2 text-left min-w-[140px] ${
+                b.isActive
+                  ? 'border-primary/40 bg-primary/5'
+                  : 'border-ink-rule bg-white'
+              }`}
+            >
+              <div className="flex items-center gap-1.5 mb-1">
+                {b.isActive && (
+                  <span className="inline-flex items-center gap-0.5 text-[0.6rem] font-semibold text-primary">
+                    <Check className="h-3 w-3" /> Active
+                  </span>
+                )}
+                <span className="text-[0.6rem] text-ink-stamp font-mono">
+                  {b.buildId.slice(0, 8)}
+                </span>
+              </div>
+              <p className="text-[0.7rem] text-ink-soft mb-1.5">{label}</p>
+              {!b.isActive && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-6 px-2 text-[0.65rem] w-full"
+                  disabled={activatingId === b.buildId}
+                  onClick={() => handleActivate(b.buildId)}
+                >
+                  {activatingId === b.buildId ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <RotateCcw className="h-3 w-3" />
+                  )}
+                  Reactivate
+                </Button>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
