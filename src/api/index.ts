@@ -11,8 +11,17 @@ import siteGeneratorRoutes from './site-generator';
 import adminRoutes from './admin';
 import healthRoutes from './health';
 import aiChatRoutes from './ai-chat';
+import crmRoutes from './crm';
+import apiKeysRoutes from './api-keys';
+import v1Routes from './v1';
+import { apiKeyLimiter } from '../../server/middleware/rateLimiter';
+import { dbHealthMiddleware } from '../db/health';
 
 const router = Router();
+
+// Database-resilience guard — mounted FIRST so an unreachable DB degrades
+// the entire API to a clean 503 instead of leaking per-route stack traces.
+router.use(dbHealthMiddleware);
 
 router.use('/auth', authRoutes);
 router.use('/tenant', tenantRoutes);
@@ -20,9 +29,12 @@ router.use('/tenant', proSiteRoutes);
 router.use('/tenant', siteSettingsRoutes);
 router.use('/tenant', siteGeneratorRoutes);
 router.use('/tenant', aiChatRoutes);
+router.use('/tenant', crmRoutes);
+router.use('/tenant/api-keys', apiKeysRoutes);
 router.use('/tenant/bookings', walkInRouter);
 router.use('/bookings', bookingsRoutes);
 router.use('/public', publicRoutes);
+router.use('/v1', apiKeyLimiter, v1Routes);
 router.use('/payments', paymentRoutes);
 router.use('/admin', adminRoutes);
 router.use('/health', healthRoutes);

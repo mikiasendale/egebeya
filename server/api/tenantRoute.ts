@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { db } from '../../src/db';
-import { services as servicesTable, appointments, payments } from '../../src/db/schema';
-import { eq, and, gte, lt, sql } from 'drizzle-orm';
+import { services as servicesTable, appointments, payments, inventoryItems } from '../../src/db/schema';
+import { eq, and, gte, lt, sql, lte } from 'drizzle-orm';
 import { requireAuth } from '../../src/api/middleware/auth';
 import {
   getAddisDateString,
@@ -45,6 +45,8 @@ type DashboardResponse = {
   completedRevenueCents: number;
   completedRevenueEtb: number;
   walkInEnabled: boolean;
+  lowStockItems: any[];
+  lowStockCount: number;
 };
 
 router.get('/', async (_req: any, res: any) => {
@@ -119,6 +121,33 @@ router.get('/', async (_req: any, res: any) => {
     }))
     .sort((a, b) => a.time.localeCompare(b.time));
 
+  // Low-stock inventory alert — items whose quantity_on_hand is at or below
+  // their reorder_threshold. Only returned as a count + id/name/sku summary;
+  // the owner can drill into the full inventory list from the Settings/Manage
+  // screen.
+  let lowStockCount = 0;
+  let lowStockItems: any[] = [];
+  try {
+    lowStockItems = await db.select({
+      id: inventoryItems.id,
+      name: inventoryItems.name,
+      sku: inventoryItems.sku,
+      quantityOnHand: inventoryItems.quantityOnHand,
+      reorderThreshold: inventoryItems.reorderThreshold,
+    })
+      .from(inventoryItems)
+      .where(
+        and(
+          eq(inventoryItems.tenantId, tenantId),
+          sql`${inventoryItems.quantityOnHand} <= ${inventoryItems.reorderThreshold}`,
+        ),
+      )
+      .all();
+    lowStockCount = lowStockItems.length;
+  } catch {
+    // inventory table may not exist on legacy DBs — non-fatal
+  }
+
   return res.json({
     today: schedule,
     todayAppointments: schedule.length,
@@ -128,7 +157,12 @@ router.get('/', async (_req: any, res: any) => {
     completedRevenueCents,
     completedRevenueEtb: completedRevenueCents / 100,
     walkInEnabled: user?.role === 'owner',
-  } satisfies DashboardResponse);
+    lowStockItems: lowStockItems.map((r) => ({
+      ...r,
+      lowStock: true,
+    })),
+    lowStockCount,
+  });
 });
 
 export default router;

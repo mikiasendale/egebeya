@@ -29,7 +29,7 @@ import { requireAuth } from './middleware/auth';
 import { csrfProtection } from './middleware/csrf';
 import { requireProPlan } from './pro-site';
 import { tenantWriteLimiter } from '../../server/middleware/rateLimiter';
-import { generateBusinessDescription } from '../../server/lib/ai';
+import { generateBusinessDescription, generateMarketingSnippet } from '../../server/lib/ai';
 
 const router = Router();
 
@@ -275,6 +275,47 @@ router.post('/ai/generate-description', tenantWriteLimiter, async (req, res) => 
     console.error('[ai] generate-description error:', error?.message || error);
     // Never log the API key even in error
     res.status(500).json({ error: 'Failed to generate description. Please try again.' });
+  }
+});
+
+/**
+ * POST /api/tenant/ai/marketing-snippet
+ *
+ * Authenticated, Pro-gated endpoint that produces a 2-sentence social-media
+ * marketing post for the tenant's business. Locale-aware (en | am).
+ *
+ * Input: { businessName: string; category: string; services: string[]; locale?: 'en' | 'am' }
+ * Output: { snippet: string; locale: 'en' | 'am' }
+ */
+router.post('/ai/marketing-snippet', tenantWriteLimiter, async (req, res) => {
+  const plan = await requireProPlan(req, res);
+  if (!plan) return;
+
+  try {
+    const { businessName, category, services, locale } = req.body;
+
+    if (!businessName || typeof businessName !== 'string' || businessName.trim().length === 0) {
+      return res.status(400).json({ error: 'businessName is required' });
+    }
+    if (!category || typeof category !== 'string' || category.trim().length === 0) {
+      return res.status(400).json({ error: 'category is required' });
+    }
+    if (!Array.isArray(services)) {
+      return res.status(400).json({ error: 'services must be an array' });
+    }
+
+    const result = await generateMarketingSnippet({
+      businessName: businessName.trim(),
+      category: category.trim(),
+      services,
+      locale: locale === 'am' ? 'am' : 'en',
+    });
+
+    res.json(result);
+  } catch (error: any) {
+    console.error('[ai] marketing-snippet error:', error?.message || error);
+    // Never log the API key even in error
+    res.status(500).json({ error: 'Failed to generate marketing snippet. Please try again.' });
   }
 });
 

@@ -38,6 +38,7 @@ import {
   tenantBusinessHours,
   plans,
   tenantSubscriptions,
+  customerStats,
 } from '../../src/db/schema';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecret_fallback';
@@ -128,6 +129,7 @@ describe('Booking CRUD (authenticated)', () => {
     await db.delete(tenantBusinessHours).where(eq(tenantBusinessHours.tenantId, tenantId));
     await db.delete(tenantSubscriptions).where(eq(tenantSubscriptions.tenantId, tenantId));
     await db.delete(users).where(eq(users.tenantId, tenantId));
+    await db.delete(customerStats).where(eq(customerStats.tenantId, tenantId));
     await db.delete(tenants).where(eq(tenants.id, tenantId));
   });
 

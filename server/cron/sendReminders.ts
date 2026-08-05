@@ -86,8 +86,8 @@ export async function runOnce(tenantId?: string): Promise<number> {
           await sendSms({
             to: appt.customerPhone,
             text: reminderLocale === 'am'
-              ? `ሰላም ${appt.customerName}፣ ቀጠሮዎ በ ${ethiopianDateStr} ነው። እርስዎን በጉጉት እንጠብቃለን!`
-              : `Hi ${appt.customerName}, your appointment is at ${ethiopianDateStr}. We look forward to seeing you!`,
+              ? `ሰላም ${appt.customerName}፣ ቀጠሮዎ በ ${ethiopianDateStr} ነው። እርስዎን በጉጉት እንጠብቃለን! መረጃዊ መረጃ ለመሰጥት መረጃ ይበልጡታል። Reply STOP ይሆን`
+              : `Hi ${appt.customerName}, your appointment is at ${ethiopianDateStr}. We look forward to seeing you! Reply STOP to opt out.`,
           });
           sentVia.push('sms');
 

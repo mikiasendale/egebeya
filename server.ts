@@ -10,6 +10,7 @@ import apiRoutes from './src/api';
 import { ensureSchemaMigrations } from './src/db/migrations';
 import { validateProductionEnv } from './src/lib/envGuards';
 import { jwtSecret, refreshSecret } from './src/api/middleware/auth';
+import { isDbUnavailableError } from './src/db/health';
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
@@ -93,6 +94,35 @@ app.use(cors({
 // session model.
 app.use(cookieParser());
 
+// ── CORS for /api/v1 (Developer Marketplace) ─────────────────────────
+// Uses ALLOWED_API_ORIGINS env var (comma-separated). No wildcard.
+// Mounted BEFORE the JSON body parser so preflight OPTIONS get a quick
+// response without needing to parse a body.
+const allowedApiOrigins = (process.env.ALLOWED_API_ORIGINS || '')
+  .split(',').map((s) => s.trim()).filter(Boolean);
+
+if (allowedApiOrigins.length > 0) {
+  app.options('/api/v1/*splat', cors({
+    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+      if (!origin) return callback(null, true);
+      if (allowedApiOrigins.includes(origin)) return callback(null, true);
+      callback(null, false);
+    },
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'x-api-key'],
+    maxAge: 86400,
+  }));
+  app.use('/api/v1', cors({
+    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+      if (!origin) return callback(null, true);
+      if (allowedApiOrigins.includes(origin)) return callback(null, true);
+      callback(null, false);
+    },
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'x-api-key'],
+  }));
+}
+
 // Capture the raw request body buffer so the Chapa webhook can HMAC-verify
 // the exact bytes the provider signed.
 app.use(express.json({
@@ -119,6 +149,15 @@ app.use((req, res, next) => {
 // JSON, multer rejections, unexpected 500s) become JSON with a generic
 // message, never Express's default HTML stack trace.
 app.use((err: any, _req: any, res: any, _next: any) => {
+  // A database that is unreachable is a deployment/upstream problem, not a
+  // bug in our handlers — surface it as a retriable 503 (no stack trace, no
+  // 500) with a Retry-After so clients/CDNs can back off.
+  if (isDbUnavailableError(err)) {
+    return res
+      .status(503)
+      .set('Retry-After', '30')
+      .json({ error: 'Service temporarily unavailable', retryAfter: 30 });
+  }
   if (err instanceof multer.MulterError || err?.message === 'Invalid file type' || err?.message === 'Only images are allowed') {
     return res.status(400).json({ error: 'Invalid upload. Please upload a valid image file.' });
   }

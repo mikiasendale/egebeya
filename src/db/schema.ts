@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, real, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, real, uniqueIndex, primaryKey } from 'drizzle-orm/sqlite-core';
 
 export const tenants = sqliteTable('tenants', {
   id: text('id').primaryKey(), // uuid
@@ -119,6 +119,32 @@ export const appointments = sqliteTable('appointments', {
   reminderSent: integer('reminder_sent', { mode: 'boolean' }).default(false),
   sentVia: text('sent_via'), // 'sms', 'email', 'both' — audit which channel a reminder went out on
   cancelsAt: integer('cancels_at'), // UTC epoch ms; set when payment pending so stale slots free up
+  recurringSeriesId: text('recurring_series_id'), // FK to recurring_series.id, nullable
+});
+
+export const appointmentServices = sqliteTable('appointment_services', {
+  appointmentId: text('appointment_id').references(() => appointments.id).notNull(),
+  serviceId: text('service_id').references(() => services.id).notNull(),
+  priceAtBooking: integer('price_at_booking').notNull(),
+  durationMinutes: integer('duration_minutes').notNull(),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.appointmentId, table.serviceId] }),
+}));
+
+export const recurringSeries = sqliteTable('recurring_series', {
+  id: text('id').primaryKey(),
+  tenantId: text('tenant_id').references(() => tenants.id).notNull(),
+  staffId: text('staff_id').references(() => staff.id).notNull(),
+  serviceId: text('service_id').references(() => services.id).notNull(),
+  customerName: text('customer_name').notNull(),
+  customerPhone: text('customer_phone').notNull(),
+  customerEmail: text('customer_email'),
+  interval: text('interval').notNull(), // 'weekly', 'biweekly', 'monthly'
+  startDate: text('start_date').notNull(), // Ethiopian date string
+  endDate: text('end_date').notNull(), // Ethiopian date string
+  timeslotMinutes: integer('timeslot_minutes').notNull(),
+  isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+  createdAt: integer('created_at').notNull(),
 });
 
 export const payments = sqliteTable('payments', {
@@ -162,6 +188,16 @@ export const media = sqliteTable('media', {
   createdAt: integer('created_at').notNull(),
 });
 
+export const otpCodes = sqliteTable('otp_codes', {
+  id: text('id').primaryKey(),
+  phone: text('phone').notNull(),
+  code: text('code').notNull(),
+  expiresAt: integer('expires_at').notNull(),
+  attempts: integer('attempts').notNull().default(0),
+  used: integer('used', { mode: 'boolean' }).notNull().default(false),
+  createdAt: integer('created_at').notNull(),
+});
+
 // Website Builder state: builder mode ('puck' | 'code') + published Code-Mode
 // HTML. Created by migrations.ts (CREATE TABLE IF NOT EXISTS) on boot.
 export const siteConfig = sqliteTable('site_config', {
@@ -202,3 +238,57 @@ export const processedWebhookEvents = sqliteTable('processed_webhook_events', {
   uniqueIndex('processed_webhook_events_provider_event_unique')
     .on(table.provider, table.eventId),
 ]));
+
+export const customerStats = sqliteTable('customer_stats', {
+  tenantId: text('tenant_id').references(() => tenants.id, { onDelete: 'cascade' }).notNull(),
+  customerPhone: text('customer_phone').notNull(),
+  customerName: text('customer_name').notNull(),
+  firstVisitAt: integer('first_visit_at'),
+  lastVisitAt: integer('last_visit_at'),
+  visitCount: integer('visit_count').notNull().default(0),
+  totalSpendEtbCents: integer('total_spend_etb_cents').notNull().default(0),
+  lastCancelledAt: integer('last_cancelled_at'),
+  marketingOptIn: integer('marketing_opt_in', { mode: 'boolean' }).notNull().default(false),
+  healthTag: text('health_tag').notNull().default('healthy'),
+  noShowCount: integer('no_show_count').notNull().default(0),
+  createdAt: integer('created_at').notNull(),
+}, (table) => ([
+  primaryKey({ columns: [table.tenantId, table.customerPhone] }),
+]));
+
+export const promoCodes = sqliteTable('promo_codes', {
+  id: text('id').primaryKey(),
+  tenantId: text('tenant_id').references(() => tenants.id).notNull(),
+  code: text('code').notNull(),
+  discountType: text('discount_type').notNull(), // 'percent' or 'fixed_etb_cents'
+  discountValue: integer('discount_value').notNull(),
+  maxUses: integer('max_uses').notNull().default(1),
+  usedCount: integer('used_count').notNull().default(0),
+  validFrom: integer('valid_from'),
+  validUntil: integer('valid_until'),
+  isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+  createdAt: integer('created_at').notNull(),
+});
+
+export const inventoryItems = sqliteTable('inventory_items', {
+  id: text('id').primaryKey(),
+  tenantId: text('tenant_id').references(() => tenants.id).notNull(),
+  serviceId: text('service_id').references(() => services.id),
+  name: text('name').notNull(),
+  sku: text('sku'),
+  quantityOnHand: integer('quantity_on_hand').notNull().default(0),
+  reorderThreshold: integer('reorder_threshold').notNull().default(5),
+  unit: text('unit').notNull().default('unit'),
+  createdAt: integer('created_at').notNull(),
+});
+
+export const apiKeys = sqliteTable('api_keys', {
+  id: text('id').primaryKey(),
+  tenantId: text('tenant_id').references(() => tenants.id).notNull(),
+  keyPrefix: text('key_prefix').notNull(),
+  keyHash: text('key_hash').notNull(),
+  scopes: text('scopes', { mode: 'json' }).notNull(),
+  expiresAt: integer('expires_at'),
+  lastUsedAt: integer('last_used_at'),
+  createdAt: integer('created_at').notNull(),
+});

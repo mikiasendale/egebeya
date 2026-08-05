@@ -9,9 +9,10 @@ import { sendMail } from '../../server/lib/mailer';
 import { applyTemplate } from '../../server/lib/mailTemplates';
 import { jwtSecret, refreshSecret, requireAuth } from './middleware/auth';
 import { csrfProtection } from './middleware/csrf';
-import { authLimiter } from '../../server/middleware/rateLimiter';
+import { authLimiter, otpLimiter } from '../../server/middleware/rateLimiter';
 import { logSecurityEvent, ipFromRequest } from '../../server/lib/securityLog';
 import { normalizePhone } from '../lib/phone';
+import { generateOtp, verifyOtp } from '../../server/lib/otp';
 
 const router = Router();
 
@@ -132,7 +133,11 @@ router.post('/register', authLimiter, async (req, res) => {
         id: tenantId,
         name: businessName,
         slug: normalizedSlug,
-        settings: initialSettings,
+        // New tenants are NOT listed on /discover until the owner completes
+        // onboarding and opts in via the "List my business publicly" toggle
+        // (which sets is_listed back to true).
+        isListed: false,
+        settings: { ...initialSettings, onboarding_completed: false },
         createdAt: Date.now()
       });
 
@@ -393,6 +398,343 @@ router.post('/reset-password', authLimiter, async (req, res) => {
     res.json({ success: true, message: 'Password has been updated' });
   } catch (error) {
     console.error('Reset password error:', error);
+    res.status(500).json({ error: 'Failed to reset password' });
+  }
+});
+
+// ── SMS OTP routes ───────────────────────────────────────────────
+
+/**
+ * POST /api/auth/register-with-phone
+ *
+ * Initiate phone-based registration. Accepts registration details + phone,
+ * sends an OTP via SMS. The frontend then calls POST /api/auth/verify-otp
+ * to complete registration.
+ *
+ * Body: { phone, password, businessName, slug, city, consent }
+ */
+router.post('/register-with-phone', otpLimiter, async (req, res) => {
+  try {
+    const { phone, password, businessName, slug, city, consent } = req.body;
+
+    if (!consent || consent !== true) {
+      return res.status(400).json({ error: 'You must agree to the Privacy Policy and Terms of Service to register.' });
+    }
+
+    const normalizedPhone = normalizePhone(phone);
+    if (!normalizedPhone) {
+      return res.status(400).json({ error: 'Enter a valid Ethiopian phone number (+251XXXXXXXXX)' });
+    }
+
+    const existingUser = await db.select().from(users).where(eq(users.phone, normalizedPhone)).get();
+    if (existingUser) {
+      return res.status(400).json({ error: 'Phone number already registered' });
+    }
+
+    if (!businessName || typeof businessName !== 'string' || !businessName.trim()) {
+      return res.status(400).json({ error: 'Business name is required' });
+    }
+
+    if (!slug || typeof slug !== 'string') {
+      return res.status(400).json({ error: 'Business URL slug is required' });
+    }
+
+    const normalizedSlug = slug.toLowerCase().trim();
+    if (RESERVED_SLUGS.includes(normalizedSlug)) {
+      return res.status(400).json({ error: 'This business URL is reserved' });
+    }
+
+    const existingTenant = await db.select().from(tenants).where(eq(tenants.slug, normalizedSlug)).get();
+    if (existingTenant) {
+      return res.status(400).json({ error: 'Business URL already taken' });
+    }
+
+    if (!password || typeof password !== 'string' || password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+
+    // Store registration data temporarily in request for verify-otp to use.
+    // We use res.locals so the verify handler has access.
+    (req as any).registrationData = {
+      phone: normalizedPhone,
+      password,
+      businessName: businessName.trim(),
+      slug: normalizedSlug,
+      city: typeof city === 'string' && city.trim() ? city.trim() : null,
+      consentGivenAt: Date.now(),
+    };
+
+    // Generate and send OTP
+    await generateOtp(normalizedPhone);
+
+    res.json({
+      success: true,
+      message: 'Verification code sent to your phone.',
+      phone: normalizedPhone,
+    });
+  } catch (error: any) {
+    if (error.statusCode === 429) {
+      return res.status(429).json({ error: error.message, code: error.code });
+    }
+    console.error('Register-with-phone error:', error);
+    res.status(500).json({ error: 'Failed to send verification code' });
+  }
+});
+/**
+ * POST /api/auth/verify-otp
+ *
+ * Complete registration or password reset by verifying the OTP code.
+ * The body must include `intent`: 'register' or 'reset-password'.
+ *
+ * Body: { phone, code, intent, ...registrationFields }
+ * For register: body includes { password, businessName, slug, city, consent }
+ * For verify-otp (during register): body includes all registration fields.
+ */
+router.post('/verify-otp', otpLimiter, async (req, res) => {
+  try {
+    const { phone, code, intent, password, businessName, slug, city, consent } = req.body;
+
+    if (!intent) {
+      return res.status(400).json({ error: 'Intent is required: "register" or "reset-password"' });
+    }
+
+    const normalizedPhone = normalizePhone(phone);
+    if (!normalizedPhone) {
+      return res.status(400).json({ error: 'Enter a valid Ethiopian phone number (+251XXXXXXXXX)' });
+    }
+
+    if (!code || typeof code !== 'string') {
+      return res.status(400).json({ error: 'Verification code is required' });
+    }
+
+    // Verify the OTP — throws on failure
+    await verifyOtp(normalizedPhone, code);
+
+    if (intent === 'register') {
+      // ── Complete registration ──────────────────────────────
+      if (!consent || consent !== true) {
+        return res.status(400).json({ error: 'You must agree to the Privacy Policy and Terms of Service to register.' });
+      }
+      const consentGivenAt = Date.now();
+
+      const existingUser = await db.select().from(users).where(eq(users.phone, normalizedPhone)).get();
+      if (existingUser) {
+        return res.status(400).json({ error: 'Phone number already registered' });
+      }
+
+      if (!businessName || typeof businessName !== 'string' || !businessName.trim()) {
+        return res.status(400).json({ error: 'Business name is required' });
+      }
+      if (!slug || typeof slug !== 'string') {
+        return res.status(400).json({ error: 'Business URL slug is required' });
+      }
+      const normalizedSlug = slug.toLowerCase().trim();
+      if (RESERVED_SLUGS.includes(normalizedSlug)) {
+        return res.status(400).json({ error: 'This business URL is reserved' });
+      }
+      const existingTenant = await db.select().from(tenants).where(eq(tenants.slug, normalizedSlug)).get();
+      if (existingTenant) {
+        return res.status(400).json({ error: 'Business URL already taken' });
+      }
+
+      if (!password || typeof password !== 'string' || password.length < 6) {
+        return res.status(400).json({ error: 'Password must be at least 6 characters' });
+      }
+
+      // Generate a placeholder email from the phone number since the schema
+      // requires a unique email. The user can set their email later in settings.
+      const placeholderEmail = `user-${normalizedPhone.replace(/\D/g, '')}@egebeya.app`;
+      const existingEmail = await db.select().from(users).where(eq(users.email, placeholderEmail)).get();
+      if (existingEmail) {
+        // Extremely unlikely collision, but handle it
+        return res.status(500).json({ error: 'Registration conflict, please try again.' });
+      }
+
+      const tenantId = crypto.randomUUID();
+      const userId = crypto.randomUUID();
+      const passwordHash = await bcrypt.hash(password, 10);
+      const trimmedCity = typeof city === 'string' && city.trim() ? city.trim() : null;
+      const initialSettings = trimmedCity ? { city: trimmedCity } : {};
+
+      await db.transaction(async (tx) => {
+        await tx.insert(tenants).values({
+          id: tenantId,
+          name: businessName.trim(),
+          slug: normalizedSlug,
+          isListed: false,
+          settings: { ...initialSettings, onboarding_completed: false },
+          createdAt: Date.now(),
+        });
+
+        await tx.insert(users).values({
+          id: userId,
+          tenantId,
+          name: businessName.trim(),
+          phone: normalizedPhone,
+          email: placeholderEmail,
+          passwordHash,
+          role: 'owner',
+          consentGivenAt,
+          createdAt: Date.now(),
+        });
+
+        const plan = await getOrCreateFreePlan();
+        await tx.insert(tenantSubscriptions).values({
+          id: crypto.randomUUID(),
+          tenantId,
+          planId: plan.id,
+          status: 'trial',
+          trialEndsAt: Date.now() + 14 * 24 * 3600 * 1000,
+          startsAt: Date.now(),
+        });
+      });
+
+      const userRecord = await db.select({ tokenVersion: users.tokenVersion }).from(users).where(eq(users.id, userId)).get();
+      const tokenVersion = userRecord?.tokenVersion ?? 0;
+
+      const refreshJti = crypto.randomUUID();
+      await db.update(users).set({ refreshTokenId: refreshJti }).where(eq(users.id, userId));
+
+      const token = jwt.sign({ userId, tenantId, role: 'owner', tokenVersion }, jwtSecret(), { expiresIn: '15m' });
+      const refreshToken = jwt.sign({ userId, tenantId, tokenVersion, jti: refreshJti }, refreshSecret(), { expiresIn: '7d' });
+      setAuthCookies(res, token, refreshToken);
+
+      return res.json({
+        message: 'Registration successful',
+        role: 'owner',
+        tenantId,
+        tenant: { id: tenantId, name: businessName.trim(), slug: normalizedSlug },
+        name: businessName.trim(),
+        isSuperadmin: false,
+        user: { id: userId, role: 'owner', tenantId, tenantSlug: normalizedSlug, name: businessName.trim(), phone: normalizedPhone },
+      });
+    }
+
+    if (intent === 'reset-password') {
+      // ── OTP verified — next step is confirm-password-reset ──
+      // Generate a temporary token so the confirm endpoint can validate
+      const tempToken = crypto.randomUUID();
+
+      // Store the temp token in a way the confirm endpoint can retrieve it.
+      // We use a simple approach: store it in the passwordResets table
+      // linked to the user, with a short TTL (5 min).
+      const user = await db.select().from(users).where(eq(users.phone, normalizedPhone)).get();
+      if (!user) {
+        return res.status(400).json({ error: 'No account found with this phone number' });
+      }
+
+      await db.delete(passwordResets).where(eq(passwordResets.userId, user.id));
+
+      await db.insert(passwordResets).values({
+        id: crypto.randomUUID(),
+        token: tempToken,
+        userId: user.id,
+        expiresAt: Date.now() + 5 * 60 * 1000, // 5 minutes
+      });
+
+      return res.json({
+        success: true,
+        message: 'OTP verified. You may now set a new password.',
+        resetToken: tempToken,
+      });
+    }
+
+    return res.status(400).json({ error: 'Invalid intent. Must be "register" or "reset-password".' });
+  } catch (error: any) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ error: error.message, code: error.code });
+    }
+    console.error('Verify-OTP error:', error);
+    res.status(500).json({ error: error.message || 'Failed to verify code' });
+  }
+});
+
+/**
+ * POST /api/auth/reset-password-via-sms
+ *
+ * Initiate a password reset via SMS. Sends an OTP to the user's phone.
+ * The frontend then calls POST /api/auth/verify-otp with intent='reset-password'.
+ *
+ * Body: { phone }
+ */
+router.post('/reset-password-via-sms', otpLimiter, async (req, res) => {
+  try {
+    const { phone } = req.body;
+
+    const normalizedPhone = normalizePhone(phone);
+    if (!normalizedPhone) {
+      return res.status(400).json({ error: 'Enter a valid Ethiopian phone number (+251XXXXXXXXX)' });
+    }
+
+    const user = await db.select().from(users).where(eq(users.phone, normalizedPhone)).get();
+    if (!user) {
+      // Don't leak whether the phone exists
+      return res.json({ success: true, message: 'If that phone is registered, you will receive a verification code.' });
+    }
+
+    await generateOtp(normalizedPhone);
+
+    res.json({
+      success: true,
+      message: 'If that phone is registered, you will receive a verification code.',
+    });
+  } catch (error: any) {
+    if (error.statusCode === 429) {
+      return res.status(429).json({ error: error.message, code: error.code });
+    }
+    console.error('Reset-password-via-sms error:', error);
+    res.status(500).json({ error: 'Failed to send verification code' });
+  }
+});
+
+/**
+ * POST /api/auth/confirm-password-reset
+ *
+ * Complete a password reset (after OTP verification). The client must provide
+ * the resetToken received from POST /api/auth/verify-otp (intent=reset-password).
+ *
+ * Body: { resetToken, newPassword }
+ */
+router.post('/confirm-password-reset', otpLimiter, async (req, res) => {
+  try {
+    const { resetToken, newPassword } = req.body;
+    if (!resetToken || !newPassword) {
+      return res.status(400).json({ error: 'Reset token and new password are required' });
+    }
+
+    if (typeof newPassword !== 'string' || newPassword.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+
+    const resetRecord = await db.select().from(passwordResets).where(eq(passwordResets.token, resetToken)).get();
+    if (!resetRecord) {
+      return res.status(400).json({ error: 'Invalid or expired reset token. Please start the reset process again.' });
+    }
+
+    if (Date.now() > resetRecord.expiresAt) {
+      await db.delete(passwordResets).where(eq(passwordResets.id, resetRecord.id));
+      return res.status(400).json({ error: 'Reset token has expired. Please start the reset process again.' });
+    }
+
+    const user = await db.select().from(users).where(eq(users.id, resetRecord.userId)).get();
+    if (!user) {
+      await db.delete(passwordResets).where(eq(passwordResets.id, resetRecord.id));
+      return res.status(400).json({ error: 'User not found' });
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    await db.update(users).set({
+      passwordHash,
+      tokenVersion: ((user as any).tokenVersion ?? 0) + 1,
+    }).where(eq(users.id, resetRecord.userId));
+    await db.delete(passwordResets).where(eq(passwordResets.userId, resetRecord.userId));
+
+    res.json({ success: true, message: 'Password has been updated' });
+  } catch (error: any) {
+    if (error.statusCode === 429) {
+      return res.status(429).json({ error: error.message, code: error.code });
+    }
+    console.error('Confirm-password-reset error:', error);
     res.status(500).json({ error: 'Failed to reset password' });
   }
 });

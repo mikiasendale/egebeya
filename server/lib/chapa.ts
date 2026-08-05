@@ -28,6 +28,56 @@ export interface InitiateDirectChargeResult {
   raw: any;
 }
 
+export interface CreateCheckoutParams {
+  amountBirr: string;
+  txRef: string;
+  firstName: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+  returnUrl?: string;
+}
+
+export interface CreateCheckoutResult {
+  checkoutUrl: string;
+  txRef: string;
+  raw: any;
+}
+
+/**
+ * Start a hosted Chapa checkout (card / USSD / mobile-money) and return the
+ * URL the customer is redirected to. This is the Pro-billing path — unlike
+ * the push-to-phone `directCharge` flow, `initialize` hands back a real
+ * `checkout_url` the owner can open to pay. The webhook for the same
+ * `tx_ref` confirms completion (see src/api/payments.ts).
+ */
+export async function createCheckout(opts: CreateCheckoutParams): Promise<CreateCheckoutResult> {
+  const chapa = initChapa();
+  const response = await chapa.initialize({
+    amount: opts.amountBirr,
+    tx_ref: opts.txRef,
+    currency: 'ETB',
+    first_name: opts.firstName,
+    last_name: opts.lastName,
+    email: opts.email,
+    phone_number: opts.phone,
+    return_url: opts.returnUrl,
+    callback_url: process.env.CHAPA_CALLBACK_URL,
+  });
+
+  if (response.status !== 'success' || !response.data?.checkout_url) {
+    throw new Error(
+      `Chapa initialize failed: ${response.message || 'no checkout_url returned'} (status=${response.status})`,
+    );
+  }
+
+  return {
+    checkoutUrl: response.data.checkout_url,
+    txRef: opts.txRef,
+    raw: response,
+  };
+}
+
 export async function initiateDirectCharge(
   phone: string,
   amountBirr: string,
