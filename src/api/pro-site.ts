@@ -13,7 +13,7 @@ const router = Router();
 
 // Resolver for the starter template directory on disk. Defined once and
 // memoised so repeated /init calls don't re-stat the filesystem.
-const TEMPLATE_DIR = path.join(process.cwd(), 'server', 'templates', 'pro-starter');
+const TEMPLATE_DIR = path.join(process.cwd(), 'server', 'templates', 'pro-starter-vanilla');
 
 // Owner-only auth gate (cookie or Bearer) + CSRF + write throttling.
 router.use(requireAuth({ roles: ['owner'] }));

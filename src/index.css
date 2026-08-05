@@ -894,6 +894,26 @@ button:hover .num-roller {
   animation: toast-out 160ms ease-in forwards;
 }
 
+/* New-booking banner drops down from the top edge of the mobile shell. */
+@keyframes banner-slide-down {
+  from {
+    transform: translateY(-110%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+.animate-banner-slide-down {
+  animation: banner-slide-down 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-banner-slide-down {
+    animation: none;
+  }
+}
+
 /* ─── Overdrive: typed hero headline ─────────────────────────────────────
    The hero types itself on first load, syllable by syllable, with a
    telebirr print-cursor leading the line. Chars are pre-rendered and
@@ -1111,6 +1131,13 @@ button:hover .num-roller {
 @keyframes addis-clock-blink {
   0%, 50% { opacity: 1; }
   50.01%, 100% { opacity: 0.25; }
+}
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in {
+  animation: fade-in 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 @media (prefers-reduced-motion: reduce) {
   .addis-clock__sep { animation: none; }

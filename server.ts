@@ -18,8 +18,10 @@ const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || (process.env.NODE_ENV === 'production' ? '0.0.0.0' : '127.0.0.1');
 
 // Trust the first proxy hop so req.ip / rate-limit keys resolve real client
-// IPs behind a CDN/reverse proxy in production.
-if (process.env.NODE_ENV === 'production') {
+// IPs behind a CDN/reverse proxy in production. Only enabled when the
+// operator explicitly sets behind-proxy=true (Plesk/nginx environment);
+// defaults to untrusted (loopback in dev, safe in production without opt-in).
+if (process.env['behind-proxy'] === 'true') {
   app.set('trust proxy', 1);
 }
 

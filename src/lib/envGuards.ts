@@ -28,6 +28,11 @@ const checks: EnvCheck[] = [
     read: () => process.env.APP_URL?.trim() || null,
     prodOnly: true,
   },
+  {
+    name: 'PUBLIC_EMBED_DOMAIN',
+    read: () => process.env.PUBLIC_EMBED_DOMAIN?.trim() || process.env.APP_URL?.trim() || null,
+    prodOnly: true,
+  },
 ];
 
 export function validateProductionEnv(): void {

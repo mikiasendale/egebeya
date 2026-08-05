@@ -1,10 +1,13 @@
 import { Router } from 'express';
 import { db } from '../db';
-import { tenants, services, staff, staffServices, staffAvailability, appointments, tenantBusinessHours, tenantClosures, pages, payments, users } from '../db/schema';
+import { tenants, services, staff, staffServices, staffAvailability, appointments, tenantBusinessHours, tenantClosures, pages, payments, users, siteConfig } from '../db/schema';
 import { eq, and, inArray, gte, lt, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import crypto from 'crypto';
+import fs from 'fs';
+import path from 'path';
 import { sendMail } from '../../server/lib/mailer';
+import { applyTemplate } from '../../server/lib/mailTemplates';
 import { logSecurityEvent, ipFromRequest } from '../../server/lib/securityLog';
 import {
   initiateDirectCharge,
@@ -17,6 +20,8 @@ import {
   parseAddisDate,
   formatAddisSlotTime,
   getAddisDateString,
+  formatEthiopianDateTime,
+  formatEthiopianDateCompact,
 } from '../../server/lib/timezone';
 import {
   isTurnstileConfigured,
@@ -38,8 +43,18 @@ router.use(strictCsp);
 
 // Public, tenant-agnostic directory used by /discover. Must be registered
 // BEFORE the tenant-resolution middleware below.
-router.get('/discover', discoverLimiter, async (_req, res) => {
+router.get('/discover', discoverLimiter, async (req, res) => {
   try {
+    // Pagination: ?limit=N&offset=0 (default limit=20, max 100)
+    const limit = Math.min(Math.max(parseInt(String(req.query.limit || '20'), 10) || 20, 1), 100);
+    const offset = Math.max(parseInt(String(req.query.offset || '0'), 10) || 0, 0);
+
+    // Get total count for x-total-count header
+    const countResult = await db.select({
+      n: sql<number>`count(*)`.as('n'),
+    }).from(tenants).where(eq(tenants.isListed, true)).get();
+    const totalCount = Number(countResult?.n || 0);
+
     const rows = await db.select({
       id: tenants.id,
       name: tenants.name,
@@ -51,9 +66,12 @@ router.get('/discover', discoverLimiter, async (_req, res) => {
       .from(tenants)
       .where(eq(tenants.isListed, true))
       .orderBy(tenants.name)
+      .limit(limit)
+      .offset(offset)
       .all();
 
     if (rows.length === 0) {
+      res.set('x-total-count', String(totalCount));
       return res.json([]);
     }
 
@@ -103,6 +121,7 @@ router.get('/discover', discoverLimiter, async (_req, res) => {
       };
     });
 
+    res.set('x-total-count', String(totalCount));
     res.json(out);
   } catch (error) {
     console.error('Discover error:', error);
@@ -157,7 +176,7 @@ function publicTenantView(tenant: any): any {
     description: typeof settings.description === 'string' && settings.description.trim()
       ? settings.description.trim()
       : null,
-    calendar_display: settings.calendar_display === 'ethiopian' ? 'ethiopian' : 'gregorian',
+    calendar_display: settings.calendar_display === 'gregorian' ? 'gregorian' : 'ethiopian',
     require_payment_upfront: settings.require_payment_upfront === true,
   };
   for (const key of ['social_telegram', 'social_facebook', 'social_instagram', 'social_tiktok']) {
@@ -175,7 +194,7 @@ router.use(async (req, res, next) => {
   let slug = req.headers['x-tenant-slug'] as string;
 
   if (!slug) {
-    const host = req.headers.host || '';
+    const host = (req.headers.host || '').split(':')[0];
     slug = host.split('.')[0];
   }
 
@@ -184,9 +203,17 @@ router.use(async (req, res, next) => {
   }
 
   const rawSlug = String(slug).trim();
-  const tenant = await db.select().from(tenants)
+  let tenant = await db.select().from(tenants)
     .where(or(eq(tenants.slug, rawSlug), eq(tenants.slug, rawSlug.toLowerCase())))
     .get();
+
+  if (!tenant && !req.headers['x-tenant-slug']) {
+    const host = (req.headers.host || '').split(':')[0];
+    const byDomain = await db.select().from(tenants)
+      .where(eq(tenants.domain, host.toLowerCase()))
+      .get();
+    tenant = byDomain ?? undefined;
+  }
 
   if (!tenant) {
     return res.status(404).json({ error: 'Tenant not found' });
@@ -580,6 +607,7 @@ router.post('/bookings', bookingWriteLimiter, async (req, res) => {
           endTime: endTimeMs,
           status: initialStatus,
           reminderSent: false,
+          cancelsAt: requiresPayment ? startTimeMs - 15 * 60 * 1000 : null,
         });
 
         if (requiresPayment) {
@@ -654,32 +682,46 @@ router.post('/bookings', bookingWriteLimiter, async (req, res) => {
     }
 
     const result = { id: appId, status: finalStatus, paymentStatus, data };
+const ethiopianDateStr = formatEthiopianDateTime(startTimeMs);
+if (result.data.customer_email) {
+  const customerLocale: 'en' | 'am' = String((tenant.settings as any)?.defaultLocale || 'en').startsWith('am') ? 'am' : 'en';
+  const customerMail = applyTemplate('bookingCustomer', customerLocale, {
+    name: result.data.customer_name,
+    service: service.name,
+    status: result.status,
+    business: tenant.name,
+    date: ethiopianDateStr,
+  });
 
-    const appointmentDateStr = new Date(startTimeMs).toLocaleString('en-US', { timeZone: 'Africa/Addis_Ababa' });
-    if (result.data.customer_email) {
-      sendMail({
-        to: result.data.customer_email,
-        subject: `Booking ${result.status}: ${service.name} at ${tenant.name}`,
-        text: `Hello ${result.data.customer_name},\n\nYour appointment for ${service.name} is ${result.status}.\nDate: ${appointmentDateStr}\n\nThank you for choosing ${tenant.name}!`,
-      }).catch(console.error);
-    }
+  sendMail({
+    to: result.data.customer_email,
+    subject: customerMail.subject,
+    text: customerMail.text,
+  }).catch((err) => console.error('Failed to send customer booking email:', err));
+}
 
-    // Notify the tenant owner (filtered by role='owner' rather than the
-    // naive "first user for tenant" the previous code used — staff invites
-    // create rows with role='staff', and an insert-order drift would have
-    // sent the booking alert to a staff member instead of the owner).
-    const owner = await db.select().from(users)
-      .where(and(eq(users.tenantId, tenant.id), eq(users.role, 'owner')))
-      .get();
-    if (owner && owner.email) {
-      sendMail({
-        to: owner.email,
-        subject: `New Booking: ${service.name}`,
-        text: `A new booking has been made by ${result.data.customer_name} for ${service.name}.\nDate: ${appointmentDateStr}`,
-      }).catch(console.error);
-    }
+// Notify the tenant owner (filtered by role='owner' rather than the
+// naive "first user for tenant" the previous code used — staff invites
+// create rows with role='staff', and an insert-order drift would have
+// sent the booking alert to a staff member instead of the owner).
+const owner = await db.select().from(users)
+  .where(and(eq(users.tenantId, tenant.id), eq(users.role, 'owner')))
+  .get();
+if (owner && owner.email) {
+  const ownerLocale: 'en' | 'am' = String((owner as any)?.locale || (tenant.settings as any)?.defaultLocale || 'en').startsWith('am') ? 'am' : 'en';
+  const ownerMail = applyTemplate('bookingOwner', ownerLocale, {
+    name: result.data.customer_name,
+    service: service.name,
+    date: ethiopianDateStr,
+  });
 
-    res.status(201).json({ success: true, appointment: result });
+  sendMail({
+    to: owner.email,
+    subject: ownerMail.subject,
+    text: ownerMail.text,
+  }).catch((err) => console.error('Failed to send owner booking email:', err));
+}
+res.status(201).json({ success: true, appointment: result });
   } catch (error: any) {
     if (error.message === 'CONFLICT') {
       return res.status(409).json({ error: 'Time slot is no longer available' });
@@ -781,6 +823,7 @@ router.post('/bookings/:id/reschedule', bookingWriteLimiter, async (req, res) =>
       startTime: startTimeMs,
       endTime: endTimeMs,
       status: newStatus,
+      cancelsAt: requiresPayment ? startTimeMs - 15 * 60 * 1000 : null,
     }).where(eq(appointments.id, appt.id));
 
     res.json({ success: true, appointment: { id: appt.id, startTime: startTimeMs, endTime: endTimeMs, status: newStatus } });
@@ -790,18 +833,71 @@ router.post('/bookings/:id/reschedule', bookingWriteLimiter, async (req, res) =>
   }
 });
 
-router.get('/appointments', async (req, res) => {
+/**
+ * GET /api/public/appointments/:id/status?customer_phone=...
+ *
+ * Returns the appointment status + payment status for display on the
+ * customer-facing booking-confirmation page (/book/:slug/confirmation/:id).
+ *
+ * Enforces the same phone-number ownership check as the cancel/reschedule
+ * endpoints. The phone is passed as a query parameter so the browser can
+ * poll this endpoint with a GET. Never exposes internal IDs, password hashes,
+ * or raw Chapa metadata — only payment status and amount in ETB cents.
+ */
+router.get('/appointments/:id/status', async (req, res) => {
   const tenant = (req as any).tenant;
-  const { date } = req.query;
+  const { id } = req.params;
+  const phone = normalizePhone(req.query.customer_phone as string | undefined);
 
-  if (!date) {
-    return res.status(400).json({ error: 'date query parameter (YYYY-MM-DD) is required' });
+  if (!phone) {
+    return res.status(400).json({ error: 'A valid Ethiopian phone number is required (customer_phone query parameter)' });
   }
 
   try {
-    const addisMidnight = parseAddisDate(date as string);
-    const addisDayEnd = new Date(addisMidnight.getTime() + 24 * 3600 * 1000);
+    const appt = await db.select().from(appointments)
+      .where(and(eq(appointments.id, id), eq(appointments.tenantId, tenant.id))).get();
 
+    if (!appt) {
+      return res.status(404).json({ error: 'Booking not found' });
+    }
+    if (appt.customerPhone !== phone) {
+      return res.status(403).json({ error: 'Phone number does not match this booking' });
+    }
+
+    // Fetch the service name (for the confirmation screen) and payment row.
+    const [svc, payment] = await Promise.all([
+      db.select({ name: services.name, price: services.price })
+        .from(services)
+        .where(and(eq(services.id, appt.serviceId), eq(services.tenantId, tenant.id)))
+        .get(),
+      db.select({ status: payments.status, amount: payments.amount })
+        .from(payments)
+        .where(eq(payments.appointmentId, appt.id))
+        .get(),
+    ]);
+
+    // Projection: no internal IDs, no raw Chapa meta, no password hashes.
+    res.json({
+      status: appt.status,
+      paymentStatus: payment?.status ?? null,
+      amountEtbCents: payment?.amount ?? null,
+      serviceName: svc?.name ?? null,
+      customerName: appt.customerName,
+      staffId: appt.staffId,
+      startTime: appt.startTime,
+      // Ethiopian date string for the confirmation screen.
+      startDateDisplay: formatEthiopianDateTime(appt.startTime),
+    });
+  } catch (error) {
+    console.error('Appointment status error:', error);
+    res.status(500).json({ error: 'Failed to fetch appointment status' });
+  }
+});
+
+router.get('/appointments', async (req, res) => {
+  const tenant = (req as any).tenant;
+
+  try {
     const rows = await db.select({
       startTime: appointments.startTime,
       endTime: appointments.endTime,
@@ -814,29 +910,104 @@ router.get('/appointments', async (req, res) => {
         and(
           eq(appointments.tenantId, tenant.id),
           or(eq(appointments.status, 'confirmed'), eq(appointments.status, 'pending')),
-          gte(appointments.startTime, addisMidnight.getTime()),
-          lt(appointments.startTime, addisDayEnd.getTime())
         )
       )
       .all();
 
+    // Default Ethiopian, but if tenant explicitly asks for gregorian, use
+    // formatAddisSlotTime (HH:MM string) — same old default for the widget.
+    const calendarDisplay = (tenant.settings as any)?.calendar_display;
+    const useEthiopian = calendarDisplay !== 'gregorian';
+
     const publicRows = rows
       .map((r) => ({
-        // Note: the internal appointment `id` is intentionally NOT returned.
-        // UUIDs are internal correlated by other surfaces (bookings/
-        // reschedule/cancel) and exposing them here lets a passer-by infer
-        // stable PII anchors ("is this the same person across days?") and
-        // probe the cancel/reschedule routes.
-        startTime: formatAddisSlotTime(r.startTime),
+        startTime: useEthiopian
+          ? formatEthiopianDateCompact(r.startTime)
+          : formatAddisSlotTime(r.startTime),
         status: r.status,
         serviceName: r.serviceName,
       }))
-      .sort((a, b) => a.startTime.localeCompare(b.startTime));
+      .sort((a, b) => {
+        // Sorting by the rendered string approximates chronological for
+        // Ethiopian compact dates (year/month/day); for Gregorian HH:MM
+        // sorting it's lexicographic.
+        return a.startTime.localeCompare(b.startTime);
+      });
 
     res.json(publicRows);
   } catch (error) {
     console.error('Public appointments error:', error);
     res.status(500).json({ error: 'Failed to fetch appointments' });
+  }
+});
+
+/**
+ * GET /api/public/pro-build — serve the published Code Mode build for the
+ * resolved tenant.
+ *
+ * When a Pro tenant has builder_mode='code' and an active_build_id set, this
+ * route returns the static index.html that was written to
+ * storage/pro-builds/{tenantId}/{buildId}/ during the last publish.
+ *
+ * The response includes a Strict CSP header that only allows the platform's
+ * own domain for frames (Egebeya widget iframes) and blocks inline scripts
+ * that were not already stripped by the publish-time sanitizer.
+ *
+ * This endpoint is mounted AFTER the tenant-resolution middleware (slug →
+ * tenant) so `req.tenant` is populated.
+ */
+router.get('/pro-build', async (req, res) => {
+  const tenant = (req as any).tenant;
+  if (!tenant) return res.status(400).json({ error: 'Tenant not resolved' });
+
+  try {
+    const config = await db.select({
+      builderMode: siteConfig.builderMode,
+      activeBuildId: siteConfig.activeBuildId,
+    }).from(siteConfig)
+      .where(eq(siteConfig.tenantId, tenant.id))
+      .get();
+
+    if (!config || config.builderMode !== 'code' || !config.activeBuildId) {
+      return res.status(404).json({ error: 'No published build for this tenant' });
+    }
+
+    const buildPath = path.join(
+      process.cwd(), 'storage', 'pro-builds',
+      tenant.id, config.activeBuildId, 'index.html',
+    );
+
+    if (!fs.existsSync(buildPath)) {
+      console.error(`[pro-build] Build file missing for tenant ${tenant.id}, build ${config.activeBuildId}`);
+      return res.status(404).json({ error: 'Build file not found' });
+    }
+
+    const html = fs.readFileSync(buildPath, 'utf8');
+
+    // Strict CSP for published sites — only the platform's own origin can
+    // be used for frames (Egebeya widgets), no inline scripts (already
+    // sanitised), no eval.
+    const embedDomain = process.env.PUBLIC_EMBED_DOMAIN || process.env.APP_URL || 'https://egebeya.et';
+    const csp = [
+      "default-src 'self'",
+      "script-src 'self'",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: https:",
+      `frame-src 'self' ${embedDomain}`,
+      "object-src 'none'",
+      "base-uri 'self'",
+    ].join('; ');
+
+    res.set({
+      'Content-Type': 'text/html; charset=utf-8',
+      'Content-Security-Policy': csp,
+      'X-Frame-Options': 'DENY',
+      'X-Content-Type-Options': 'nosniff',
+    });
+    res.send(html);
+  } catch (error) {
+    console.error('[pro-build] Serve error:', error);
+    res.status(500).json({ error: 'Failed to serve published build' });
   }
 });
 

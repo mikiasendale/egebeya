@@ -12,16 +12,20 @@
     "lint": "tsc --noEmit",
     "test": "vitest run",
     "seed": "tsx server/seed.ts",
-    "send-reminders": "tsx server/cron/sendReminders.ts"
+    "send-reminders": "tsx server/cron/sendReminders.ts",
+    "reminders:loop": "tsx server/cron/sendReminders.ts --loop"
   },
   "dependencies": {
+    "@ai-sdk/react": "^4.0.54",
     "@codesandbox/sandpack-react": "^2.20.0",
     "@google/genai": "^2.4.0",
     "@libsql/client": "^0.17.4",
+    "@openrouter/ai-sdk-provider": "^3.0.0",
     "@sentry/node": "^10.68.0",
     "@sentry/react": "^10.68.0",
     "@tailwindcss/vite": "^4.1.14",
     "@vitejs/plugin-react": "^5.0.4",
+    "ai": "^7.0.51",
     "chapa-nodejs": "^2.1.1",
     "cookie-parser": "^1.4.7",
     "date-fns-tz": "^3.2.0",

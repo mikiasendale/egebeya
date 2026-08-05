@@ -117,6 +117,8 @@ export const appointments = sqliteTable('appointments', {
   endTime: integer('end_time').notNull(),
   status: text('status').notNull(), // pending, confirmed, cancelled, completed, no_show
   reminderSent: integer('reminder_sent', { mode: 'boolean' }).default(false),
+  sentVia: text('sent_via'), // 'sms', 'email', 'both' — audit which channel a reminder went out on
+  cancelsAt: integer('cancels_at'), // UTC epoch ms; set when payment pending so stale slots free up
 });
 
 export const payments = sqliteTable('payments', {
@@ -166,6 +168,11 @@ export const siteConfig = sqliteTable('site_config', {
   tenantId: text('tenant_id').references(() => tenants.id).primaryKey(),
   builderMode: text('builder_mode').notNull().default('puck'),
   publishedCodeHtml: text('published_code_html'),
+  // Pointer to the active publish build for Code Mode. Set by the publish
+  // endpoint after writing files to storage/pro-builds/{tenantId}/{buildId}/.
+  // Null when no build has been published yet. The value is a build UUID (the
+  // directory name under storage/pro-builds/{tenantId}/).
+  activeBuildId: text('active_build_id'),
   updatedAt: integer('updated_at').notNull(),
 });
 

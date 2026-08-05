@@ -135,7 +135,7 @@ describe('Public site routes — tenant resolution', () => {
     // mirrors the actual code in src/api/public.ts:47-48. If/when
     // /discover grows a `NOT is_suspended` filter, this assertion should
     // flip to `expect(slugs).not.toContain(suspendedSlug)`.
-    const res = await request(app).get('/api/public/discover');
+    const res = await request(app).get('/api/public/discover?limit=100');
     expect(res.status).toBe(200);
     const slugs = (res.body || []).map((t: any) => t.slug);
     expect(slugs).toContain(activeSlug);

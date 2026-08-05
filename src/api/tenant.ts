@@ -14,8 +14,10 @@ import {
   media,
   users,
   passwordResets,
+  payments,
+  appointments,
 } from '../db/schema';
-import { eq, and, inArray, desc } from 'drizzle-orm';
+import { eq, and, inArray, desc, sql, gte, lt, or } from 'drizzle-orm';
 import crypto from 'crypto';
 import multer from 'multer';
 import sharp from 'sharp';
@@ -23,6 +25,7 @@ import fs from 'fs';
 import path from 'path';
 import { requirePlanLimit, requireActiveSubscription } from '../../server/middleware/planLimits';
 import { requireAuth } from './middleware/auth';
+import tenantDashboardRoutes from '../../server/api/tenantRoute';
 import { csrfProtection } from './middleware/csrf';
 import { tenantWriteLimiter, uploadLimiter } from '../../server/middleware/rateLimiter';
 import { normalizePhone } from '../lib/phone';
@@ -52,6 +55,7 @@ const upload = multer({
 
 // Owner-only auth gate (cookie or Bearer) with tokenVersion revocation, then
 // CSRF protection for cookie-authenticated mutations, then write throttling.
+router.use('/dashboard', tenantDashboardRoutes);
 router.use(requireAuth({ roles: ['owner'] }));
 router.use(csrfProtection);
 router.use(tenantWriteLimiter);
@@ -364,11 +368,143 @@ router.put('/staff/:id/availability', async (req, res) => {
 router.put('/domain', requireActiveSubscription, async (req, res) => {
   const plan = (req as any).plan;
   if (!plan.customDomainAllowed) {
-    return res.status(403).json({ error: 'Custom domains require the Pro plan' });
+    return res.status(403).json({ error: 'Custom domains require the Pro plan', code: 'PLAN_REQUIRED' });
   }
-  
-  // stub for setting domain
-  res.json({ success: true });
+
+  const { domain } = req.body || {};
+  if (!domain && domain !== '') {
+    return res.status(400).json({ error: 'domain is required, pass empty string to clear' });
+  }
+  if (typeof domain !== 'string') {
+    return res.status(400).json({ error: 'domain must be a string' });
+  }
+  const trimmed = domain.trim().toLowerCase();
+
+  if (trimmed === '') {
+    const tenantId = (req as any).user.tenantId;
+    await db.update(tenants).set({ domain: null }).where(eq(tenants.id, tenantId));
+    return res.json({ success: true, domain: null });
+  }
+
+  if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*\.[a-z]{2,}$/.test(trimmed)) {
+    return res.status(400).json({ error: 'Invalid domain format' });
+  }
+
+  const reserved = new Set([
+    'egebeya.et', 'egebeya.test', 'egebeya.com', 'localhost',
+    'example.com', 'example.org', 'example.net',
+  ]);
+  const suffix = trimmed.split('.').slice(-2).join('.');
+  if (reserved.has(suffix) || reserved.has(trimmed)) {
+    return res.status(400).json({ error: 'This domain suffix is reserved' });
+  }
+
+const conflict = await db.select().from(tenants).where(eq(tenants.domain, trimmed)).get();
+if (conflict && conflict.id !== (req as any).user.tenantId) {
+  return res.status(409).json({ error: 'This domain is already mapped to another tenant' });
+}
+
+const tenantId = (req as any).user.tenantId;
+await db.update(tenants).set({ domain: trimmed }).where(eq(tenants.id, tenantId));
+res.json({ success: true, domain: trimmed });
+});
+
+router.get('/analytics', requireAuth({ roles: ['owner'] }), async (req, res) => {
+  const { tenantId } = (req as any).user;
+  try {
+    const now = Date.now();
+    const utcNow = new Date(now);
+    const utcTodayStart = Date.UTC(utcNow.getUTCFullYear(), utcNow.getUTCMonth(), utcNow.getUTCDate());
+    const DAY_MS = 86400000;
+    const windowStart = utcTodayStart - 6 * DAY_MS;
+
+    let totalRevenue = 0;
+    let totalBookings = 0;
+    const serviceCounts = new Map<string, number>();
+    const customerTotalBookings = new Map<string, number>();
+    let repeatCustomerCount = 0;
+    const daily: { date: string; bookingCount: number; revenue: number }[] = [];
+
+    for (let i = 0; i < 7; i++) {
+      const dayStart = windowStart + i * DAY_MS;
+      const dayEnd = dayStart + DAY_MS;
+
+      const [revRow, cntRow, svcRows, custRows] = await Promise.all([
+        db.select({ total: sql<number>`COALESCE(SUM(payments.amount), 0)` })
+          .from(payments)
+          .innerJoin(appointments, eq(payments.appointmentId, appointments.id))
+          .where(and(
+            eq(appointments.tenantId, tenantId),
+            eq(payments.status, 'completed'),
+            gte(appointments.startTime, dayStart),
+            lt(appointments.startTime, dayEnd),
+          )),
+        db.select({ n: sql<number>`count(*)` })
+          .from(appointments)
+          .where(and(
+            eq(appointments.tenantId, tenantId),
+            gte(appointments.startTime, dayStart),
+            lt(appointments.startTime, dayEnd),
+          )),
+        db.select({ serviceId: appointments.serviceId, n: sql<number>`count(*)` })
+          .from(appointments)
+          .where(and(
+            eq(appointments.tenantId, tenantId),
+            gte(appointments.startTime, dayStart),
+            lt(appointments.startTime, dayEnd),
+          ))
+          .groupBy(appointments.serviceId),
+        db.select({ customerPhone: appointments.customerPhone, n: sql<number>`count(*)` })
+          .from(appointments)
+          .where(and(
+            eq(appointments.tenantId, tenantId),
+            gte(appointments.startTime, dayStart),
+            lt(appointments.startTime, dayEnd),
+          ))
+          .groupBy(appointments.customerPhone),
+      ]);
+
+      const dateKey = new Date(dayStart).toISOString().slice(0, 10);
+      const dayRev = Number(revRow[0]?.total ?? 0);
+      const dayCnt = Number(cntRow[0]?.n ?? 0);
+      daily.push({ date: dateKey, bookingCount: dayCnt, revenue: dayRev });
+      totalRevenue += dayRev;
+      totalBookings += dayCnt;
+
+      for (const s of svcRows) serviceCounts.set(s.serviceId, (serviceCounts.get(s.serviceId) ?? 0) + Number(s.n));
+      for (const c of custRows) customerTotalBookings.set(c.customerPhone, (customerTotalBookings.get(c.customerPhone) ?? 0) + Number(c.n));
+    }
+
+    for (const n of customerTotalBookings.values()) if (n >= 2) repeatCustomerCount++;
+
+    const todayEstimateRow = await db.select({ n: sql<number>`count(*)` })
+      .from(appointments)
+      .where(and(
+        eq(appointments.tenantId, tenantId),
+        or(eq(appointments.status, 'confirmed'), eq(appointments.status, 'pending')),
+        gte(appointments.startTime, utcTodayStart),
+      ))
+      .get();
+    const todayEstimate = Number(todayEstimateRow?.n ?? 0);
+
+    const topServices = [...serviceCounts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([serviceId, bookings]) => ({ serviceId, bookings }));
+
+    res.json({
+      period: '7d',
+      totalRevenue,
+      totalBookings,
+      daily,
+      topServices,
+      repeatCustomerCount,
+      todayEstimate,
+    });
+  } catch (err) {
+    console.error('Analytics error:', err);
+    res.status(500).json({ error: 'Failed to fetch analytics' });
+  }
 });
 
 router.get('/subscription', async (req, res) => {

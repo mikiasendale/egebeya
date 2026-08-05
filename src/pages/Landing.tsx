@@ -1,34 +1,8 @@
-/* ══════════════════════════════════════════════════════════════════════
-   OVERDRIVE · Direction contract — Generative atmosphere shader (C)
-   THESIS: The landing surface is the atmosphere itself — a living generative
-   shader of Ethiopia's material world (coffee, spice, ink, telebirr green)
-   with massive typography that writes itself against flowing color fields.
-   The receipt identity is abstracted into motion, not discarded.
-   OWN-WORLD: Deep espresso (#3B2820), telebirr (#0FA958, #063F2D), ink
-   (#1A1411), gold spice (#F4E8C1, #F59E0B), signal (#D33426). Typography:
-   Noto Serif Ethiopic for Amharic, Bricolage Grotesque for display, Inter
-   for body, JetBrains Mono for data. No literal paper card — cards float
-   on semi-transparent dark surfaces over the shader.
-   STORY: A visitor lands inside Ethiopia's service economy before reading a
-   word; scroll and cursor move the atmosphere; sections emerge from the
-   depth, not from a scroll-rail. The proof form stays interactive (press,
-   settle, audio) but now floats above the generative field.
-   FIRST VIEWPORT: Full-bleed shader background; hero headline types itself
-   in 6vw serif-ethiopic over a flowing ink-green field; the proof card and
-   CTAs sit on a translucent dark glass panel anchored bottom-right.
-   FORM: Persuade mode — one authored interactive moment (the live proof),
-   one authored motion system (shader + scroll-driven reveals), and graceful
-   fallbacks for reduced motion and small screens.
-   SEED: user-selected direction C (generative atmosphere shader) via
-   overdrive command. No script roll used — user directly confirmed.
-   ══════════════════════════════════════════════════════════════════════ */
-
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
 import { PricingSection } from '../components/PricingSection';
-import { AtmosphereCanvas } from '../components/AtmosphereCanvas';
 
 const SERVICES_DEMO: { geo: string; name: string; amName: string; duration: string; price: string }[] = [
   { geo: '፩',  name: 'Manicure',  amName: 'ጥፍር',   duration: '00:45', price: '400.00' },
@@ -215,7 +189,6 @@ function readAddis(d: Date): AddisClock {
 }
 
 
-
 export function Landing() {
   const [soundOn, setSoundOnState] = useState(false);
   const { t } = useTranslation();
@@ -229,28 +202,23 @@ export function Landing() {
     <div
       className="min-h-screen"
       style={{
-        backgroundColor: 'transparent',
+        backgroundColor: 'var(--color-paper)',
         color: 'var(--color-ink)',
         fontFamily: 'var(--font-body)',
-        position: 'relative',
-        zIndex: 1,
       }}
     >
-      <AtmosphereCanvas />
-      <div style={{ position: 'relative', zIndex: 2 }}>
-        <Navbar />
-        <PaperRail soundOn={soundOn} onToggleSound={toggleSound} />
-        <Lead />
-        <TrustBar />
-        <PerfTear />
-        <SearchSection />
-        <TariffSection />
-        <PricingSection />
-        <PerfTear />
-        <QueueSection />
-        <CounterClose />
-        <Footer />
-      </div>
+      <Navbar />
+      <PaperRail soundOn={soundOn} onToggleSound={toggleSound} />
+      <Lead />
+      <TrustBar />
+      <PerfTear />
+      <SearchSection />
+      <TariffSection />
+      <PricingSection />
+      <PerfTear />
+      <QueueSection />
+      <CounterClose />
+      <Footer />
     </div>
   );
 }
@@ -604,28 +572,31 @@ function Lead() {
                 letterSpacing: '-0.01em',
               }}
             >
-              <TypedLine
-                cursor
-                speed={64}
-                segments={[
-                  { text: t('lead.headingAm'), color: 'var(--color-ink)' },
-                  { text: ' በውሉ', color: 'var(--color-telebirr)' },
-                ]}
-              />
-              <br />
-              <TypedLine
-                cursor
-                speed={38}
-                startDelay={640}
-                segments={[
-                  {
-                    text: t('lead.subheading'),
-                    color: 'var(--color-ink)',
-                    font: 'var(--font-display)',
-                    style: { fontWeight: 600, letterSpacing: '-0.025em' },
-                  },
-                ]}
-              />
+              <span style={{ display: 'block', whiteSpace: 'nowrap' }}>
+                <TypedLine
+                  cursor
+                  speed={64}
+                  segments={[
+                    { text: t('lead.headingAm'), color: 'var(--color-ink)' },
+                    { text: ' በውሉ', color: 'var(--color-telebirr)' },
+                  ]}
+                />
+              </span>
+              <span style={{ display: 'block' }}>
+                <TypedLine
+                  cursor
+                  speed={38}
+                  startDelay={640}
+                  segments={[
+                    {
+                      text: t('lead.subheading'),
+                      color: 'var(--color-ink)',
+                      font: 'var(--font-display)',
+                      style: { fontWeight: 600, letterSpacing: '-0.025em' },
+                    },
+                  ]}
+                />
+              </span>
             </h1>
             <p
               className="mt-7 max-w-[36rem] text-base sm:text-lg"
@@ -670,7 +641,7 @@ function Lead() {
             </p>
           </div>
 
-          {/* DepositStamp proof object — the signed proof the deposit cleared */}
+          {/* Deposit proof — the live booking record */}
           <div className="lg:col-span-5">
             <ProofForm clock={clock} />
           </div>
