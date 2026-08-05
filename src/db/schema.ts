@@ -251,6 +251,8 @@ export const customerStats = sqliteTable('customer_stats', {
   marketingOptIn: integer('marketing_opt_in', { mode: 'boolean' }).notNull().default(false),
   healthTag: text('health_tag').notNull().default('healthy'),
   noShowCount: integer('no_show_count').notNull().default(0),
+  automationState: text('automation_state').notNull().default('active'),
+  lastAutomationSentAt: integer('last_automation_sent_at'),
   createdAt: integer('created_at').notNull(),
 }, (table) => ([
   primaryKey({ columns: [table.tenantId, table.customerPhone] }),

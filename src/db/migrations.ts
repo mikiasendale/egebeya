@@ -366,11 +366,26 @@ export async function ensureSchemaMigrations(): Promise<Record<string, string[]>
       sql: `ALTER TABLE customer_stats ADD COLUMN health_tag TEXT NOT NULL DEFAULT 'healthy'`,
     },
     {
-      // no_show_count — running count of cancelled + no_show appointments for
+      // no_show_count — running count of cancelled + no-show appointments for
       // this customer. Drives the high_no_show_risk tag. Default 0.
       table: 'customer_stats',
       column: 'no_show_count',
       sql: `ALTER TABLE customer_stats ADD COLUMN no_show_count INTEGER NOT NULL DEFAULT 0`,
+    },
+    {
+      // automation_state — outreach automation lifecycle per customer
+      // ('active' | 'winback_sent' | 'opted_out'). Default 'active' so only
+      // customers who have been contacted or opted out change state.
+      table: 'customer_stats',
+      column: 'automation_state',
+      sql: `ALTER TABLE customer_stats ADD COLUMN automation_state TEXT NOT NULL DEFAULT 'active'`,
+    },
+    {
+      // last_automation_sent_at — UTC ms timestamp of the last outreach
+      // automation sent to this customer. Nullable; written once per send.
+      table: 'customer_stats',
+      column: 'last_automation_sent_at',
+      sql: `ALTER TABLE customer_stats ADD COLUMN last_automation_sent_at INTEGER`,
     },
   ];
 
