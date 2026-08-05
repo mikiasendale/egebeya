@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Store, Globe, Calendar, UserPlus, Package, Users } from 'lucide-react';
+import { Home, Store, Globe, Calendar, UserPlus, Package, Users, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 /**
@@ -61,6 +61,7 @@ export function UberBottomNav({ role, walkInEnabled, onWalkIn, inventoryLowStock
       { key: 'home', to: '/dashboard', icon: Home, label: t('dashboard.home') },
       { key: 'shop', to: '/dashboard/shop', icon: Store, label: t('dashboard.shop') },
       { key: 'health', to: '/dashboard/customer-health', icon: Users, label: t('dashboard.customerHealth', 'Health') },
+      { key: 'automations', to: '/dashboard/automations', icon: RefreshCw, label: t('dashboard.automations', 'Auto') },
       { key: 'inventory', to: '/dashboard/inventory', icon: Package, label: t('dashboard.inventory', 'Inventory') },
       { key: 'site', to: '/dashboard/website-builder', icon: Globe, label: t('dashboard.site') },
     ];
@@ -69,6 +70,7 @@ export function UberBottomNav({ role, walkInEnabled, onWalkIn, inventoryLowStock
     if (location.pathname === '/dashboard' || location.pathname === '/dashboard/') return 'home';
     if (location.pathname.startsWith('/dashboard/shop')) return 'shop';
     if (location.pathname.startsWith('/dashboard/customer-health')) return 'health';
+    if (location.pathname.startsWith('/dashboard/automations')) return 'automations';
     if (location.pathname.startsWith('/dashboard/inventory')) return 'inventory';
     if (location.pathname.startsWith('/dashboard/website-builder')) return 'site';
     if (location.pathname.startsWith('/dashboard/bookings')) return 'bookings';

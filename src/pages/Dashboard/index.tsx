@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Routes, Route, Link, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import {
   Home, Calendar, Scissors, Users, Globe, Image, Settings, LogOut,
-  Plus, CalendarPlus, ImagePlus, Store, Clock, CreditCard, Package,
+  Plus, CalendarPlus, ImagePlus, Store, Clock, CreditCard, Package, RefreshCw,
 } from 'lucide-react';
 import { UberBottomNav } from '../../components/UberBottomNav';
 import { format } from 'date-fns';
@@ -12,6 +12,7 @@ import { Bookings } from './Bookings';
 
 import { WebsiteBuilder } from './WebsiteBuilder';
 import { CustomerHealth } from './CustomerHealth';
+import { Automations } from './Automations';
 
 import { Settings as SettingsComponent } from './Settings';
 
@@ -36,6 +37,7 @@ const ALL_NAV = [
   { name: 'Services', path: '/dashboard/services', icon: Scissors },
   { name: 'Staff', path: '/dashboard/staff', icon: Users },
   { name: 'Customer Health', path: '/dashboard/customer-health', icon: Users },
+  { name: 'Automations', path: '/dashboard/automations', icon: RefreshCw },
   { name: 'Website Builder', path: '/dashboard/website-builder', icon: Globe },
   { name: 'Media Library', path: '/dashboard/media', icon: Image },
   { name: 'Marketing', path: '/dashboard/marketing', icon: Globe },
@@ -330,6 +332,7 @@ function DashboardInner() {
               <Route path="/marketing" element={<MarketingDeck />} />
               <Route path="/inventory" element={<InventoryPage onLowStock={setInventoryLowStock} />} />
               <Route path="/customer-health" element={<CustomerHealth />} />
+              <Route path="/automations" element={<Automations />} />
               <Route path="/billing" element={<Billing />} />
               <Route path="/settings" element={<SettingsComponent />} />
               <Route path="*" element={<Navigate to="/dashboard/bookings" replace />} />

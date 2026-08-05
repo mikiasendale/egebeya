@@ -15,7 +15,8 @@
     "send-reminders": "tsx server/cron/sendReminders.ts",
     "reminders:loop": "tsx server/cron/sendReminders.ts --loop",
     "expand-recurring": "tsx server/cron/expandRecurring.ts",
-    "downgrade-expired": "tsx server/cron/downgradeExpired.ts"
+    "downgrade-expired": "tsx server/cron/downgradeExpired.ts",
+    "winback-automations": "tsx server/cron/runWinbackAutomations.ts"
   },
   "dependencies": {
     "@ai-sdk/react": "^4.0.54",
