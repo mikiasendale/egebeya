@@ -9,12 +9,18 @@ import {
   services,
   staff,
   appointments,
+  appointmentServices,
+  payments,
+  recurringSeries,
+  staffAvailability,
+  staffServices,
   tenantBusinessHours,
   tenantSubscriptions,
   plans,
   proSiteFiles,
+  customerStats,
 } from '../../src/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
@@ -174,22 +180,36 @@ describe('Plan-gate enforcement & tenant isolation', () => {
   });
 
   afterAll(async () => {
-    await db.delete(appointments).where(eq(appointments.tenantId, freeTenantId));
-    await db.delete(appointments).where(eq(appointments.tenantId, proTenantId));
-    await db.delete(proSiteFiles).where(eq(proSiteFiles.tenantId, freeTenantId));
-    await db.delete(proSiteFiles).where(eq(proSiteFiles.tenantId, proTenantId));
-    await db.delete(tenantBusinessHours).where(eq(tenantBusinessHours.tenantId, freeTenantId));
-    await db.delete(tenantBusinessHours).where(eq(tenantBusinessHours.tenantId, proTenantId));
-    await db.delete(services).where(eq(services.tenantId, freeTenantId));
-    await db.delete(services).where(eq(services.tenantId, proTenantId));
-    await db.delete(staff).where(eq(staff.tenantId, freeTenantId));
-    await db.delete(staff).where(eq(staff.tenantId, proTenantId));
-    await db.delete(tenantSubscriptions).where(eq(tenantSubscriptions.tenantId, freeTenantId));
-    await db.delete(tenantSubscriptions).where(eq(tenantSubscriptions.tenantId, proTenantId));
-    await db.delete(users).where(eq(users.tenantId, freeTenantId));
-    await db.delete(users).where(eq(users.tenantId, proTenantId));
-    await db.delete(tenants).where(eq(tenants.id, freeTenantId));
-    await db.delete(tenants).where(eq(tenants.id, proTenantId));
+    // Delete child rows before the parents the schema foreign-keys them to
+    // (appointment_services / payments → appointments, staff_availability /
+    // staff_services → staff, recurring_series → staff), otherwise the
+    // teardown trips SQLITE_CONSTRAINT_FOREIGNKEY.
+    const cleanupTenant = async (tenantId: string) => {
+      const apptIds = (await db.select({ id: appointments.id }).from(appointments)
+        .where(eq(appointments.tenantId, tenantId)).all()).map((r) => r.id);
+      if (apptIds.length) {
+        await db.delete(appointmentServices).where(inArray(appointmentServices.appointmentId, apptIds));
+        await db.delete(payments).where(inArray(payments.appointmentId, apptIds));
+      }
+      await db.delete(appointments).where(eq(appointments.tenantId, tenantId));
+      await db.delete(recurringSeries).where(eq(recurringSeries.tenantId, tenantId));
+      const staffIds = (await db.select({ id: staff.id }).from(staff)
+        .where(eq(staff.tenantId, tenantId)).all()).map((r) => r.id);
+      if (staffIds.length) {
+        await db.delete(staffAvailability).where(inArray(staffAvailability.staffId, staffIds));
+        await db.delete(staffServices).where(inArray(staffServices.staffId, staffIds));
+      }
+      await db.delete(proSiteFiles).where(eq(proSiteFiles.tenantId, tenantId));
+      await db.delete(tenantBusinessHours).where(eq(tenantBusinessHours.tenantId, tenantId));
+      await db.delete(services).where(eq(services.tenantId, tenantId));
+      await db.delete(staff).where(eq(staff.tenantId, tenantId));
+      await db.delete(tenantSubscriptions).where(eq(tenantSubscriptions.tenantId, tenantId));
+      await db.delete(users).where(eq(users.tenantId, tenantId));
+      await db.delete(customerStats).where(eq(customerStats.tenantId, tenantId));
+      await db.delete(tenants).where(eq(tenants.id, tenantId));
+    };
+    await cleanupTenant(freeTenantId);
+    await cleanupTenant(proTenantId);
   });
 
   // ----------------- PLAN-GATE: Pro-site endpoints -----------------

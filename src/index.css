@@ -1383,6 +1383,153 @@ button:hover .num-roller {
   ::view-transition-new(receipt) { animation: none; }
 }
 
+/* ═════════════════════════════════════════════════════════════════════
+   OVERDRIVE · Uber-Style Bottom Nav Animations
+   Spring-animated pill indicator, icon scale, glow pulses
+   ═════════════════════════════════════════════════════════════════════ */
+
+@keyframes tab-glow-pulse {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.05); }
+}
+
+@keyframes dot-appear {
+  from { opacity: 0; transform: scale(0); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes indicator-bounce {
+  0% { transform: scaleX(1.05); }
+  40% { transform: scaleX(0.97); }
+  70% { transform: scaleX(1.01); }
+  100% { transform: scaleX(1); }
+}
+
+@keyframes fab-entrance {
+  from { transform: scale(0) rotate(-90deg); opacity: 0; }
+  to { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+@keyframes empire-glyph-assemble {
+  0% { opacity: 0; transform: scale(0.5) rotate(-10deg); filter: blur(8px); }
+  60% { opacity: 1; transform: scale(1.05) rotate(2deg); filter: blur(0px); }
+  80% { opacity: 1; transform: scale(0.98) rotate(-1deg); filter: blur(0px); }
+  100% { opacity: 1; transform: scale(1) rotate(0deg); filter: blur(0px); }
+}
+
+@keyframes empire-glyph-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.03); }
+}
+
+@keyframes empire-glyph-dissolve {
+  from { opacity: 1; transform: scale(1); filter: blur(0px); }
+  to { opacity: 0; transform: scale(1.5); filter: blur(12px); }
+}
+
+@keyframes empire-site-reveal {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes empire-text-fade {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes empire-success-pop {
+  0% { transform: scale(0); }
+  50% { transform: scale(1.15); }
+  70% { transform: scale(0.95); }
+  100% { transform: scale(1); }
+}
+
+@keyframes share-pulse {
+  0%, 100% { box-shadow: 0 4px 20px rgba(15, 169, 88, 0.3); }
+  50% { box-shadow: 0 4px 32px rgba(15, 169, 88, 0.5); }
+}
+
+@keyframes badge-live-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(1.2); }
+}
+
+/* Reduced motion: kill all overdrive animations */
+@media (prefers-reduced-motion: reduce) {
+  .tab-glow-pulse,
+  .dot-appear,
+  .indicator-bounce,
+  .fab-entrance,
+  .empire-glyph-assemble,
+  .empire-glyph-breathe,
+  .empire-glyph-dissolve,
+  .empire-site-reveal,
+  .empire-text-fade,
+  .empire-success-pop,
+  .share-pulse,
+  .badge-live-pulse,
+  .skeleton-wave,
+  .service-card-select {
+    animation: none !important;
+  }
+}
+
+/* ─── OVERDRIVE · Service card spring-physics selection ───────────────────
+   Cards scale up with a spring overshoot when selected, settle back on
+   deselect. The checkmark fades in with a scale bounce. Touch targets
+   stay ≥44×44px for the Ethiopian Android-first audience. */
+.service-card-select {
+  transition:
+    transform 280ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    border-color 180ms ease-out,
+    background-color 180ms ease-out;
+}
+.service-card-select:active {
+  transform: scale(0.97);
+}
+
+/* ─── OVERDRIVE · Skeleton wave sweep ─────────────────────────────────────
+   A single gradient highlight sweeps left→right across skeleton cards,
+   replacing the flat pulse with a directional "data loading" feel.
+   Falls back to simple opacity pulse for reduced-motion users. */
+@keyframes skeleton-wave {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.skeleton-wave {
+  background: linear-gradient(
+    90deg,
+    var(--color-paper-bleached) 25%,
+    var(--color-paper-raised) 50%,
+    var(--color-paper-bleached) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-wave 1.6s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-wave {
+    animation: pulse 2s ease-in-out infinite;
+  }
+}
+
+/* ─── OVERDRIVE · Sticky bottom bar slide-up ────────────────────────────── */
+@keyframes bar-slide-up {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.bar-slide-up {
+  animation: bar-slide-up 280ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* ─── OVERDRIVE · Discover skeleton card fade-out ───────────────────────── */
+@keyframes skeleton-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+.skeleton-fade-out {
+  animation: skeleton-fade-out 300ms ease-out forwards;
+}
+
 :root {
   color-scheme: light;
 }

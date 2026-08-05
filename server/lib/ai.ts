@@ -100,3 +100,88 @@ export async function generateBusinessDescription(
     };
   }
 }
+
+export interface MarketingSnippetInput {
+  businessName: string;
+  category: string;
+  services: string[];
+  locale?: 'en' | 'am';
+}
+
+export interface MarketingSnippetOutput {
+  snippet: string;
+  locale: 'en' | 'am';
+}
+
+/**
+ * Generate a short (2-sentence) social-media marketing post for a business,
+ * in the requested locale. Powered by Gemini when `GEMINI_API_KEY` is set;
+ * returns a static fallback otherwise. Never throws and never logs the API
+ * key — the catch block only records the message.
+ */
+export async function generateMarketingSnippet(
+  input: MarketingSnippetInput,
+): Promise<MarketingSnippetOutput> {
+  const serviceList = input.services.length > 0
+    ? input.services.slice(0, 5).join(', ')
+    : 'services';
+  const locale = input.locale === 'am' ? 'am' : 'en';
+
+  if (!API_KEY) {
+    // Static fallback: always safe, always returns a reasonable post.
+    if (locale === 'am') {
+      return {
+        snippet: `${input.businessName} በ${input.category} ዘርፍ ምርጥ አገልግሎት ያቀርባል። ${serviceList} ለማግኘት ዛሬ ይጎብኙና ቦታዎን ያስይዙ።`,
+        locale,
+      };
+    }
+    return {
+      snippet: `${input.businessName} is your go-to for top-quality ${input.category} services. Book today and experience ${serviceList} done right.`,
+      locale,
+    };
+  }
+
+  try {
+    const { GoogleGenAI } = await import('@google/genai');
+    const genai = new GoogleGenAI({ apiKey: API_KEY });
+
+    const systemPrompt = locale === 'am'
+      ? 'You are a social-media copywriter for Ethiopian businesses who writes in Amharic. Write a short, engaging social post of exactly 2 sentences. Never mention any platform name or tool — only the business name.'
+      : 'You are a social-media copywriter. Write a short, engaging social post of exactly 2 sentences. Never mention any platform name or tool — only the business name.';
+
+    const prompt = locale === 'am'
+      ? `የንግድ ስም፦ ${input.businessName}\nምድብ፦ ${input.category}\nአገልግሎቶች፦ ${serviceList}\n\nእባክዎ ባጭሩ (2 ዓረፍተ ነገሮች) ለማህበራዊ ሚዲያ የሚሆን ማስታወቂያ በአማርኛ ይፃፉ።`
+      : `Business name: ${input.businessName}\nCategory: ${input.category}\nServices: ${serviceList}\n\nPlease write a short 2-sentence social media post.`;
+
+    const response = await genai.models.generateContent({
+      model: 'gemini-2.0-flash',
+      contents: [
+        { role: 'user', parts: [{ text: `${systemPrompt}\n\n${prompt}` }] },
+      ],
+      config: {
+        maxOutputTokens: 160,
+        temperature: 0.8,
+      },
+    });
+
+    const text = (response.text || '').trim();
+    if (text) {
+      return { snippet: text, locale };
+    }
+  } catch (error) {
+    // On API failure, fall back to static text rather than throwing. The API
+    // key is never part of this log line.
+    console.error('[AI] Marketing snippet generation failed:', (error as Error)?.message || error);
+  }
+
+  if (locale === 'am') {
+    return {
+      snippet: `${input.businessName} በ${input.category} ዘርፍ ምርጥ አገልግሎት ያቀርባል። ${serviceList} ለማግኘት ዛሬ ይጎብኙና ቦታዎን ያስይዙ።`,
+      locale,
+    };
+  }
+  return {
+    snippet: `${input.businessName} is your go-to for top-quality ${input.category} services. Book today and experience ${serviceList} done right.`,
+    locale,
+  };
+}

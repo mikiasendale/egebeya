@@ -8,10 +8,16 @@ import {
   services,
   staff,
   appointments,
+  appointmentServices,
+  payments,
+  recurringSeries,
+  staffAvailability,
+  staffServices,
   tenantBusinessHours,
   tenantClosures,
+  customerStats,
 } from '../../src/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import crypto from 'crypto';
 
 /**
@@ -109,12 +115,29 @@ describe('Booking concurrency / double-booking protection', () => {
 
   afterAll(async () => {
     if (!tenantId) return;
-    // Clean up the rows this test created so the dev database stays
-    // tidy between runs.
+    // Clean up the rows this test created so the dev database stays tidy
+    // between runs. Child rows must go before the parents the schema
+    // foreign-keys them to (appointment_services / payments → appointments,
+    // staff_availability / staff_services → staff, recurring_series → staff).
+    const apptIds = (await db.select({ id: appointments.id }).from(appointments)
+      .where(eq(appointments.tenantId, tenantId)).all()).map((r) => r.id);
+    if (apptIds.length) {
+      await db.delete(appointmentServices).where(inArray(appointmentServices.appointmentId, apptIds));
+      await db.delete(payments).where(inArray(payments.appointmentId, apptIds));
+    }
     await db.delete(appointments).where(eq(appointments.tenantId, tenantId));
+    await db.delete(recurringSeries).where(eq(recurringSeries.tenantId, tenantId));
+    const staffIds = (await db.select({ id: staff.id }).from(staff)
+      .where(eq(staff.tenantId, tenantId)).all()).map((r) => r.id);
+    if (staffIds.length) {
+      await db.delete(staffAvailability).where(inArray(staffAvailability.staffId, staffIds));
+      await db.delete(staffServices).where(inArray(staffServices.staffId, staffIds));
+    }
     await db.delete(tenantBusinessHours).where(eq(tenantBusinessHours.tenantId, tenantId));
+    await db.delete(tenantClosures).where(eq(tenantClosures.tenantId, tenantId));
     await db.delete(services).where(eq(services.tenantId, tenantId));
     await db.delete(staff).where(eq(staff.tenantId, tenantId));
+    await db.delete(customerStats).where(eq(customerStats.tenantId, tenantId));
     await db.delete(tenants).where(eq(tenants.id, tenantId));
   });
 

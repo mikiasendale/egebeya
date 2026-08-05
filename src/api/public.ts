@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { db } from '../db';
-import { tenants, services, staff, staffServices, staffAvailability, appointments, tenantBusinessHours, tenantClosures, pages, payments, users, siteConfig } from '../db/schema';
+import { tenants, services, staff, staffServices, staffAvailability, appointments, tenantBusinessHours, tenantClosures, pages, payments, users, siteConfig, customerStats, promoCodes, appointmentServices, recurringSeries } from '../db/schema';
 import { eq, and, inArray, gte, lt, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import crypto from 'crypto';
@@ -23,6 +23,7 @@ import {
   formatEthiopianDateTime,
   formatEthiopianDateCompact,
 } from '../../server/lib/timezone';
+import { rewriteUploadUrls } from '../../server/lib/mediaUrls';
 import {
   isTurnstileConfigured,
   verifyTurnstileToken,
@@ -49,10 +50,35 @@ router.get('/discover', discoverLimiter, async (req, res) => {
     const limit = Math.min(Math.max(parseInt(String(req.query.limit || '20'), 10) || 20, 1), 100);
     const offset = Math.max(parseInt(String(req.query.offset || '0'), 10) || 0, 0);
 
+    // Filters: ?category=salon&city=Addis+Ababa&q=hair
+    const category = req.query.category as string | undefined;
+    const city = req.query.city as string | undefined;
+    const q = req.query.q as string | undefined;
+
+    // Build the WHERE clause dynamically
+    const conditions: any[] = [eq(tenants.isListed, true)];
+
+    if (category && typeof category === 'string' && category.trim()) {
+      conditions.push(eq(tenants.category, category.trim().toLowerCase()));
+    }
+
+    if (city && typeof city === 'string' && city.trim()) {
+      // Use json_extract to filter on settings.city (case-insensitive via LIKE)
+      conditions.push(
+        sql`json_extract(tenants.settings, '$.city') LIKE ${'%' + city.trim() + '%'}`,
+      );
+    }
+
+    if (q && typeof q === 'string' && q.trim()) {
+      conditions.push(
+        sql`tenants.name LIKE ${'%' + q.trim() + '%'}`,
+      );
+    }
+
     // Get total count for x-total-count header
     const countResult = await db.select({
       n: sql<number>`count(*)`.as('n'),
-    }).from(tenants).where(eq(tenants.isListed, true)).get();
+    }).from(tenants).where(and(...conditions)).get();
     const totalCount = Number(countResult?.n || 0);
 
     const rows = await db.select({
@@ -64,7 +90,7 @@ router.get('/discover', discoverLimiter, async (req, res) => {
       createdAt: tenants.createdAt,
     })
       .from(tenants)
-      .where(eq(tenants.isListed, true))
+      .where(and(...conditions))
       .orderBy(tenants.name)
       .limit(limit)
       .offset(offset)
@@ -252,7 +278,9 @@ router.get('/page', async (req, res) => {
   const tenant = (req as any).tenant;
   try {
     const page = await db.select().from(pages).where(eq(pages.tenantId, tenant.id)).get();
-    res.json({ tenant: publicTenantView(tenant), page });
+    // Rewrite any /uploads/... asset paths inside the Puck document to
+    // absolute CDN URLs at render time when UPLOADS_CDN_BASE_URL is set.
+    res.json({ tenant: publicTenantView(tenant), page: page ? rewriteUploadUrls(page) : page });
   } catch (error) {
     console.error('Failed to fetch page data:', error);
     res.status(500).json({ error: 'Failed to fetch page data' });
@@ -388,18 +416,31 @@ router.get('/availability', async (req, res) => {
 
       const startMin = parseTime(effStart);
       const endMin = parseTime(effEnd);
-      if (startMin >= endMin) continue;
 
-      for (let min = startMin; min < endMin - 29; min += 30) {
-        const slotUtcMs = addisMidnight.getTime() + min * 60 * 1000;
-        const slotEndUtcMs = slotUtcMs + 30 * 60 * 1000;
+      // Handle overnight shifts: when start >= end, the shift crosses midnight.
+      // Split into two segments: [start, 24:00) today and [00:00, end) tomorrow.
+      const windows: Array<{ startMin: number; endMin: number; dayOffsetMs: number }> = [];
+      if (startMin >= endMin) {
+        windows.push({ startMin, endMin: 24 * 60, dayOffsetMs: 0 });
+        if (endMin > 0) {
+          windows.push({ startMin: 0, endMin, dayOffsetMs: 24 * 60 * 1000 });
+        }
+      } else {
+        windows.push({ startMin, endMin, dayOffsetMs: 0 });
+      }
 
-        const conflict = staffAppointments.some((app) => {
-          return slotUtcMs < app.endTime && slotEndUtcMs > app.startTime;
-        });
+      for (const win of windows) {
+        for (let min = win.startMin; min < win.endMin - 29; min += 30) {
+          const slotUtcMs = addisMidnight.getTime() + win.dayOffsetMs + min * 60 * 1000;
+          const slotEndUtcMs = slotUtcMs + 30 * 60 * 1000;
 
-        if (!conflict) {
-          slots.push(formatAddisSlotTime(slotUtcMs));
+          const conflict = staffAppointments.some((app) => {
+            return slotUtcMs < app.endTime && slotEndUtcMs > app.startTime;
+          });
+
+          if (!conflict) {
+            slots.push(formatAddisSlotTime(slotUtcMs));
+          }
         }
       }
     }
@@ -416,7 +457,10 @@ router.get('/availability', async (req, res) => {
 // and email are additionally normalised/validated downstream.
 const BookingSchema = z.object({
   staff_id: z.string().uuid(),
-  service_id: z.string().uuid(),
+  // service_id (scalar) is DEPRECATED — use service_ids instead. When both are
+  // provided, service_ids wins. When neither is provided, validation fails.
+  service_id: z.string().uuid().optional(),
+  service_ids: z.array(z.string().uuid()).min(1).max(10).optional(),
   start_time: z.string().datetime({ offset: true }),
   customer_name: z.string().min(1).max(120),
   customer_phone: z.string().min(1).max(40),
@@ -426,6 +470,10 @@ const BookingSchema = z.object({
     .union([z.string().email('Invalid email').max(254), z.literal('')])
     .optional()
     .transform((v) => (v === '' || v === undefined ? undefined : v)),
+  promo_code: z.string().optional(),
+}).refine((data) => data.service_ids || data.service_id, {
+  message: 'Either service_id (deprecated) or service_ids is required',
+  path: ['service_ids'],
 });
 
 async function assertSlotAllowed(
@@ -499,7 +547,18 @@ async function assertSlotAllowed(
       const insideAnyWindow = availabilities.some((a) => {
         const start = parseTime(a.startTime);
         const end = parseTime(a.endTime);
-        return slotMinuteOfDay >= start && slotMinuteOfDay < end;
+
+        // Normal shift (same-day): slot must be within [start, end)
+        if (start < end) {
+          return slotMinuteOfDay >= start && slotMinuteOfDay < end;
+        }
+
+        // Overnight shift (crosses midnight): start >= end.
+        // Two segments: [start, 24*60) today and [0, end) tomorrow.
+        // If the slot is before Addis midnight (slotMinuteOfDay >= start),
+        // it's in the "today" segment. If it's after midnight
+        // (slotMinuteOfDay < end), it's in the "tomorrow" segment.
+        return slotMinuteOfDay >= start || slotMinuteOfDay < end;
       });
       if (!insideAnyWindow) {
         return { code: 'OUTSIDE_AVAILABILITY', error: 'The selected staff member is not available at this time.' };
@@ -542,11 +601,33 @@ router.post('/bookings', bookingWriteLimiter, async (req, res) => {
       }
     }
 
-    // Cross-tenant guards: service AND staff must belong to THIS tenant.
-    const service = await db.select().from(services).where(eq(services.id, data.service_id)).get();
-    if (!service || service.tenantId !== tenant.id) {
-      return res.status(404).json({ error: 'Service not found' });
+    // Resolve the list of services for booking.
+    // - service_ids takes precedence (multi-service bookings).
+    // - service_id (scalar) is deprecated but kept for backward compatibility.
+    const serviceIds: string[] = data.service_ids && data.service_ids.length > 0
+      ? data.service_ids
+      : [data.service_id!];
+
+    const bookedServices = await db.select()
+      .from(services)
+      .where(
+        and(
+          eq(services.tenantId, tenant.id),
+          inArray(services.id, serviceIds),
+        ),
+      )
+      .all();
+
+    // Every requested service must exist and belong to this tenant.
+    if (bookedServices.length !== serviceIds.length) {
+      return res.status(404).json({ error: 'One or more services not found' });
     }
+
+    // Sum durations from the DB (never trust the client).
+    const totalDurationMinutes = bookedServices.reduce((sum, s) => sum + s.durationMinutes, 0);
+    // Sum prices from the DB.
+    const totalPriceCents = bookedServices.reduce((sum, s) => sum + s.price, 0);
+
     const staffRow = await db.select({ id: staff.id }).from(staff)
       .where(and(eq(staff.id, data.staff_id), eq(staff.tenantId, tenant.id))).get();
     if (!staffRow) {
@@ -565,15 +646,55 @@ router.post('/bookings', bookingWriteLimiter, async (req, res) => {
     }
 
     const startTimeMs = new Date(data.start_time).getTime();
-    const endTimeMs = startTimeMs + service.durationMinutes * 60000;
+    // Use the composite duration (sum of all selected services from the DB).
+    const endTimeMs = startTimeMs + totalDurationMinutes * 60000;
 
     const slotError = await assertSlotAllowed(tenant, startTimeMs, data.staff_id);
     if (slotError) {
       return res.status(422).json(slotError);
     }
 
-    const requiresPayment = (tenant.settings?.require_payment_upfront === true);
-    const initialStatus = requiresPayment ? 'pending' : 'confirmed';
+    // A customer pays upfront when the tenant requires it globally OR when
+    // this specific phone is flagged (high-no-show-risk) in settings.
+    const upfrontPhones: string[] = Array.isArray((tenant.settings as any)?.require_upfront_phones)
+      ? (tenant.settings as any).require_upfront_phones
+      : [];
+    const phoneRequiresUpfront = upfrontPhones.includes(customerPhone);
+    const requiresPayment = (tenant.settings?.require_payment_upfront === true) || phoneRequiresUpfront;
+    let initialStatus = requiresPayment ? 'pending' : 'confirmed';
+
+    // --- Promo code validation ---
+    let promoDiscount = 0;
+    let promoCodeId: string | null = null;
+    if (data.promo_code) {
+      const codeRow = await db.select().from(promoCodes)
+        .where(and(eq(promoCodes.tenantId, tenant.id), eq(promoCodes.code, data.promo_code.trim())))
+        .get();
+      if (!codeRow) {
+        return res.status(422).json({ error: 'Invalid promo code', code: 'PROMO_INVALID' });
+      }
+      if (!codeRow.isActive) {
+        return res.status(422).json({ error: 'Promo code is no longer active', code: 'PROMO_INACTIVE' });
+      }
+      const now = Date.now();
+      if (codeRow.validFrom && now < codeRow.validFrom) {
+        return res.status(422).json({ error: 'Promo code is not yet valid', code: 'PROMO_NOT_YET_VALID' });
+      }
+      if (codeRow.validUntil && now > codeRow.validUntil) {
+        return res.status(422).json({ error: 'Promo code has expired', code: 'PROMO_EXPIRED' });
+      }
+      if (codeRow.usedCount >= codeRow.maxUses) {
+        return res.status(422).json({ error: 'Promo code has reached its maximum uses', code: 'PROMO_EXHAUSTED' });
+      }
+      promoCodeId = codeRow.id;
+      if (codeRow.discountType === 'percent') {
+        promoDiscount = Math.floor(totalPriceCents * codeRow.discountValue / 100);
+      } else {
+        promoDiscount = codeRow.discountValue;
+      }
+    }
+
+    const effectiveAmount = Math.max(0, totalPriceCents - promoDiscount);
 
     const appId = crypto.randomUUID();
     let paymentId: string | null = null;
@@ -595,11 +716,11 @@ router.post('/bookings', bookingWriteLimiter, async (req, res) => {
           throw new Error('CONFLICT');
         }
 
-        await tx.insert(appointments).values({
+         await tx.insert(appointments).values({
           id: appId,
           tenantId: tenant.id,
           staffId: data.staff_id,
-          serviceId: data.service_id,
+          serviceId: bookedServices[0].id,
           customerName: data.customer_name,
           customerPhone,
           customerEmail: data.customer_email || null,
@@ -610,6 +731,17 @@ router.post('/bookings', bookingWriteLimiter, async (req, res) => {
           cancelsAt: requiresPayment ? startTimeMs - 15 * 60 * 1000 : null,
         });
 
+        // Persist the multi-service breakdown into appointment_services
+        // (one row per selected service, priced/timed as of booking moment).
+        await tx.insert(appointmentServices).values(
+          bookedServices.map((s) => ({
+            appointmentId: appId,
+            serviceId: s.id,
+            priceAtBooking: s.price,
+            durationMinutes: s.durationMinutes,
+          })),
+        );
+
         if (requiresPayment) {
           txRef = generateTxRef('egebeya-');
           paymentId = crypto.randomUUID();
@@ -617,12 +749,19 @@ router.post('/bookings', bookingWriteLimiter, async (req, res) => {
             id: paymentId,
             tenantId: tenant.id,
             appointmentId: appId,
-            amount: service.price,
+            amount: effectiveAmount,
             gateway: 'chapa',
             method: 'telebirr',
             gatewayReference: txRef,
             status: 'pending',
           });
+        }
+
+        // Increment promo code usage count if a code was applied.
+        if (promoCodeId) {
+          await tx.update(promoCodes)
+            .set({ usedCount: sql`used_count + 1` })
+            .where(eq(promoCodes.id, promoCodeId));
         }
       }, { behavior: 'immediate' });
     } catch (err: any) {
@@ -636,7 +775,7 @@ router.post('/bookings', bookingWriteLimiter, async (req, res) => {
     let paymentStatus: string | null = null;
 
     if (requiresPayment && txRef && paymentId) {
-      const amountBirr = (service.price / 100).toFixed(2);
+      const amountBirr = (effectiveAmount / 100).toFixed(2);
       const firstName = data.customer_name.split(' ')[0] || data.customer_name;
       const lastName = data.customer_name.split(' ').slice(1).join(' ') || undefined;
 
@@ -681,47 +820,79 @@ router.post('/bookings', bookingWriteLimiter, async (req, res) => {
       }
     }
 
+    // Populate customer_stats after a confirmed booking.
+    if (finalStatus === 'confirmed') {
+      const now = Date.now();
+      const existing = await db.select()
+        .from(customerStats)
+        .where(and(eq(customerStats.tenantId, tenant.id), eq(customerStats.customerPhone, customerPhone)))
+        .get();
+      if (existing) {
+        await db.update(customerStats)
+          .set({
+            visitCount: existing.visitCount + 1,
+            totalSpendEtbCents: existing.totalSpendEtbCents + effectiveAmount,
+            lastVisitAt: endTimeMs,
+            customerName: data.customer_name,
+          })
+          .where(and(eq(customerStats.tenantId, tenant.id), eq(customerStats.customerPhone, customerPhone)));
+      } else {
+        await db.insert(customerStats).values({
+          tenantId: tenant.id,
+          customerPhone,
+          customerName: data.customer_name,
+          firstVisitAt: startTimeMs,
+          lastVisitAt: endTimeMs,
+          visitCount: 1,
+          totalSpendEtbCents: effectiveAmount,
+          lastCancelledAt: null,
+          createdAt: Date.now(),
+        });
+      }
+    }
+
     const result = { id: appId, status: finalStatus, paymentStatus, data };
-const ethiopianDateStr = formatEthiopianDateTime(startTimeMs);
-if (result.data.customer_email) {
-  const customerLocale: 'en' | 'am' = String((tenant.settings as any)?.defaultLocale || 'en').startsWith('am') ? 'am' : 'en';
-  const customerMail = applyTemplate('bookingCustomer', customerLocale, {
-    name: result.data.customer_name,
-    service: service.name,
-    status: result.status,
-    business: tenant.name,
-    date: ethiopianDateStr,
-  });
+    const serviceNames = bookedServices.map((s) => s.name).join(', ');
+    const ethiopianDateStr = formatEthiopianDateTime(startTimeMs);
+    if (result.data.customer_email) {
+      const customerLocale: 'en' | 'am' = String((tenant.settings as any)?.defaultLocale || 'en').startsWith('am') ? 'am' : 'en';
+      const customerMail = applyTemplate('bookingCustomer', customerLocale, {
+        name: result.data.customer_name,
+        service: serviceNames,
+        status: result.status,
+        business: tenant.name,
+        date: ethiopianDateStr,
+      });
 
-  sendMail({
-    to: result.data.customer_email,
-    subject: customerMail.subject,
-    text: customerMail.text,
-  }).catch((err) => console.error('Failed to send customer booking email:', err));
-}
+      sendMail({
+        to: result.data.customer_email,
+        subject: customerMail.subject,
+        text: customerMail.text,
+      }).catch((err) => console.error('Failed to send customer booking email:', err));
+    }
 
-// Notify the tenant owner (filtered by role='owner' rather than the
-// naive "first user for tenant" the previous code used — staff invites
-// create rows with role='staff', and an insert-order drift would have
-// sent the booking alert to a staff member instead of the owner).
-const owner = await db.select().from(users)
-  .where(and(eq(users.tenantId, tenant.id), eq(users.role, 'owner')))
-  .get();
-if (owner && owner.email) {
-  const ownerLocale: 'en' | 'am' = String((owner as any)?.locale || (tenant.settings as any)?.defaultLocale || 'en').startsWith('am') ? 'am' : 'en';
-  const ownerMail = applyTemplate('bookingOwner', ownerLocale, {
-    name: result.data.customer_name,
-    service: service.name,
-    date: ethiopianDateStr,
-  });
+    // Notify the tenant owner (filtered by role='owner' rather than the
+    // naive "first user for tenant" the previous code used — staff invites
+    // create rows with role='staff', and an insert-order drift would have
+    // sent the booking alert to a staff member instead of the owner).
+    const owner = await db.select().from(users)
+      .where(and(eq(users.tenantId, tenant.id), eq(users.role, 'owner')))
+      .get();
+    if (owner && owner.email) {
+      const ownerLocale: 'en' | 'am' = String((owner as any)?.locale || (tenant.settings as any)?.defaultLocale || 'en').startsWith('am') ? 'am' : 'en';
+      const ownerMail = applyTemplate('bookingOwner', ownerLocale, {
+        name: result.data.customer_name,
+        service: serviceNames,
+        date: ethiopianDateStr,
+      });
 
-  sendMail({
-    to: owner.email,
-    subject: ownerMail.subject,
-    text: ownerMail.text,
-  }).catch((err) => console.error('Failed to send owner booking email:', err));
-}
-res.status(201).json({ success: true, appointment: result });
+      sendMail({
+        to: owner.email,
+        subject: ownerMail.subject,
+        text: ownerMail.text,
+      }).catch((err) => console.error('Failed to send owner booking email:', err));
+    }
+    res.status(201).json({ success: true, appointment: result });
   } catch (error: any) {
     if (error.message === 'CONFLICT') {
       return res.status(409).json({ error: 'Time slot is no longer available' });
@@ -816,7 +987,11 @@ router.post('/bookings/:id/reschedule', bookingWriteLimiter, async (req, res) =>
       return res.status(409).json({ error: 'That time is no longer available' });
     }
 
-    const requiresPayment = (tenant.settings?.require_payment_upfront === true);
+    const rescheduleUpfrontPhones: string[] = Array.isArray((tenant.settings as any)?.require_upfront_phones)
+      ? (tenant.settings as any).require_upfront_phones
+      : [];
+    const reschedulePhoneUpfront = rescheduleUpfrontPhones.includes(appt.customerPhone);
+    const requiresPayment = (tenant.settings?.require_payment_upfront === true) || reschedulePhoneUpfront;
     const newStatus = requiresPayment ? 'pending' : 'confirmed';
 
     await db.update(appointments).set({

@@ -64,7 +64,13 @@ export async function fetchSubscription(): Promise<SubscriptionSummary | null> {
  * Pure function form of the Pro gate. Takes a subscription summary (either
  * passed in from a parent or the result of `fetchSubscription`) and returns
  * whether the editor / Pro-only features should be unlocked.
+ *
+ * Mirrors the server gate in src/api/pro-site.ts: `active` subscriptions
+ * whose `endsAt` has lapsed stay unlocked during the 5-day grace period so
+ * the UI and the server agree on access.
  */
+const GRACE_PERIOD_MS = 5 * 24 * 60 * 60 * 1000;
+
 export function isProActive(summary: SubscriptionSummary | null | undefined): boolean {
   if (!summary) return false;
   const { plan, subscription } = summary;
@@ -80,7 +86,35 @@ export function isProActive(summary: SubscriptionSummary | null | undefined): bo
   ) {
     return false;
   }
+  if (
+    subscription.status === 'active' &&
+    typeof subscription.endsAt === 'number' &&
+    subscription.endsAt <= Date.now() &&
+    subscription.endsAt + GRACE_PERIOD_MS <= Date.now()
+  ) {
+    // Lapsed past the grace window — same as expired on the server.
+    return false;
+  }
   return true;
+}
+
+/**
+ * Billing state for the dashboard, mirroring the server's `billing.state`:
+ * 'trial' | 'active' | 'grace' | 'expired'. A paid Pro subscription whose
+ * `endsAt` has passed but is still inside the 5-day window is 'grace' (the
+ * UI shows a "Renew" banner); past the window it is 'expired'.
+ */
+export type BillingState = 'trial' | 'active' | 'grace' | 'expired';
+
+export function billingState(summary: SubscriptionSummary | null | undefined): BillingState {
+  if (!summary?.plan || !summary.subscription) return 'expired';
+  const { plan, subscription } = summary;
+  if (plan.name?.toLowerCase() !== 'pro') return 'active';
+  if (subscription.status === 'trial') return 'trial';
+  if (subscription.status !== 'active') return 'expired';
+  if (typeof subscription.endsAt !== 'number' || subscription.endsAt > Date.now()) return 'active';
+  if (subscription.endsAt + GRACE_PERIOD_MS > Date.now()) return 'grace';
+  return 'expired';
 }
 
 /**

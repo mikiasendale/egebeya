@@ -16,19 +16,38 @@ import {
   passwordResets,
   payments,
   appointments,
+  customerStats,
+  promoCodes,
+  appointmentServices,
+  recurringSeries,
+  inventoryItems,
 } from '../db/schema';
-import { eq, and, inArray, desc, sql, gte, lt, or } from 'drizzle-orm';
+import { eq, and, inArray, desc, sql, gte, lt, or, isNull } from 'drizzle-orm';
 import crypto from 'crypto';
+import { z } from 'zod';
 import multer from 'multer';
 import sharp from 'sharp';
 import fs from 'fs';
 import path from 'path';
 import { requirePlanLimit, requireActiveSubscription } from '../../server/middleware/planLimits';
+import { createCheckout, generateTxRef } from '../../server/lib/chapa';
+import { PRO_PLAN_PRICE_BIRR, GRACE_PERIOD_MS, billingStateFor } from '../../server/lib/billing';
+import { resolveMediaUrl } from '../../server/lib/mediaUrls';
 import { requireAuth } from './middleware/auth';
 import tenantDashboardRoutes from '../../server/api/tenantRoute';
 import { csrfProtection } from './middleware/csrf';
 import { tenantWriteLimiter, uploadLimiter } from '../../server/middleware/rateLimiter';
 import { normalizePhone } from '../lib/phone';
+import { shareLinkFor } from './site-generator';
+import {
+  getAddisDayOfWeek,
+  parseAddisDate,
+  formatAddisSlotTime,
+  getAddisDateString,
+  formatEthiopianDateCompact,
+} from '../../server/lib/timezone';
+import { logSecurityEvent, ipFromRequest } from '../../server/lib/securityLog';
+import { toGregorian } from 'ethiopian-date';
 
 const router = Router();
 
@@ -514,14 +533,86 @@ router.get('/subscription', async (req, res) => {
     if (!subscription) return res.status(404).json({ error: 'Subscription not found' });
     const plan = await db.select().from(plans).where(eq(plans.id, subscription.planId!)).get();
     const staffList = await db.select().from(staff).where(eq(staff.tenantId, tenantId)).all();
-    
+
     res.json({
       subscription,
       plan,
-      staffUsage: staffList.length
+      staffUsage: staffList.length,
+      billing: {
+        planName: plan?.name ?? null,
+        priceEtbPerMonth: PRO_PLAN_PRICE_BIRR,
+        state: billingStateFor({
+          status: subscription.status,
+          endsAt: subscription.endsAt ?? null,
+          planName: plan?.name ?? null,
+        }),
+        graceEndsAt: typeof subscription.endsAt === 'number'
+          ? subscription.endsAt + GRACE_PERIOD_MS
+          : null,
+        renewRequired: typeof subscription.endsAt === 'number' && subscription.endsAt <= Date.now(),
+      },
     });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch subscription' });
+  }
+});
+
+/**
+ * POST /api/tenant/subscription/checkout — owner-only.
+ *
+ * Starts a Chapa-hosted checkout for a 30-day Pro subscription (500 ETB),
+ * records a 'pending' payment row (identified by meta.purpose =
+ * 'pro_subscription'), and returns the checkout URL the owner is sent to.
+ * Completion is confirmed by the Chapa webhook (see src/api/payments.ts),
+ * which flips the tenant's subscription to active with endsAt = +30 days.
+ */
+router.post('/subscription/checkout', async (req, res) => {
+  const { tenantId } = (req as any).user;
+  try {
+    const proPlan = await db.select().from(plans).where(eq(plans.name, 'pro')).get();
+    if (!proPlan) {
+      return res.status(500).json({ error: 'Pro plan is not configured on this platform.' });
+    }
+
+    const owner = await db.select().from(users)
+      .where(and(eq(users.tenantId, tenantId), eq(users.role, 'owner')))
+      .get();
+
+    const txRef = generateTxRef('pro');
+    const now = Date.now();
+
+    const checkout = await createCheckout({
+      amountBirr: PRO_PLAN_PRICE_BIRR,
+      txRef,
+      firstName: owner?.name?.split(' ')[0] || 'Egebeya',
+      lastName: owner?.name?.split(' ').slice(1).join(' ') || undefined,
+      email: owner?.email,
+      phone: owner?.phone,
+      returnUrl: `${req.protocol}://${req.get('host') || 'egebeya.et'}/dashboard/billing`,
+    });
+
+    await db.insert(payments).values({
+      id: crypto.randomUUID(),
+      tenantId,
+      amount: Number(PRO_PLAN_PRICE_BIRR) * 100, // ETB cents
+      gateway: 'chapa',
+      method: 'checkout',
+      gatewayReference: txRef,
+      status: 'pending',
+      meta: { purpose: 'pro_subscription', planId: proPlan.id, product: 'pro-monthly' },
+    });
+
+    res.json({
+      success: true,
+      checkoutUrl: checkout.checkoutUrl,
+      txRef,
+      amountEtb: PRO_PLAN_PRICE_BIRR,
+      plan: { id: proPlan.id, name: proPlan.name, price: proPlan.price },
+      expiresAt: now,
+    });
+  } catch (error: any) {
+    console.error('Subscription checkout error:', error?.message || error);
+    res.status(502).json({ error: 'Failed to start checkout. Please try again.' });
   }
 });
 
@@ -618,23 +709,8 @@ router.post('/page', async (req, res) => {
     const staffList = await db.select().from(staff)
       .where(eq(staff.tenantId, tenantId)).all();
 
-    const defaultContent = {
-      content: [
-        {
-          type: 'Hero',
-          props: {
-            title: tenant?.name || 'Welcome',
-            subtitle: 'Book your next appointment online — fast and simple.',
-          },
-          data: {},
-        },
-        { type: 'About', props: { content: `Book an appointment with ${tenant?.name || 'us'} online.` }, data: {} },
-        { type: 'Services', props: {}, data: {} },
-        { type: 'BookingForm', props: {}, data: {} },
-        { type: 'Contact', props: {}, data: {} },
-      ],
-      root: {},
-    };
+    const defaultContent = buildDefaultPuckPage(tenant?.name || 'Welcome');
+
     void tenantServices; void staffList; // available for richer templates later
 
     const existing = await db.select().from(pages).where(eq(pages.tenantId, tenantId)).get();
@@ -647,6 +723,99 @@ router.post('/page', async (req, res) => {
   } catch (error) {
     console.error('Default page error:', error);
     res.status(500).json({ error: 'Failed to generate default page' });
+  }
+});
+
+/**
+ * Build the standard seed Puck document for a tenant's public site. Shared by
+ * the onboarding "publish" step and the dashboard "generate default page"
+ * action so both produce identical structure. The About/About block carries
+ * the tenant description so an AI-generated "About" survives into the live
+ * page.
+ */
+function buildDefaultPuckPage(businessName: string, description?: string): any {
+  const aboutText =
+    typeof description === 'string' && description.trim()
+      ? description.trim()
+      : `Book an appointment with ${businessName || 'us'} online.`;
+  return {
+    content: [
+      {
+        type: 'Hero',
+        props: {
+          title: businessName || 'Welcome',
+          subtitle: 'Book your next appointment online — fast and simple.',
+        },
+        data: {},
+      },
+      { type: 'About', props: { content: aboutText }, data: {} },
+      { type: 'Services', props: {}, data: {} },
+      { type: 'BookingForm', props: {}, data: {} },
+      { type: 'Contact', props: {}, data: {} },
+    ],
+    root: {},
+  };
+}
+
+/**
+ * POST /api/tenant/onboarding/complete
+ *
+ * Final step of the self-serve onboarding wizard. Atomically:
+ *   1. persists business info captured during the wizard (category, city,
+ *      description) onto the tenant,
+ *   2. seeds the tenant's Puck page so the public site is live,
+ *   3. marks `settings.onboarding_completed = true`,
+ *   4. opts the tenant into /discover when the owner toggled "list publicly".
+ *
+ * Body (all optional): { listPublicly?: boolean, category?, city?, description?, name? }
+ */
+router.post('/onboarding/complete', async (req, res) => {
+  const { tenantId } = (req as any).user;
+  try {
+    const tenant = await db.select().from(tenants).where(eq(tenants.id, tenantId)).get();
+    if (!tenant) return res.status(404).json({ error: 'Tenant not found' });
+
+    const { listPublicly, category, city, description, name } = req.body || {};
+
+    const settings = {
+      ...(tenant.settings as any || {}),
+      onboarding_completed: true,
+    };
+    if (typeof description === 'string' && description.trim()) {
+      settings.description = description.trim();
+    }
+    if (typeof city === 'string' && city.trim()) {
+      settings.city = city.trim();
+    }
+
+    const updates: Record<string, any> = { settings };
+    const nextName = typeof name === 'string' && name.trim() ? name.trim() : tenant.name;
+    if (typeof name === 'string' && name.trim()) updates.name = nextName;
+    if (typeof category === 'string' && category.trim()) updates.category = category.trim().toLowerCase();
+    // "List my business publicly" is an explicit opt-in. Never force-unlist a
+    // tenant that has already published.
+    if (listPublicly === true) updates.isListed = true;
+
+    await db.update(tenants).set(updates).where(eq(tenants.id, tenantId));
+
+    const seeded = buildDefaultPuckPage(nextName, settings.description);
+    const existing = await db.select({ tenantId: pages.tenantId }).from(pages).where(eq(pages.tenantId, tenantId)).get();
+    if (existing) {
+      await db.update(pages).set({ content: seeded }).where(eq(pages.tenantId, tenantId));
+    } else {
+      await db.insert(pages).values({ tenantId, content: seeded });
+    }
+
+    const share = shareLinkFor(tenant);
+    res.json({
+      success: true,
+      slug: tenant.slug,
+      isListed: listPublicly === true || tenant.isListed === true,
+      share,
+    });
+  } catch (error) {
+    console.error('Onboarding complete error:', error);
+    res.status(500).json({ error: 'Failed to complete onboarding' });
   }
 });
 
@@ -698,7 +867,9 @@ router.get('/media', async (req, res) => {
       .where(eq(media.tenantId, tenantId))
       .orderBy(desc(media.createdAt))
       .all();
-    res.json(list);
+    // Rewrite relative stored paths to absolute CDN URLs at read time when
+    // a CDN is configured. The DB keeps the relative path.
+    res.json(list.map((m) => ({ ...m, path: resolveMediaUrl(m.path) })));
   } catch (error) {
     console.error('List media error:', error);
     res.status(500).json({ error: 'Failed to fetch media' });
@@ -878,6 +1049,486 @@ router.delete('/services/:id', async (req, res) => {
   } catch (error) {
     console.error('Delete service error:', error);
     res.status(500).json({ error: 'Failed to delete service' });
+  }
+});
+
+// ── Recurring Appointments ─────────────────────────────────────────
+
+/**
+ * Parse an Ethiopian date string ("YYYY-MM-DD" Ethiopian) into a Gregorian
+ * UTC Date. Uses the ethiopian-date library's toGregorian reverse conversion.
+ */
+function ethiopianToGregorian(ethDateStr: string): Date {
+  const [y, m, d] = ethDateStr.split('-').map(Number);
+  const g = toGregorian(y, m, d) as [number, number, number];
+  return new Date(Date.UTC(g[0], g[1] - 1, g[2], 0, 0, 0));
+}
+
+/**
+ * Format a Gregorian Date as "YYYY-MM-DD" Gregorian string for parseAddisDate.
+ */
+function formatGregorian(y: number, m: number, d: number): string {
+  return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+
+/**
+ * Compute the next occurrence date for a recurring series.
+ * - weekly: +7 days
+ * - biweekly: +14 days
+ * - monthly: +1 month
+ */
+function nextOccurrenceDate(current: Date, interval: string): Date {
+  const y = current.getUTCFullYear();
+  const m = current.getUTCMonth();
+  const d = current.getUTCDate();
+  if (interval === 'weekly') {
+    return new Date(Date.UTC(y, m, d + 7));
+  }
+  if (interval === 'biweekly') {
+    return new Date(Date.UTC(y, m, d + 14));
+  }
+  if (interval === 'monthly') {
+    return new Date(Date.UTC(y, m + 1, d));
+  }
+  return current;
+}
+
+const RecurringSeriesSchema = z.object({
+  staff_id: z.string().uuid(),
+  service_id: z.string().uuid(),
+  customer_name: z.string().min(1).max(120),
+  customer_phone: z.string().min(1).max(40),
+  customer_email: z
+    .union([z.string().email('Invalid email').max(254), z.literal(''), z.null()])
+    .transform((v) => (v === '' || v === null ? undefined : v))
+    .optional(),
+  interval: z.enum(['weekly', 'biweekly', 'monthly']),
+  start_date: z.string().min(1),
+  end_date: z.string().min(1),
+  timeslot_minutes: z.number().int().min(30).max(1200),
+  marketing_opt_in: z.boolean().default(false),
+});
+
+/**
+ * POST /api/tenant/recurring-series
+ *
+ * Creates a recurring appointment series and immediately expands future
+ * occurrences into individual appointment rows (skipping conflicts).
+ * Owner-only.
+ */
+router.post('/recurring-series', async (req, res) => {
+  const { tenantId } = (req as any).user;
+
+  try {
+    const data = RecurringSeriesSchema.parse(req.body);
+
+    // Cross-tenant guards: staff and service must belong to THIS tenant.
+    const staffRow = await db.select({ id: staff.id })
+      .from(staff)
+      .where(and(eq(staff.id, data.staff_id), eq(staff.tenantId, tenantId)))
+      .get();
+    if (!staffRow) {
+      logSecurityEvent({
+        type: 'cross_tenant_attempt',
+        tenantId,
+        ip: ipFromRequest(req),
+        details: { path: req.path, staffId: data.staff_id },
+      });
+      return res.status(404).json({ error: 'Staff not found for this tenant' });
+    }
+
+    const serviceRow = await db.select().from(servicesTable)
+      .where(and(eq(servicesTable.id, data.service_id), eq(servicesTable.tenantId, tenantId)))
+      .get();
+    if (!serviceRow) {
+      return res.status(404).json({ error: 'Service not found for this tenant' });
+    }
+
+    const customerPhone = normalizePhone(data.customer_phone);
+    if (!customerPhone) {
+      return res.status(422).json({ error: 'Enter a valid Ethiopian phone number' });
+    }
+
+    const startDate = ethiopianToGregorian(data.start_date);
+    const endDate = ethiopianToGregorian(data.end_date);
+    if (endDate.getTime() <= startDate.getTime()) {
+      return res.status(400).json({ error: 'end_date must be after start_date' });
+    }
+
+    const now = Date.now();
+    const seriesId = crypto.randomUUID();
+
+    await db.insert(recurringSeries).values({
+      id: seriesId,
+      tenantId,
+      staffId: data.staff_id,
+      serviceId: data.service_id,
+      customerName: data.customer_name,
+      customerPhone,
+      customerEmail: data.customer_email || null,
+      interval: data.interval,
+      startDate: data.start_date,
+      endDate: data.end_date,
+      timeslotMinutes: data.timeslot_minutes,
+      isActive: true,
+      createdAt: now,
+    });
+
+    // Upsert the customer_stats row with marketing_opt_in.
+    const existing = await db.select()
+      .from(customerStats)
+      .where(and(eq(customerStats.tenantId, tenantId), eq(customerStats.customerPhone, customerPhone)))
+      .get();
+    if (existing) {
+      await db.update(customerStats)
+        .set({ marketingOptIn: data.marketing_opt_in, customerName: data.customer_name })
+        .where(and(eq(customerStats.tenantId, tenantId), eq(customerStats.customerPhone, customerPhone)));
+    } else {
+      await db.insert(customerStats).values({
+        tenantId,
+        customerPhone,
+        customerName: data.customer_name,
+        marketingOptIn: data.marketing_opt_in,
+        createdAt: now,
+      });
+    }
+
+     // Expand the series into individual appointments.
+    const expansion = await expandRecurringSeries(seriesId);
+
+    res.status(201).json({
+      success: true,
+      seriesId,
+      createdAppointments: expansion.created,
+      skippedConflicts: expansion.skipped,
+    });
+  } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      return res.status(422).json({ error: error.issues });
+    }
+    console.error('Create recurring series error:', error);
+    res.status(500).json({ error: 'Failed to create recurring series' });
+  }
+});
+
+/**
+ * Expand a recurring series into individual appointment rows.
+ *
+ * For each interval occurrence between start_date and end_date:
+ *   - Skip past slots (startTime <= now)
+ *   - Check for conflicts within a BEGIN IMMEDIATE transaction
+ *   - Skip if conflict found
+ *   - Create the appointment row with recurringSeriesId set
+ *
+ * Returns { created: count, skipped: count }.
+ */
+async function expandRecurringSeries(seriesId: string): Promise<{ created: number; skipped: number }> {
+  const series = await db.select().from(recurringSeries).where(eq(recurringSeries.id, seriesId)).get();
+  if (!series) return { created: 0, skipped: 0 };
+  if (!series.isActive) return { created: 0, skipped: 0 };
+
+  const svc = await db.select().from(servicesTable)
+    .where(eq(servicesTable.id, series.serviceId))
+    .get();
+  if (!svc) return { created: 0, skipped: 0 };
+
+  const durationMs = svc.durationMinutes * 60000;
+  const startG = ethiopianToGregorian(series.startDate);
+  const endG = ethiopianToGregorian(series.endDate);
+
+  let created = 0;
+  let skipped = 0;
+  let cursor = new Date(startG);
+
+  while (cursor.getTime() <= endG.getTime()) {
+    // parseAddisDate expects "YYYY-MM-DD" (Gregorian) and returns the UTC
+    // timestamp for midnight of that day in Addis local time (UTC+3).
+    const gregStr = formatGregorian(
+      cursor.getUTCFullYear(),
+      cursor.getUTCMonth() + 1,
+      cursor.getUTCDate(),
+    );
+    const addisMidnight = parseAddisDate(gregStr).getTime();
+    const startTimeMs = addisMidnight + series.timeslotMinutes * 60000;
+    const endTimeMs = startTimeMs + durationMs;
+
+    // Skip past slots — never auto-create appointments in the past.
+    if (startTimeMs <= Date.now()) {
+      cursor = nextOccurrenceDate(cursor, series.interval);
+      continue;
+    }
+
+    // Conflict check + insert inside a BEGIN IMMEDIATE transaction so the
+    // re-read and insert are serialized (no double-booking race).
+    try {
+      await db.transaction(async (tx) => {
+        const conflicting = await tx.select().from(appointments).where(
+          and(
+            eq(appointments.tenantId, series.tenantId),
+            eq(appointments.staffId, series.staffId),
+            or(eq(appointments.status, 'confirmed'), eq(appointments.status, 'pending')),
+            lt(appointments.startTime, endTimeMs),
+            gte(appointments.endTime, startTimeMs),
+          )
+        ).get();
+
+        if (conflicting) {
+          skipped += 1;
+          return;
+        }
+
+        await tx.insert(appointments).values({
+          id: crypto.randomUUID(),
+          tenantId: series.tenantId,
+          staffId: series.staffId,
+          serviceId: series.serviceId,
+          customerName: series.customerName,
+          customerPhone: series.customerPhone,
+          customerEmail: series.customerEmail,
+          startTime: startTimeMs,
+          endTime: endTimeMs,
+          status: 'confirmed',
+          reminderSent: false,
+          recurringSeriesId: seriesId,
+        });
+        created += 1;
+      }, { behavior: 'immediate' });
+    } catch (err: any) {
+      console.error('Error expanding recurring occurrence:', err);
+    }
+
+    cursor = nextOccurrenceDate(cursor, series.interval);
+  }
+
+  return { created, skipped };
+}
+
+/**
+ * GET /api/tenant/recurring-series
+ *
+ * Lists all recurring series for the tenant. Owner-only.
+ */
+router.get('/recurring-series', async (req, res) => {
+  const { tenantId } = (req as any).user;
+  try {
+    const rows = await db.select()
+      .from(recurringSeries)
+      .where(eq(recurringSeries.tenantId, tenantId))
+      .orderBy(desc(recurringSeries.createdAt))
+      .all();
+    res.json(rows);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch recurring series' });
+  }
+});
+
+/**
+ * DELETE /api/tenant/recurring-series/:id
+ *
+ * Deactivate a recurring series (sets is_active=false). Does NOT delete
+ * already-generated appointment rows.
+ */
+router.delete('/recurring-series/:id', async (req, res) => {
+  const { tenantId } = (req as any).user;
+  const { id } = req.params;
+  try {
+    const owned = await db.select({ id: recurringSeries.id })
+      .from(recurringSeries)
+      .where(and(eq(recurringSeries.id, id), eq(recurringSeries.tenantId, tenantId)))
+      .get();
+    if (!owned) return res.status(404).json({ error: 'Recurring series not found for this tenant' });
+
+    await db.update(recurringSeries)
+      .set({ isActive: false })
+      .where(eq(recurringSeries.id, id));
+    res.json({ success: true, id });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to deactivate recurring series' });
+  }
+});
+
+// ── Inventory Management (Pharmacy) ─────────────────────────────────────────
+
+/**
+ * GET /api/tenant/inventory
+ *
+ * Lists all inventory items for the authenticated tenant. Owner-only.
+ * Includes a `low_stock` boolean for the dashboard alert.
+ */
+router.get('/inventory', async (req, res) => {
+  const { tenantId } = (req as any).user;
+  try {
+    const rows = await db.select()
+      .from(inventoryItems)
+      .where(eq(inventoryItems.tenantId, tenantId))
+      .orderBy(inventoryItems.name)
+      .all();
+
+    const withAlert = rows.map((r) => ({
+      ...r,
+      lowStock: r.quantityOnHand <= r.reorderThreshold,
+    }));
+
+    res.json(withAlert);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch inventory' });
+  }
+});
+
+/**
+ * PUT /api/tenant/inventory
+ *
+ * Upserts inventory items for the tenant. Owner-only.
+ * Body: { items: [{ id?, service_id?, name, sku?, quantity_on_hand, reorder_threshold, unit }] }
+ */
+const InventoryItemSchema = z.object({
+  id: z.string().uuid().optional(),
+  service_id: z.string().uuid().nullable().optional(),
+  name: z.string().min(1).max(120),
+  sku: z.string().nullable().optional(),
+  quantity_on_hand: z.number().int().min(0),
+  reorder_threshold: z.number().int().min(0).default(5),
+  unit: z.string().min(1).max(50).default('unit'),
+});
+
+router.put('/inventory', async (req, res) => {
+  const { tenantId } = (req as any).user;
+  const { items } = req.body || {};
+
+  if (!Array.isArray(items)) {
+    return res.status(400).json({ error: 'items must be an array' });
+  }
+
+  try {
+    // Validate every item up front so a bad payload fails fast (same 422
+    // behavior as the previous per-item parse).
+    const parsed = items.map((item) => InventoryItemSchema.parse(item));
+
+    // Single read pass: the tenant's services and existing inventory items,
+    // so the per-item ownership/validation checks below never hit the DB.
+    const [serviceRows, existingRows] = await Promise.all([
+      db.select({ id: servicesTable.id })
+        .from(servicesTable)
+        .where(eq(servicesTable.tenantId, tenantId))
+        .all(),
+      db.select().from(inventoryItems)
+        .where(eq(inventoryItems.tenantId, tenantId))
+        .all(),
+    ]);
+    const serviceIds = new Set(serviceRows.map((s) => s.id));
+    const existingById = new Map(existingRows.map((e) => [e.id, e]));
+
+    // Partition the payload into creates and updates — no DB calls here.
+    const toInsert: Array<typeof inventoryItems.$inferInsert> = [];
+    const toUpdate: Array<{
+      id: string;
+      serviceId: string | null;
+      name: string;
+      sku: string | null;
+      quantityOnHand: number;
+      reorderThreshold: number;
+      unit: string;
+    }> = [];
+    for (const data of parsed) {
+      if (data.service_id && !serviceIds.has(data.service_id)) {
+        return res.status(404).json({ error: `Service not found for this tenant: ${data.service_id}` });
+      }
+      if (data.id) {
+        const existing = existingById.get(data.id);
+        if (!existing) {
+          return res.status(404).json({ error: `Inventory item not found for this tenant: ${data.id}` });
+        }
+        toUpdate.push({
+          id: data.id,
+          serviceId: data.service_id ?? null,
+          name: data.name.trim(),
+          sku: data.sku ?? null,
+          quantityOnHand: data.quantity_on_hand,
+          reorderThreshold: data.reorder_threshold,
+          unit: data.unit,
+        });
+      } else {
+        toInsert.push({
+          id: crypto.randomUUID(),
+          tenantId,
+          serviceId: data.service_id ?? null,
+          name: data.name.trim(),
+          sku: data.sku ?? null,
+          quantityOnHand: data.quantity_on_hand,
+          reorderThreshold: data.reorder_threshold,
+          unit: data.unit,
+          createdAt: Date.now(),
+        });
+      }
+    }
+
+    // Execute the writes. Inserts batch in a single statement; updates run in
+    // a classic indexed loop (SQLite has no set-based multi-row UPDATE).
+    if (toInsert.length) {
+      await db.insert(inventoryItems).values(toInsert);
+    }
+    for (let i = 0; i < toUpdate.length; i++) {
+      const u = toUpdate[i];
+      await db.update(inventoryItems)
+        .set({
+          serviceId: u.serviceId,
+          name: u.name,
+          sku: u.sku,
+          quantityOnHand: u.quantityOnHand,
+          reorderThreshold: u.reorderThreshold,
+          unit: u.unit,
+        })
+        .where(eq(inventoryItems.id, u.id));
+    }
+
+    // Return the affected rows in the same order as the request payload.
+    const allIds = [...toInsert.map((r) => r.id), ...toUpdate.map((u) => u.id)];
+    const affected = allIds.length
+      ? await db.select().from(inventoryItems)
+          .where(and(eq(inventoryItems.tenantId, tenantId), inArray(inventoryItems.id, allIds)))
+          .all()
+      : [];
+    const byId = new Map(affected.map((r) => [r.id, r]));
+    res.json({ success: true, items: allIds.map((id) => byId.get(id)) });
+  } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      return res.status(422).json({ error: error.issues });
+    }
+    console.error('Inventory upsert error:', error);
+    res.status(500).json({ error: 'Failed to upsert inventory' });
+  }
+});
+
+/**
+ * POST /api/tenant/inventory/:id/adjust
+ *
+ * Adjust stock by a delta (positive to add, negative to subtract).
+ * Owner-only.
+ */
+router.post('/inventory/:id/adjust', async (req, res) => {
+  const { tenantId } = (req as any).user;
+  const { id } = req.params;
+  const { delta } = req.body || {};
+
+  if (typeof delta !== 'number' || !Number.isInteger(delta)) {
+    return res.status(400).json({ error: 'delta must be an integer' });
+  }
+
+  try {
+    const owned = await db.select()
+      .from(inventoryItems)
+      .where(and(eq(inventoryItems.id, id), eq(inventoryItems.tenantId, tenantId)))
+      .get();
+    if (!owned) return res.status(404).json({ error: 'Inventory item not found for this tenant' });
+
+    const newQty = Math.max(0, owned.quantityOnHand + delta);
+    await db.update(inventoryItems)
+      .set({ quantityOnHand: newQty })
+      .where(eq(inventoryItems.id, id));
+    const updated = await db.select().from(inventoryItems).where(eq(inventoryItems.id, id)).get();
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to adjust inventory' });
   }
 });
 

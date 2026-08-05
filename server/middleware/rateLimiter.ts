@@ -285,3 +285,37 @@ export const adminWriteLimiter = rateLimit({
     res.status(429).json(options.message);
   },
 });
+
+/**
+ * Public v1 API rate limiter — keyed by API key prefix (not IP) so a
+ * legitimate integrator with many outgoing requests from different IPs
+ * still gets their full budget, while a leaked key is rate-limited
+ * regardless of origin.
+ *
+ * 120 requests per minute per API key prefix is generous for a developer
+ * marketplace integration; tighten per-route if needed.
+ */
+export const apiKeyLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: isTestEnv,
+  keyGenerator: (req) => {
+    const prefix = (req as any)?.apiKey?.prefix;
+    return prefix ? `apikey:${prefix}` : `apikey:${ipFromRequest(req) ?? 'unknown'}`;
+  },
+  message: {
+    error: 'Too many API requests, please slow down.',
+    code: 'RATE_LIMITED_API_KEY',
+  },
+  handler: (req, res, _next, options) => {
+    logSecurityEvent({
+      type: 'rate_limit',
+      tenantId: (req as any)?.apiKey?.tenantId ?? null,
+      ip: ipFromRequest(req),
+      details: { surface: 'api_v1', prefix: (req as any)?.apiKey?.prefix, message: options.message },
+    });
+    res.status(429).json(options.message);
+  },
+});

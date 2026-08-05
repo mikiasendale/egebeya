@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useState } from 'react';
+﻿import React, { useEffect, useRef, useState } from 'react';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
 
@@ -7,18 +7,13 @@ type DiscoverBusiness = {
   name: string;
   slug: string;
   category: string | null;
-  // Real data from the tenant — no fabricated defaults. city is null when
-  // the tenant hasn't set one in Settings General; heroImage is null when
-  // the tenant hasn't uploaded a Hero image in the Puck editor.
   city: string | null;
   heroImage: string | null;
-  // True when the tenant has never had a confirmed/completed booking. The
-  // frontend shows a "New" pill rather than fabricating a rating (we have
-  // no review system, so any average would be a lie).
   isNew: boolean;
 };
 
 const DEFAULT_CATEGORIES = ['Salon', 'Clinic', 'Pharmacy', 'Spa', 'Other'];
+const PAGE_SIZE = 20;
 
 function normalizeCategory(value: string | null | undefined): string {
   if (!value) return 'Other';
@@ -28,8 +23,6 @@ function normalizeCategory(value: string | null | undefined): string {
   return known || 'Other';
 }
 
-// Deterministic brand color for the placeholder tile so empty-card art doesn't
-// look chaotic — derived from the tenant id so the same tenant keeps its color.
 function placeholderColor(seed: string): string {
   let h = 0;
   for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) % 360;
@@ -41,22 +34,52 @@ function initials(name: string): string {
   return parts.map(function (p) { return p.charAt(0).toUpperCase(); }).join('') || '·';
 }
 
+/**
+ * Directory page backed entirely by the server: `?limit&offset&q&category&city`
+ * on GET /api/public/discover, with `X-Total-Count` driving the paginator.
+ * Page/offset resets whenever a filter changes so you never land on an empty
+ * trailing page.
+ */
 export function Discover() {
   const [businesses, setBusinesses] = useState<DiscoverBusiness[]>([]);
-  const [search, setSearch] = useState('');
-  const [activeCategory, setActiveCategory] = useState('All');
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [search, setSearch] = useState('');
+  const [cityFilter, setCityFilter] = useState('');
+  const [activeCategory, setActiveCategory] = useState('All');
+  const [offset, setOffset] = useState(0);
+
+  // Debounce the free-text search so we don't fire a request per keystroke.
+  const [debouncedQ, setDebouncedQ] = useState('');
+  const qTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(function () {
+    if (qTimer.current) clearTimeout(qTimer.current);
+    qTimer.current = setTimeout(function () { setDebouncedQ(search.trim()); }, 300);
+    return function () { if (qTimer.current) clearTimeout(qTimer.current); };
+  }, [search]);
+
+  // Reset to page 0 whenever a filter changes.
+  useEffect(function () { setOffset(0); }, [debouncedQ, cityFilter, activeCategory]);
+
   useEffect(function () {
     let cancelled = false;
+    setLoading(true);
+    const params = new URLSearchParams({ limit: String(PAGE_SIZE), offset: String(offset) });
+    if (debouncedQ) params.set('q', debouncedQ);
+    if (cityFilter.trim()) params.set('city', cityFilter.trim());
+    if (activeCategory !== 'All') params.set('category', activeCategory.toLowerCase());
+
     (async function () {
       try {
-        const res = await fetch('/api/public/discover');
+        const res = await fetch(`/api/public/discover?${params.toString()}`);
         if (!res.ok) throw new Error('Request failed (' + res.status + ')');
+        const total = parseInt(res.headers.get('x-total-count') || '0', 10) || 0;
         const data = await res.json();
         if (!cancelled) {
           setBusinesses(Array.isArray(data) ? (data as DiscoverBusiness[]) : []);
+          setTotalCount(total);
           setError(null);
         }
       } catch (err: any) {
@@ -69,27 +92,18 @@ export function Discover() {
       }
     })();
     return function () { cancelled = true; };
-  }, []);
+  }, [debouncedQ, cityFilter, activeCategory, offset]);
 
-  const availableCategories = useMemo(function () {
-    const found = new Set<string>();
-    for (const b of businesses) found.add(normalizeCategory(b.category));
-    const ordered = DEFAULT_CATEGORIES.filter(function (c) { return found.has(c); });
-    for (const c of found) if (ordered.indexOf(c) === -1) ordered.push(c);
-    return ordered;
-  }, [businesses]);
-
-  const filteredBusinesses = useMemo(function () {
-    const needle = search.trim().toLowerCase();
-    return businesses.filter(function (b) {
-      if (activeCategory !== 'All' && normalizeCategory(b.category) !== activeCategory) return false;
-      if (needle && b.name.toLowerCase().indexOf(needle) === -1) return false;
-      return true;
-    });
-  }, [businesses, search, activeCategory]);
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+  const currentPage = Math.floor(offset / PAGE_SIZE) + 1;
 
   function catBtnCls(isActive: boolean) {
     return 'px-6 py-2 rounded-full font-medium whitespace-nowrap ' + (isActive ? 'bg-ink text-paper' : 'bg-paper-bleached border border-ink-rule text-ink-soft hover:border-ink hover:text-ink');
+  }
+
+  function goToPage(page: number) {
+    setOffset((page - 1) * PAGE_SIZE);
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   return (
@@ -103,16 +117,26 @@ export function Discover() {
             <input
               type="text"
               value={search}
-              onChange={function(e) { setSearch(e.target.value); }}
+              onChange={function (e) { setSearch(e.target.value); }}
               placeholder="Search for a business or service..."
               className="flex-1 px-6 py-3 outline-none text-ink rounded-l-full"
               style={{ fontFamily: 'var(--font-body)' }}
             />
             <button
               type="button"
-              onClick={function() { setSearch(''); }}
+              onClick={function () { setSearch(''); }}
               className="bg-telebirr text-paper px-8 py-3 rounded-full font-bold hover:opacity-90 transition-colors"
-            >Search </button>
+            >Search</button>
+          </div>
+          <div className="mt-4 flex items-center justify-center gap-2">
+            <input
+              type="text"
+              value={cityFilter}
+              onChange={function (e) { setCityFilter(e.target.value); }}
+              placeholder="Filter city…"
+              className="px-4 py-2 rounded-full text-sm text-ink outline-none bg-paper-bleached border border-ink-rule"
+              style={{ fontFamily: 'var(--font-body)' }}
+            />
           </div>
         </div>
       </div>
@@ -121,46 +145,60 @@ export function Discover() {
         <div className="flex space-x-4 mb-10 overflow-x-auto pb-2">
           <button
             type="button"
-            onClick={function() { setActiveCategory('All'); }}
+            onClick={function () { setActiveCategory('All'); }}
             className={catBtnCls(activeCategory === 'All')}
-          >All </button>
-          {availableCategories.map(function (cat) {
+          >All</button>
+          {DEFAULT_CATEGORIES.map(function (cat) {
             return (
               <button
                 type="button"
                 key={cat}
-                onClick={function() { setActiveCategory(cat); }}
+                onClick={function () { setActiveCategory(cat); }}
                 className={catBtnCls(activeCategory === cat)}
-              >{cat} </button>
+              >{cat}</button>
             );
           })}
         </div>
 
         {loading && (
-          <div className="text-center text-ink-soft py-16">Loading businesses...</div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div
+                key={`skeleton-${i}`}
+                className="bg-paper-bleached rounded-2xl overflow-hidden border border-ink-rule"
+                style={{ animation: `fade-in 200ms cubic-bezier(0.16, 1, 0.3, 1) ${i * 50}ms both` }}
+              >
+                <div className="skeleton-wave" style={{ height: '12rem' }} />
+                <div className="p-6 space-y-3">
+                  <div className="skeleton-wave" style={{ height: '1.5rem', width: '70%', borderRadius: '2px' }} />
+                  <div className="skeleton-wave" style={{ height: '1rem', width: '40%', borderRadius: '2px' }} />
+                </div>
+              </div>
+            ))}
+          </div>
         )}
 
         {!loading && error && (
           <div className="text-center text-signal py-16">
             <p className="font-semibold mb-2">Could not load businesses</p>
-            <p className="text-sm text-ink-soft">{String(error)} </p>
+            <p className="text-sm text-ink-soft">{String(error)}</p>
           </div>
         )}
 
-        {!loading && !error && filteredBusinesses.length === 0 && (
+        {!loading && !error && businesses.length === 0 && (
           <div className="text-center text-ink-soft py-16">
             <p className="font-semibold text-ink mb-2">No businesses match your search.</p>
             <p className="text-sm">
-              {businesses.length === 0
+              {totalCount === 0
                 ? 'No tenants have listed themselves yet — be the first to publish your site.'
-                : 'Try a different category or search term.'}
+                : 'Try a different category, city, or search term.'}
             </p>
           </div>
         )}
 
-        {!loading && !error && filteredBusinesses.length > 0 && (
+        {!loading && !error && businesses.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {filteredBusinesses.map(function (business) {
+            {businesses.map(function (business) {
               const category = normalizeCategory(business.category);
               const isLocal =
                 typeof window !== 'undefined' &&
@@ -196,7 +234,7 @@ export function Discover() {
                       </div>
                     </div>
                     <div className="p-6">
-                      <h3 className="text-xl font-bold text-ink mb-2">{business.name} </h3>
+                      <h3 className="text-xl font-bold text-ink mb-2">{business.name}</h3>
                       <div className="flex items-center text-ink-soft text-sm min-h-[1.25rem]">
                         {business.city ? (
                           <span>{business.city}</span>
@@ -212,19 +250,42 @@ export function Discover() {
                           <span className="text-ink-stamp">{business.slug}.egebeya.et</span>
                         )}
                       </div>
-                      {business.city && business.isNew && (
-                        <div className="mt-2">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[0.65rem] font-bold uppercase tracking-wide bg-telebirr/15 text-telebirr-deep">
-                            New
-                          </span>
-                        </div>
-                      )}
                     </div>
                   </div>
                 </a>
               );
             })}
           </div>
+        )}
+
+        {!loading && !error && totalPages > 1 && (
+          <nav className="flex items-center justify-center gap-2 mt-12" aria-label="Directory pages">
+            <button
+              type="button"
+              disabled={currentPage <= 1}
+              onClick={function () { goToPage(currentPage - 1); }}
+              className="px-4 py-2 rounded-md text-sm font-medium bg-paper-bleached border border-ink-rule text-ink hover:border-ink disabled:opacity-40 disabled:hover:border-ink-rule"
+            >← Prev</button>
+            {Array.from({ length: totalPages }, function (_, i) { return i + 1; }).map(function (p) {
+              return (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={function () { goToPage(p); }}
+                  aria-current={p === currentPage ? 'page' : undefined}
+                  className={`min-w-10 px-3 py-2 rounded-md text-sm font-medium ${
+                    p === currentPage ? 'bg-ink text-paper' : 'bg-paper-bleached border border-ink-rule text-ink hover:border-ink'
+                  }`}
+                >{p}</button>
+              );
+            })}
+            <button
+              type="button"
+              disabled={currentPage >= totalPages}
+              onClick={function () { goToPage(currentPage + 1); }}
+              className="px-4 py-2 rounded-md text-sm font-medium bg-paper-bleached border border-ink-rule text-ink hover:border-ink disabled:opacity-40 disabled:hover:border-ink-rule"
+            >Next →</button>
+          </nav>
         )}
       </main>
 

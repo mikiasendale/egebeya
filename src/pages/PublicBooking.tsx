@@ -45,7 +45,8 @@ export function PublicBooking({ tenant, subdomain }: { tenant: any, subdomain: s
   const [slots, setSlots] = useState<string[]>([]);
   const [queue, setQueue] = useState<QueueItem[]>([]);
 
-  const [selectedService, setSelectedService] = useState<any>(null);
+  const [selectedServices, setSelectedServices] = useState<any[]>([]);
+  const selectedService = selectedServices[0] || null;
   const [selectedStaff, setSelectedStaff] = useState<any>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
@@ -452,29 +453,62 @@ export function PublicBooking({ tenant, subdomain }: { tenant: any, subdomain: s
                 <Section title={t('booking.step1Title')} subtitle={t('booking.step1Subtitle')}>
                   <div className="mt-2">
                     {services.length === 0 && (
-                      <p style={page.monoSoft}>{t('booking.loadingServices')}</p>
+                      <div className="space-y-3">
+                        {[1, 2, 3].map((n) => (
+                          <div key={n} className="skeleton-wave rounded-[var(--rd-card)]" style={{ height: '5rem', border: '1px solid var(--color-ink-rule)' }} />
+                        ))}
+                      </div>
                     )}
-                    {services.map((service) => (
-                      <button
-                        key={service.id}
-                        type="button"
-                        onClick={() => { setSelectedService(service); setStep(2); }}
-                        className="w-full text-left tariff-row transition-colors hover:bg-[var(--color-paper)]"
-                      >
-                        <div>
-                          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1.4rem', color: 'var(--color-ink)', letterSpacing: '-0.015em' }}>
-                            {service.name}
+                    {services.map((service) => {
+                      const isSelected = selectedServices.some((s) => s.id === service.id);
+                      return (
+                        <button
+                          key={service.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedServices((prev) =>
+                              isSelected
+                                ? prev.filter((s) => s.id !== service.id)
+                                : [...prev, service]
+                            );
+                          }}
+                          className="service-card-select w-full text-left tariff-row"
+                          style={{
+                            border: `1px solid ${isSelected ? 'var(--color-telebirr)' : 'var(--color-ink-rule)'}`,
+                            backgroundColor: isSelected ? 'var(--color-telebirr-deep)' : 'var(--color-paper-bleached)',
+                            borderRadius: 'var(--rd-card)',
+                            padding: '1rem 1rem',
+                            marginBottom: '0.5rem',
+                            transform: isSelected ? 'scale(1.02)' : 'scale(1)',
+                          }}
+                          aria-pressed={isSelected}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1 min-w-0">
+                              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1.4rem', color: isSelected ? 'var(--color-paper-bleached)' : 'var(--color-ink)', letterSpacing: '-0.015em' }}>
+                                {service.name}
+                              </div>
+                              <div className="text-xs mt-1" style={{ fontFamily: 'var(--font-receipt)', color: isSelected ? 'var(--color-paper-raised)' : 'var(--color-ink-soft)', letterSpacing: '0.08em' }}>
+                                {service.durationMinutes} {t('booking.min')} · {t('booking.staffOfChoice')}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3 ml-4">
+                              <div style={{ fontFamily: 'var(--font-receipt)', fontWeight: 700, fontSize: '1rem', color: isSelected ? 'var(--color-paper-bleached)' : 'var(--color-ink)' }}>
+                                <span style={{ color: isSelected ? 'var(--color-paper-raised)' : 'var(--color-ink-soft)', fontWeight: 400 }}>Br&thinsp;</span>
+                                {(service.price / 100).toLocaleString()}
+                              </div>
+                              {isSelected && (
+                                <span className="flex-shrink-0 inline-flex items-center justify-center w-6 h-6 rounded-full" style={{ backgroundColor: 'var(--color-telebirr)', color: 'var(--color-paper-bleached)' }}>
+                                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                  </svg>
+                                </span>
+                              )}
+                            </div>
                           </div>
-                          <div className="text-xs mt-1" style={page.monoSoft}>
-                            {service.durationMinutes} {t('booking.min')} · {t('booking.staffOfChoice')}
-                          </div>
-                        </div>
-                        <div style={{ fontFamily: 'var(--font-receipt)', fontWeight: 700, fontSize: '1rem', color: 'var(--color-ink)' }}>
-                          <span style={{ color: 'var(--color-ink-soft)', fontWeight: 400 }}>Br&thinsp;</span>
-                          {(service.price / 100).toLocaleString()}
-                        </div>
-                      </button>
-                    ))}
+                        </button>
+                      );
+                    })}
                   </div>
                 </Section>
               )}
@@ -530,7 +564,21 @@ export function PublicBooking({ tenant, subdomain }: { tenant: any, subdomain: s
                       <div className="text-xs uppercase mb-3" style={page.monoSoft}>
                         {t('booking.availableTimes')}
                       </div>
-                      {slots.length > 0 ? (
+                      {!selectedStaff ? (
+                        <div className="grid grid-cols-2 gap-2">
+                          {[1, 2, 3, 4, 5, 6].map((n) => (
+                            <div
+                              key={n}
+                              className="skeleton-wave"
+                              style={{
+                                height: '2.5rem',
+                                border: '1px solid var(--color-ink-rule)',
+                                borderRadius: 'var(--rd-card)',
+                              }}
+                            />
+                          ))}
+                        </div>
+                      ) : slots.length > 0 ? (
                         <div className="grid grid-cols-2 gap-2">
                           {slots.map((time) => (
                             <button
@@ -709,6 +757,32 @@ export function PublicBooking({ tenant, subdomain }: { tenant: any, subdomain: s
             </div>
           </div>
         </div>
+
+        {/* Sticky bottom bar — live-updating totals when services are selected */}
+        {step === 1 && selectedServices.length > 0 && (
+          <div className="bar-slide-up fixed bottom-0 left-0 right-0 z-50 border-t" style={{ backgroundColor: 'var(--color-paper-bleached)', borderColor: 'var(--color-ink-rule)' }}>
+            <div className="mx-auto max-w-6xl px-5 sm:px-8 lg:px-12 py-4 flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <div style={{ fontFamily: 'var(--font-receipt)', fontWeight: 700, fontSize: '0.95rem', color: 'var(--color-ink)' }}>
+                  <span style={{ color: 'var(--color-ink-soft)', fontWeight: 400 }}>Total:</span>{' '}
+                  Br {selectedServices.reduce((sum, s) => sum + (s.price / 100), 0).toLocaleString()}
+                  <span className="mx-2" style={{ color: 'var(--color-ink-rule)' }}>·</span>
+                  <span style={{ color: 'var(--color-ink-soft)', fontWeight: 400 }}>{t('booking.duration')}:</span>{' '}
+                  {selectedServices.reduce((sum, s) => sum + (s.durationMinutes || 0), 0)} {t('booking.mins')}
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={selectedServices.length === 0}
+                onClick={() => setStep(2)}
+                className="btn-telebirr flex-shrink-0 inline-flex items-center justify-center px-6 py-3 disabled:opacity-60 disabled:cursor-not-allowed"
+                style={{ borderRadius: 'var(--rd-card)', fontFamily: 'var(--font-display)', fontWeight: 700 }}
+              >
+                {t('booking.bookNow')}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

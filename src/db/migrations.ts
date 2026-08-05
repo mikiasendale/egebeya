@@ -209,6 +209,169 @@ export async function ensureSchemaMigrations(): Promise<Record<string, string[]>
       column: 'cancels_at',
       sql: `ALTER TABLE appointments ADD COLUMN cancels_at INTEGER`,
     },
+    {
+      // customer_stats — CRM aggregation table. Created here so existing
+      // installs gain the table on next boot; fresh installs get it from schema.ts.
+      table: 'customer_stats',
+      column: 'tenant_id',
+      sql: `
+        CREATE TABLE IF NOT EXISTS customer_stats (
+          tenant_id TEXT REFERENCES tenants(id) NOT NULL,
+          customer_phone TEXT NOT NULL,
+          customer_name TEXT NOT NULL,
+          first_visit_at INTEGER,
+          last_visit_at INTEGER,
+          visit_count INTEGER NOT NULL DEFAULT 0,
+          total_spend_etb_cents INTEGER NOT NULL DEFAULT 0,
+          last_cancelled_at INTEGER,
+          marketing_opt_in INTEGER NOT NULL DEFAULT 0,
+          created_at INTEGER NOT NULL,
+          PRIMARY KEY (tenant_id, customer_phone)
+        )
+      `,
+    },
+    {
+      // marketing_opt_in — added to customer_stats so promotional SMS blasts
+      // respect the customer's opt-in status. Default 0 (false) so existing
+      // rows are not added to a blast retroactively.
+      table: 'customer_stats',
+      column: 'marketing_opt_in',
+      sql: `ALTER TABLE customer_stats ADD COLUMN marketing_opt_in INTEGER NOT NULL DEFAULT 0`,
+    },
+    {
+      // promo_codes — discount codes table. Created here for existing installs.
+      table: 'promo_codes',
+      column: 'id',
+      sql: `
+        CREATE TABLE IF NOT EXISTS promo_codes (
+          id TEXT PRIMARY KEY,
+          tenant_id TEXT REFERENCES tenants(id) NOT NULL,
+          code TEXT NOT NULL,
+          discount_type TEXT NOT NULL,
+          discount_value INTEGER NOT NULL,
+          max_uses INTEGER NOT NULL DEFAULT 1,
+          used_count INTEGER NOT NULL DEFAULT 0,
+          valid_from INTEGER,
+          valid_until INTEGER,
+          is_active INTEGER NOT NULL DEFAULT 1,
+          created_at INTEGER NOT NULL
+        )
+      `,
+    },
+    {
+      // appointment_services — join table for multi-service bookings.
+      table: 'appointment_services',
+      column: 'appointment_id',
+      sql: `
+        CREATE TABLE IF NOT EXISTS appointment_services (
+          appointment_id TEXT REFERENCES appointments(id) NOT NULL,
+          service_id TEXT REFERENCES services(id) NOT NULL,
+          price_at_booking INTEGER NOT NULL,
+          duration_minutes INTEGER NOT NULL,
+          PRIMARY KEY (appointment_id, service_id)
+        )
+      `,
+    },
+    {
+      // recurring_series — recurring appointment series for regular customers.
+      table: 'recurring_series',
+      column: 'id',
+      sql: `
+        CREATE TABLE IF NOT EXISTS recurring_series (
+          id TEXT PRIMARY KEY,
+          tenant_id TEXT REFERENCES tenants(id) NOT NULL,
+          staff_id TEXT REFERENCES staff(id) NOT NULL,
+          service_id TEXT REFERENCES services(id) NOT NULL,
+          customer_name TEXT NOT NULL,
+          customer_phone TEXT NOT NULL,
+          customer_email TEXT,
+          interval TEXT NOT NULL,
+          start_date TEXT NOT NULL,
+          end_date TEXT NOT NULL,
+          timeslot_minutes INTEGER NOT NULL,
+          is_active INTEGER NOT NULL DEFAULT 1,
+          created_at INTEGER NOT NULL
+        )
+      `,
+    },
+    {
+      // recurring_series_id — nullable FK on appointments for recurring origin tracking.
+      table: 'appointments',
+      column: 'recurring_series_id',
+      sql: `ALTER TABLE appointments ADD COLUMN recurring_series_id TEXT`,
+    },
+    // ── Phase 2 migrations (continued) ────────────────────────────
+    {
+      // otp_codes — SMS OTP authentication table.
+      table: 'otp_codes',
+      column: 'id',
+      sql: `
+        CREATE TABLE IF NOT EXISTS otp_codes (
+          id TEXT PRIMARY KEY,
+          phone TEXT NOT NULL,
+          code TEXT NOT NULL,
+          expires_at INTEGER NOT NULL,
+          attempts INTEGER NOT NULL DEFAULT 0,
+          used INTEGER NOT NULL DEFAULT 0,
+          created_at INTEGER NOT NULL
+        )
+      `,
+    },
+    {
+      table: 'otp_codes',
+      column: 'idx_phone',
+      sql: `CREATE INDEX IF NOT EXISTS otp_codes_phone_idx ON otp_codes(phone, created_at)`,
+    },
+    {
+      // inventory_items — stock tracking for pharmacy vertical.
+      table: 'inventory_items',
+      column: 'id',
+      sql: `
+        CREATE TABLE IF NOT EXISTS inventory_items (
+          id TEXT PRIMARY KEY,
+          tenant_id TEXT REFERENCES tenants(id) NOT NULL,
+          service_id TEXT REFERENCES services(id),
+          name TEXT NOT NULL,
+          sku TEXT,
+          quantity_on_hand INTEGER NOT NULL DEFAULT 0,
+          reorder_threshold INTEGER NOT NULL DEFAULT 5,
+          unit TEXT NOT NULL DEFAULT 'unit',
+          created_at INTEGER NOT NULL
+        )
+      `,
+    },
+    {
+      // api_keys — developer API keys for the v1 REST API.
+      table: 'api_keys',
+      column: 'id',
+      sql: `
+        CREATE TABLE IF NOT EXISTS api_keys (
+          id TEXT PRIMARY KEY,
+          tenant_id TEXT REFERENCES tenants(id) NOT NULL,
+          key_prefix TEXT NOT NULL,
+          key_hash TEXT NOT NULL,
+          scopes TEXT NOT NULL DEFAULT '[]',
+          expires_at INTEGER,
+          last_used_at INTEGER,
+          created_at INTEGER NOT NULL
+        )
+      `,
+    },
+    {
+      // health_tag — cached customer health tag (vip_loyal, at_risk_churn,
+      // high_no_show_risk) refreshed on every appointment status transition.
+      // Default 'healthy' so existing rows report neutral until backfilled.
+      table: 'customer_stats',
+      column: 'health_tag',
+      sql: `ALTER TABLE customer_stats ADD COLUMN health_tag TEXT NOT NULL DEFAULT 'healthy'`,
+    },
+    {
+      // no_show_count — running count of cancelled + no_show appointments for
+      // this customer. Drives the high_no_show_risk tag. Default 0.
+      table: 'customer_stats',
+      column: 'no_show_count',
+      sql: `ALTER TABLE customer_stats ADD COLUMN no_show_count INTEGER NOT NULL DEFAULT 0`,
+    },
   ];
 
   for (const m of migrations) {
@@ -224,8 +387,38 @@ export async function ensureSchemaMigrations(): Promise<Record<string, string[]>
   }
 
   await normalizePlanRows();
+  await backfillOnboardingCompletedFlag();
 
   return added;
+}
+
+/**
+ * `onboarding_completed` lives inside the tenants.settings JSON blob (not a
+ * dedicated column), defaulting to `false`. Because settings is a single JSON
+ * column, "adding the column" is really a row-level backfill: every existing
+ * tenant gets `settings.onboarding_completed = 0` unless they already carry
+ * the key (e.g. a tenant mid-wizard that set it to 1 explicitly).
+ *
+ * New tenants default to unlisted + un-onboarded via the register endpoint;
+ * this migration only reconciles tenants that predate the flag.
+ */
+async function backfillOnboardingCompletedFlag(): Promise<void> {
+  try {
+    const driver = (db as any).session?.client ?? (db as any).$client ?? (db as any).driver;
+    const client = driver ?? db;
+    const sqlStmt = `
+      UPDATE tenants
+      SET settings = json_set(COALESCE(settings, '{}'), '$.onboarding_completed', 0)
+      WHERE json_extract(COALESCE(settings, '{}'), '$.onboarding_completed') IS NULL
+    `;
+    if (client.execute) {
+      await client.execute(sqlStmt);
+    } else {
+      await db.run((({ sql: sqlStmt } as unknown) as any));
+    }
+  } catch (err) {
+    console.warn('[migrations] onboarding_completed backfill skipped:', (err as Error)?.message);
+  }
 }
 
 /**

@@ -2,25 +2,31 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Routes, Route, Link, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import {
   Home, Calendar, Scissors, Users, Globe, Image, Settings, LogOut,
-  Plus, CalendarPlus, ImagePlus, Store, UserPlus, Clock,
+  Plus, CalendarPlus, ImagePlus, Store, Clock, CreditCard, Package,
 } from 'lucide-react';
+import { UberBottomNav } from '../../components/UberBottomNav';
 import { format } from 'date-fns';
 import { useTranslation } from 'react-i18next';
 
 import { Bookings } from './Bookings';
 
 import { WebsiteBuilder } from './WebsiteBuilder';
+import { CustomerHealth } from './CustomerHealth';
 
 import { Settings as SettingsComponent } from './Settings';
 
 import { ServicesPage } from './ServicesPage';
 import { StaffPage } from './StaffPage';
 import { MediaLibraryPage } from './MediaLibraryPage';
+import { Billing } from './Billing';
 import { authFetch } from '../../lib/api';
 import { useRole, isStaff } from '../../lib/auth';
 import { StaffRedirect } from './StaffRedirect';
 import { BuilderModeProvider, useBuilderMode } from './BuilderModeContext';
 import { WalkInSheet } from './WalkInSheet';
+import { WinBackWidget } from '../../components/dashboard/WinBackWidget';
+import { MarketingDeck } from './MarketingDeck';
+import { InventoryPage } from './InventoryPage';
 
 const STAFF_NAV = [{ name: 'Bookings', path: '/dashboard/bookings', icon: Calendar }];
 
@@ -29,8 +35,12 @@ const ALL_NAV = [
   { name: 'Bookings', path: '/dashboard/bookings', icon: Calendar },
   { name: 'Services', path: '/dashboard/services', icon: Scissors },
   { name: 'Staff', path: '/dashboard/staff', icon: Users },
+  { name: 'Customer Health', path: '/dashboard/customer-health', icon: Users },
   { name: 'Website Builder', path: '/dashboard/website-builder', icon: Globe },
   { name: 'Media Library', path: '/dashboard/media', icon: Image },
+  { name: 'Marketing', path: '/dashboard/marketing', icon: Globe },
+  { name: 'Inventory', path: '/dashboard/inventory', icon: Package },
+  { name: 'Billing', path: '/dashboard/billing', icon: CreditCard },
   { name: 'Settings', path: '/dashboard/settings', icon: Settings },
 ];
 
@@ -118,8 +128,37 @@ function DashboardInner() {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [banner, setBanner] = useState<DashboardAppointment | null>(null);
   const [walkInOpen, setWalkInOpen] = useState(false);
+  const [inventoryLowStock, setInventoryLowStock] = useState(false);
   const lastIdsRef = useRef<Set<string>>(new Set());
   const firstPollRef = useRef(true);
+
+  // Self-serve onboarding: surface a dismissible "Finish setup" banner until
+  // the owner completes the /setup wizard (settings.onboarding_completed).
+  const [setupBannerDismissed, setSetupBannerDismissed] = useState(() =>
+    typeof window !== 'undefined' && localStorage.getItem('setup-banner-dismissed') === '1',
+  );
+  const [onboardingIncomplete, setOnboardingIncomplete] = useState(false);
+
+  useEffect(() => {
+    if (role === 'staff') return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await authFetch('/api/tenant/settings');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) setOnboardingIncomplete(data.onboarding_completed !== true);
+      } catch {
+        // settings is a nice-to-have for the banner — fail silently
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [role]);
+
+  const dismissSetupBanner = () => {
+    setSetupBannerDismissed(true);
+    if (typeof window !== 'undefined') localStorage.setItem('setup-banner-dismissed', '1');
+  };
 
   const pollDashboard = useCallback(async () => {
     try {
@@ -249,6 +288,32 @@ function DashboardInner() {
           )}
         </header>
 
+        {onboardingIncomplete && !setupBannerDismissed && (
+          <div className="flex items-center justify-between gap-4 px-4 md:px-8 py-3 bg-telebirr/10 border-b border-telebirr/30" role="status">
+            <div className="flex items-center gap-3 min-w-0">
+              <Clock className="h-5 w-5 text-telebirr-deep shrink-0" aria-hidden />
+              <p className="text-sm font-medium text-ink truncate">
+                Finish setting up your business — publish your site to start taking bookings.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Link
+                to="/setup"
+                className="bg-ink text-paper px-4 py-1.5 rounded-md text-sm font-medium hover:opacity-90 transition-opacity whitespace-nowrap"
+              >
+                Finish setup
+              </Link>
+              <button
+                onClick={dismissSetupBanner}
+                aria-label="Dismiss setup banner"
+                className="p-1.5 rounded-md text-ink-soft hover:text-ink hover:bg-paper-raised transition-colors"
+              >
+                <span aria-hidden>✕</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="flex-1 p-4 md:p-8 overflow-y-auto pb-28 md:pb-8">
           <DashboardDataContext.Provider value={dashboard}>
             <Routes>
@@ -262,6 +327,10 @@ function DashboardInner() {
               <Route path="/website" element={<Navigate to="/dashboard/website-builder" replace />} />
               <Route path="/code" element={<Navigate to="/dashboard/website-builder" replace />} />
               <Route path="/media" element={<MediaLibraryPage />} />
+              <Route path="/marketing" element={<MarketingDeck />} />
+              <Route path="/inventory" element={<InventoryPage onLowStock={setInventoryLowStock} />} />
+              <Route path="/customer-health" element={<CustomerHealth />} />
+              <Route path="/billing" element={<Billing />} />
               <Route path="/settings" element={<SettingsComponent />} />
               <Route path="*" element={<Navigate to="/dashboard/bookings" replace />} />
             </Routes>
@@ -274,20 +343,14 @@ function DashboardInner() {
         <NewBookingBanner item={banner} onDismiss={() => setBanner(null)} />
       )}
 
-      {/* WP2.3: fixed bottom navigation on phone-sized viewports */}
+      {/* WP2.3: Uber-style PWA bottom navigation on phone-sized viewports */}
       {isMobile && (
-        <BottomNav role={role} pathname={location.pathname} />
-      )}
-
-      {/* Walking FAB above the bottom nav, gated by the server role check */}
-      {isMobile && dashboard?.walkInEnabled === true && (
-        <button
-          onClick={() => setWalkInOpen(true)}
-          aria-label="Walk-in"
-          className="fixed bottom-24 right-4 z-40 inline-flex h-14 w-14 items-center justify-center rounded-full bg-primary text-white shadow-lg shadow-black/20 hover:opacity-90 transition"
-        >
-          <UserPlus className="h-6 w-6" />
-        </button>
+        <UberBottomNav
+          role={role}
+          walkInEnabled={dashboard?.walkInEnabled === true}
+          onWalkIn={() => setWalkInOpen(true)}
+          inventoryLowStock={inventoryLowStock}
+        />
       )}
 
       <WalkInSheet open={walkInOpen} onClose={() => setWalkInOpen(false)} onCreated={pollDashboard} />
@@ -339,6 +402,8 @@ function MobileHome({ dashboard }: { dashboard: DashboardData | null }) {
           {revenueEtb == null ? 'ETB --' : `ETB ${revenueEtb.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`}
         </div>
       </div>
+
+      <WinBackWidget />
 
       <section className="bg-paper-bleached rounded-xl border border-ink-rule">
         <header className="px-5 py-4 border-b border-ink-rule">
@@ -403,50 +468,6 @@ function NewBookingBanner({ item, onDismiss }: { item: DashboardAppointment; onD
         </span>
       </button>
     </div>
-  );
-}
-
-/** Fixed bottom navigation — three tabs on mobile (Home, Shop, Site). */
-function BottomNav({ role, pathname }: { role: string | null; pathname: string }) {
-  const { t } = useTranslation();
-
-  const tabs: { key: string; to: string; icon: any; label: string }[] =
-    role === 'staff'
-      ? [{ key: 'bookings', to: '/dashboard/bookings', icon: Calendar, label: t('nav.dashboard') }]
-      : [
-        { key: 'home', to: '/dashboard', icon: Home, label: t('dashboard.home') },
-        { key: 'shop', to: '/dashboard/shop', icon: Store, label: t('dashboard.shop') },
-        { key: 'site', to: '/dashboard/website-builder', icon: Globe, label: t('dashboard.site') },
-      ];
-
-  const isActive = (to: string) =>
-    to === '/dashboard'
-      ? pathname === '/dashboard' || pathname === '/dashboard/'
-      : pathname === to || pathname.startsWith(to.replace(/\/$/, ''));
-
-  return (
-    <nav
-      className="fixed bottom-0 inset-x-0 z-40 bg-surface-raised border-t border-ink-rule flex"
-      style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 0rem)' }}
-      aria-label="Primary"
-    >
-      {tabs.map((tab) => {
-        const Icon = tab.icon;
-        const active = isActive(tab.to);
-        return (
-          <Link
-            key={tab.key}
-            to={tab.to}
-            className={`flex-1 flex flex-col items-center justify-center gap-1 min-h-[52px] py-2 transition-colors ${
-              active ? 'text-primary-deep' : 'text-ink-soft hover:text-ink'
-            }`}
-          >
-            <Icon className={`h-6 w-6 ${active ? 'text-primary' : ''}`} />
-            <span className="text-[11px] font-semibold">{tab.label}</span>
-          </Link>
-        );
-      })}
-    </nav>
   );
 }
 
@@ -560,6 +581,10 @@ function Overview() {
         </div>
 
         <QuickActions />
+
+        <MarketingDeck />
+
+        <WinBackWidget />
 
         <RecentActivity items={recent} loading={loadingRecent} />
      </div>

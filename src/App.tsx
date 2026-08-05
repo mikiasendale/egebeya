@@ -4,7 +4,7 @@
  */
 
 import React, { Suspense, lazy } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useParams } from 'react-router-dom';
 import { Toaster } from './components/ui/toaster';
 
 // Route-level code splitting: heavy pages (Sandpack/Puck dashboard, landing,
@@ -24,6 +24,16 @@ const Admin = lazy(() => import('./pages/Admin').then(m => ({ default: m.Admin }
 const Privacy = lazy(() => import('./pages/Privacy').then(m => ({ default: m.Privacy })));
 const Terms = lazy(() => import('./pages/Terms').then(m => ({ default: m.Terms })));
 const EmbedBooking = lazy(() => import('./pages/EmbedBooking').then(m => ({ default: m.EmbedBooking })));
+
+// Renders a tenant's public site from a path slug (/{slug}) on the main
+// domain — the destination after the onboarding wizard publishes. Reuses the
+// subdomain renderer by synthesising the hostname it expects; its
+// `hostname.split('.')[0]` heuristic resolves to the slug.
+function TenantSlugRoute() {
+  const { slug } = useParams<{ slug: string }>();
+  if (!slug) return <NotFound />;
+  return <PublicTenantSite hostname={`${slug}.egebeya.et`} />;
+}
 
 function RouteFallback() {
   return (
@@ -92,6 +102,8 @@ export default function App() {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/setup" element={<SetupWizard />} />
+          <Route path="/:slug/book" element={<PublicBookingPage />} />
+          <Route path="/:slug" element={<TenantSlugRoute />} />
           <Route path="/admin" element={<AdminGuard />} />
           <Route path="/dashboard/*" element={<Dashboard />} />
           <Route path="/privacy" element={<Privacy />} />

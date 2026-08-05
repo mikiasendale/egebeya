@@ -5,6 +5,7 @@ import { eq, and } from 'drizzle-orm';
 import { verifyPayment, getWebhookSecret } from '../../server/lib/chapa';
 import { verifyWebhookSignature } from 'chapa-nodejs';
 import crypto from 'crypto';
+import { activateProSubscription } from '../../server/lib/billing';
 import { logSecurityEvent, ipFromRequest } from '../../server/lib/securityLog';
 import { webhookLimiter } from '../../server/middleware/rateLimiter';
 
@@ -149,6 +150,16 @@ router.post('/webhook', webhookLimiter, async (req, res) => {
     } else if (verifiedStatus === 'failed' && payment.appointmentId) {
       await db.update(appointments).set({ status: 'cancelled' })
         .where(eq(appointments.id, payment.appointmentId));
+    }
+
+    // Pro-subscription checkout: a completed payment activates the tenant's
+    // Pro plan (status active, startsAt now, endsAt +30 days). Failed
+    // subscription payments are left pending → the tenant stays on Free.
+    if (verifiedStatus === 'completed' && !payment.appointmentId) {
+      const purpose = (payment.meta as any)?.purpose;
+      if (purpose === 'pro_subscription') {
+        await activateProSubscription(payment.tenantId, (payment.meta as any)?.planId ?? null, Date.now());
+      }
     }
 
     res.json({ success: true, previousStatus, status: verifiedStatus });

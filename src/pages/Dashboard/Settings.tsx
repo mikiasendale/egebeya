@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
+import { Link } from 'react-router-dom';
 import { CreditCard, Shield, Clock, Loader2, Zap } from 'lucide-react';
 import { authFetch } from '../../lib/api';
 import { showToast } from '../../components/ui/toast-helper';
@@ -377,13 +378,14 @@ export function Settings() {
                 <button
                   type="button"
                   disabled
-                  title="In-app plan upgrades are coming soon. We are finalising the billing integration."
+                  title="Manage your plan on the Billing page."
                   className="bg-ink text-white px-4 py-2 rounded-md font-medium text-sm hover:opacity-90 w-full disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   Upgrade Plan
 </button>
                 <p className="mt-2 text-xs text-ink-soft">
-                  Plan upgrades are not yet available in-app. To change plans today, email <span className="font-medium">support@egebeya.et</span>.
+                  Manage your plan on the{' '}
+                  <Link to="/dashboard/billing" className="font-medium text-primary-deep underline">Billing page</Link>.
              </p>
              </div>
 

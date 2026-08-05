@@ -1,13 +1,14 @@
 import { Router } from 'express';
 import { db } from '../db';
 import { proSiteFiles, tenantSubscriptions, plans } from '../db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { requireAuth } from './middleware/auth';
 import { csrfProtection } from './middleware/csrf';
 import { tenantWriteLimiter } from '../../server/middleware/rateLimiter';
+import { GRACE_PERIOD_MS } from '../../server/lib/billing';
 
 const router = Router();
 
@@ -57,6 +58,27 @@ export async function requireProPlan(req: any, res: any) {
     res.status(403).json({ error: 'Your Pro trial has expired. Renew to keep using the code editor.', code: 'TRIAL_EXPIRED' });
     return null;
   }
+
+  // Grace period for PAID Pro subscriptions: when `endsAt` has lapsed but we
+  // are still within the 5-day grace window, access is granted (the frontend
+  // shows a "Renew" banner). Past the grace window the subscription is
+  // treated as expired and the gate denies access.
+  if (
+    subscription.status === 'active' &&
+    typeof subscription.endsAt === 'number' &&
+    subscription.endsAt <= Date.now()
+  ) {
+    if (subscription.endsAt + GRACE_PERIOD_MS > Date.now()) {
+      res.locals.plan = { state: 'grace', renewRequired: true, endsAt: subscription.endsAt };
+      return plan;
+    }
+    res.status(403).json({
+      error: 'Your Pro subscription has expired. Renew to keep using Pro features.',
+      code: 'PLAN_EXPIRED',
+    });
+    return null;
+  }
+
   return plan;
 }
 
@@ -240,25 +262,25 @@ router.put('/pro-site/files', async (req, res) => {
     }
 
     const now = Date.now();
-    for (const [filePath, content] of validated) {
-      const existing = await db.select({ id: proSiteFiles.id })
-        .from(proSiteFiles)
-        .where(and(eq(proSiteFiles.tenantId, tenantId), eq(proSiteFiles.filePath, filePath)))
-        .get();
-      if (existing) {
-        await db.update(proSiteFiles)
-          .set({ content, updatedAt: now })
-          .where(eq(proSiteFiles.id, existing.id));
-      } else {
-        await db.insert(proSiteFiles).values({
-          id: crypto.randomUUID(),
-          tenantId,
-          filePath,
-          content,
-          updatedAt: now,
-        });
-      }
-    }
+    // Batch upsert in a SINGLE statement (N+1 elimination): the unique
+    // (tenant_id, file_path) index lets one INSERT ... ON CONFLICT DO UPDATE
+    // handle both new rows (insert) and existing rows (update) without a
+    // per-file SELECT → UPDATE/INSERT round trip.
+    const rows = validated.map(([filePath, content]) => ({
+      id: crypto.randomUUID(),
+      tenantId,
+      filePath,
+      content,
+      updatedAt: now,
+    }));
+
+    await db.insert(proSiteFiles)
+      .values(rows)
+      .onConflictDoUpdate({
+        target: [proSiteFiles.tenantId, proSiteFiles.filePath],
+        set: { content: sql`excluded.content`, updatedAt: now },
+      });
+
     res.json({ success: true, count: validated.length });
   } catch (error) {
     console.error('Pro-site upsert error:', error);
