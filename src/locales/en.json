@@ -305,5 +305,51 @@
     "live": "LIVE",
     "charge": "charging Telebirr…",
     "chargeAm": "የቴሌቢር ክፍያ እየገባ ነው…"
+  },
+  "dual": {
+    "viewSwitcher": "Switch between deposit proof and living calendar",
+    "proofTab": "DEPOSIT PROOF",
+    "calendarTab": "LIVING CALENDAR"
+  },
+  "calendar": {
+    "ariaLabel": "Living Ethiopian calendar showing today's slots",
+    "toggle": "toggle calendar view",
+    "showGregorian": "SHOW GREGORIAN",
+    "showEthiopian": "SHOW ETHIOPIAN"
+  },
+  "dashboard": {
+    "generateSite": "Generate my site",
+    "generatingSite": "Generating…",
+    "shareToTelegram": "Share to Telegram",
+    "copyLink": "Copy link",
+    "linkCopied": "Link copied",
+    "siteReady": "Your site is ready to share",
+    "walkIn": "Walk-in",
+    "walkInName": "Customer name",
+    "walkInPhone": "Phone (optional)",
+    "walkInNamePlaceholder": "e.g. Saba",
+    "walkInPhonePlaceholder": "e.g. +251911123456",
+    "chooseService": "Choose a service",
+    "chooseStaff": "Choose a staff member",
+    "chooseTime": "Choose a time",
+    "confirmWalkIn": "Confirm walk-in",
+    "submittingWalkIn": "Confirming…",
+    "cancel": "Cancel",
+    "home": "Home",
+    "homeAm": "መነሻ",
+    "shop": "Shop",
+    "shopAm": "ሱቅ",
+    "site": "Site",
+    "siteAm": "ድር",
+    "todaySchedule": "Today's schedule",
+    "todayScheduleAm": "የዛሬ የስራ እቅድ",
+    "todayRevenue": "Today's revenue estimate",
+    "todayRevenueAm": "የዛሬ ገቢ ግምት",
+    "walkInAm": "በቀጥታ ገባ",
+    "newBookingBanner": "New booking!",
+    "newBookingBannerAt": "at",
+    "noBookingsToday": "No bookings today yet.",
+    "shopServices": "Services",
+    "shopStaff": "Staff"
   }
 }

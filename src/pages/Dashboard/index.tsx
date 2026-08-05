@@ -1,10 +1,12 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Routes, Route, Link, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import {
   Home, Calendar, Scissors, Users, Globe, Image, Settings, LogOut,
-  Plus, CalendarPlus, ImagePlus,
+  Plus, CalendarPlus, ImagePlus, Store, UserPlus, Clock,
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { useTranslation } from 'react-i18next';
+
 import { Bookings } from './Bookings';
 
 import { WebsiteBuilder } from './WebsiteBuilder';
@@ -15,9 +17,10 @@ import { ServicesPage } from './ServicesPage';
 import { StaffPage } from './StaffPage';
 import { MediaLibraryPage } from './MediaLibraryPage';
 import { authFetch } from '../../lib/api';
-import { getRole, useRole, isStaff } from '../../lib/auth';
+import { useRole, isStaff } from '../../lib/auth';
 import { StaffRedirect } from './StaffRedirect';
 import { BuilderModeProvider, useBuilderMode } from './BuilderModeContext';
+import { WalkInSheet } from './WalkInSheet';
 
 const STAFF_NAV = [{ name: 'Bookings', path: '/dashboard/bookings', icon: Calendar }];
 
@@ -31,6 +34,53 @@ const ALL_NAV = [
   { name: 'Settings', path: '/dashboard/settings', icon: Settings },
 ];
 
+/** Shape of GET /api/tenant/dashboard — whitelisted owner Home payload. */
+export interface DashboardAppointment {
+  id: string;
+  customerName: string;
+  serviceName: string | null;
+  status: 'confirmed' | 'pending' | string;
+  time: string;
+}
+export interface DashboardData {
+  today: DashboardAppointment[];
+  todayAppointments: number;
+  confirmedAppointments: number;
+  pendingAppointments: number;
+  completedAppointments: number;
+  completedRevenueCents: number;
+  completedRevenueEtb: number;
+  walkInEnabled: boolean;
+}
+
+/**
+ * Tailwind's `md:` breakpoint is 768px. The mobile bottom-nav shell condenses
+ * the owner experience to three tabs on phone-sized viewports and lets the
+ * desktop sidebar / Overview take over at 768px and up.
+ */
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches,
+  );
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)');
+    const onChange = () => setIsMobile(mq.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+  return isMobile;
+}
+
+/**
+ * Shares the live-polled dashboard payload down to the mobile Home route so
+ * the schedule/revenue card and the new-booking banner read the same feed.
+ */
+const DashboardDataContext = React.createContext<DashboardData | null>(null);
+
+function useDashboardContext(): DashboardData | null {
+  return React.useContext(DashboardDataContext);
+}
+
 export function Dashboard() {
   return (
     <BuilderModeProvider>
@@ -43,17 +93,13 @@ function DashboardInner() {
   const navigate = useNavigate();
   const location = useLocation();
   const role = useRole();
+  const { t } = useTranslation();
   const { mode: builderMode } = useBuilderMode();
   const [sidebarHovered, setSidebarHovered] = useState(false);
-
-  // In Code Mode the sidebar auto-minimizes to icon-only (60px) and expands on
-  // hover, overlaying the content, so the code editor gets maximum space.
-  const isCodeMode = builderMode === 'code';
-  const sidebarExpanded = isCodeMode ? sidebarHovered : true;
+  const isMobile = useIsMobile();
 
   // Stub logout
   const handleLogout = async () => {
-    // Clear the server-side session (bumps token_version + clears cookies).
     try {
       await authFetch('/api/auth/logout', { method: 'POST' });
     } catch {
@@ -63,11 +109,76 @@ function DashboardInner() {
     navigate('/login');
   };
 
+  // In Code Mode the sidebar auto-minimizes to icon-only (60px) and expands on
+  // hover, overlaying the content, so the code editor gets maximum space.
+  const isCodeMode = builderMode === 'code';
+  const sidebarExpanded = isCodeMode ? sidebarHovered : true;
+
+  // ── WP2.4: live Home feed — poll the dashboard every 30s, vibrate + banner
+  const [dashboard, setDashboard] = useState<DashboardData | null>(null);
+  const [banner, setBanner] = useState<DashboardAppointment | null>(null);
+  const [walkInOpen, setWalkInOpen] = useState(false);
+  const lastIdsRef = useRef<Set<string>>(new Set());
+  const firstPollRef = useRef(true);
+
+  const pollDashboard = useCallback(async () => {
+    try {
+      const res = await authFetch('/api/tenant/dashboard');
+      if (!res.ok) return;
+      const data: DashboardData = await res.json();
+      const confirmed = Array.isArray(data.today)
+        ? data.today.filter((b) => b.status === 'confirmed')
+        : [];
+      const nowIds = new Set(confirmed.map((b) => b.id));
+      const prevIds = lastIdsRef.current;
+      lastIdsRef.current = nowIds;
+
+      setDashboard(data);
+
+      // Only alert on bookings that appeared between this poll and the last —
+      // never on the initial load. Consumer browsers leak a small vibration
+      // through the optional chaining guard; reduced-motion users still get
+      // the banner, just without the slide (see the CSS animation guard).
+      if (!firstPollRef.current) {
+        const fresh = confirmed.filter((b) => !prevIds.has(b.id));
+        if (fresh.length > 0) {
+          navigator.vibrate?.(120);
+          setBanner(fresh[fresh.length - 1]);
+        }
+      }
+      firstPollRef.current = false;
+    } catch {
+      // transient network / auth-refresh — the next poll retries
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isMobile || role === 'staff') return;
+    pollDashboard();
+    const id = setInterval(pollDashboard, 30_000);
+    return () => clearInterval(id);
+  }, [isMobile, role, pollDashboard]);
+
+  // Auto-dismiss the new-booking banner after a few seconds.
+  useEffect(() => {
+    if (!banner) return;
+    const id = setTimeout(() => setBanner(null), 6000);
+    return () => clearTimeout(id);
+  }, [banner]);
+
   const navItems = role === 'staff' ? STAFF_NAV : ALL_NAV;
+
+  const mobileTitle = useMemo(() => {
+    if (location.pathname === '/dashboard' || location.pathname === '/dashboard/') return t('dashboard.home');
+    if (location.pathname.startsWith('/dashboard/shop')) return t('dashboard.shop');
+    if (location.pathname.startsWith('/dashboard/website-builder')) return t('dashboard.site');
+    if (location.pathname.startsWith('/dashboard/bookings')) return t('nav.dashboard');
+    return 'Egebeya';
+  }, [location.pathname, t]);
 
   return (
     <div className="min-h-screen bg-paper flex" style={{ fontFamily: 'var(--font-body)' }}>
-      {/* Sidebar — collapsible (60px) in Code Mode, expanded on hover */}
+      {/* Sidebar — desktop only (hidden on mobile); collapsible in Code Mode */}
       <aside
         onMouseEnter={() => isCodeMode && setSidebarHovered(true)}
         onMouseLeave={() => isCodeMode && setSidebarHovered(false)}
@@ -123,38 +234,234 @@ function DashboardInner() {
 
       {/* Main Content */}
       <main className={`flex-1 flex flex-col min-h-screen overflow-hidden ${isCodeMode ? 'md:ml-[60px]' : ''}`}>
-        <header className="h-16 bg-paper-bleached border-b border-ink-rule flex items-center px-6 md:px-8">
-          <h1 className="text-xl font-bold text-ink">Dashboard</h1>
+        <header className="h-14 md:h-16 bg-paper-bleached border-b border-ink-rule flex items-center justify-between px-4 md:px-8">
+          <h1 className="text-lg md:text-xl font-bold text-ink">
+            {isMobile ? mobileTitle : 'Dashboard'}
+          </h1>
+          {isMobile && (
+            <button
+              onClick={handleLogout}
+              aria-label="Sign out"
+              className="flex items-center gap-1 rounded-md px-3 min-h-[44px] text-sm font-medium text-ink-soft hover:text-ink hover:bg-paper-raised transition-colors"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+          )}
         </header>
 
-        <div className="flex-1 p-6 md:p-8 overflow-y-auto">
-          <Routes>
-            <Route path="/" element={<OverviewOrRedirect />} />
-            <Route path="/bookings" element={<Bookings />} />
-            <Route path="/services" element={<ServicesPage />} />
-            <Route path="/staff" element={<StaffPage />} />
-            <Route path="/website-builder" element={<WebsiteBuilder />} />
-            {/* Legacy editor routes redirect to the unified builder */}
-            <Route path="/website" element={<Navigate to="/dashboard/website-builder" replace />} />
-            <Route path="/code" element={<Navigate to="/dashboard/website-builder" replace />} />
-            <Route path="/media" element={<MediaLibraryPage />} />
-            <Route path="/settings" element={<SettingsComponent />} />
-            <Route path="*" element={<Navigate to="/dashboard/bookings" replace />} />
-          </Routes>
+        <div className="flex-1 p-4 md:p-8 overflow-y-auto pb-28 md:pb-8">
+          <DashboardDataContext.Provider value={dashboard}>
+            <Routes>
+              <Route path="/" element={<OverviewOrRedirect isMobile={isMobile} />} />
+              <Route path="/bookings" element={<Bookings />} />
+              <Route path="/services" element={<ServicesPage />} />
+              <Route path="/staff" element={<StaffPage />} />
+              <Route path="/shop" element={<ShopPage />} />
+              <Route path="/website-builder" element={<WebsiteBuilder />} />
+              {/* Legacy editor routes redirect to the unified builder */}
+              <Route path="/website" element={<Navigate to="/dashboard/website-builder" replace />} />
+              <Route path="/code" element={<Navigate to="/dashboard/website-builder" replace />} />
+              <Route path="/media" element={<MediaLibraryPage />} />
+              <Route path="/settings" element={<SettingsComponent />} />
+              <Route path="*" element={<Navigate to="/dashboard/bookings" replace />} />
+            </Routes>
+          </DashboardDataContext.Provider>
         </div>
       </main>
+
+      {/* WP2.4: slide-down new-booking banner (mobile only) */}
+      {isMobile && banner && (
+        <NewBookingBanner item={banner} onDismiss={() => setBanner(null)} />
+      )}
+
+      {/* WP2.3: fixed bottom navigation on phone-sized viewports */}
+      {isMobile && (
+        <BottomNav role={role} pathname={location.pathname} />
+      )}
+
+      {/* Walking FAB above the bottom nav, gated by the server role check */}
+      {isMobile && dashboard?.walkInEnabled === true && (
+        <button
+          onClick={() => setWalkInOpen(true)}
+          aria-label="Walk-in"
+          className="fixed bottom-24 right-4 z-40 inline-flex h-14 w-14 items-center justify-center rounded-full bg-primary text-white shadow-lg shadow-black/20 hover:opacity-90 transition"
+        >
+          <UserPlus className="h-6 w-6" />
+        </button>
+      )}
+
+      <WalkInSheet open={walkInOpen} onClose={() => setWalkInOpen(false)} onCreated={pollDashboard} />
     </div>
   );
 }
 
+/** Mobile-only Shop tab — a segmented switch between Services and Staff. */
+function ShopPage() {
+  const { t } = useTranslation();
+  const [tab, setTab] = useState<'services' | 'staff'>('services');
+  return (
+    <StaffRedirect>
+      <div className="space-y-4">
+        <div className="flex rounded-xl border border-ink-rule bg-paper-bleached p-1 max-w-md">
+          <button
+            onClick={() => setTab('services')}
+            className={`flex-1 rounded-lg px-4 py-3 text-sm font-semibold transition-colors ${
+              tab === 'services' ? 'bg-primary text-white' : 'text-ink-soft hover:text-ink'
+            }`}
+          >
+            {t('dashboard.shopServices')}
+          </button>
+          <button
+            onClick={() => setTab('staff')}
+            className={`flex-1 rounded-lg px-4 py-3 text-sm font-semibold transition-colors ${
+              tab === 'staff' ? 'bg-primary text-white' : 'text-ink-soft hover:text-ink'
+            }`}
+          >
+            {t('dashboard.shopStaff')}
+          </button>
+        </div>
+        {tab === 'services' ? <ServicesPage /> : <StaffPage />}
+      </div>
+    </StaffRedirect>
+  );
+}
+
+/** Mobile-only Home — today's schedule + today's revenue + live booking feed. */
+function MobileHome({ dashboard }: { dashboard: DashboardData | null }) {
+  const { t } = useTranslation();
+  const revenueEtb = typeof dashboard?.completedRevenueEtb === 'number' ? dashboard.completedRevenueEtb : null;
+
+  return (
+    <div className="space-y-4 max-w-lg mx-auto">
+      <div className="bg-paper-bleached rounded-xl border border-ink-rule p-5">
+        <div className="text-sm font-medium text-ink-soft mb-1">{t('dashboard.todayRevenue')}</div>
+        <div className="text-3xl font-bold text-ink">
+          {revenueEtb == null ? 'ETB --' : `ETB ${revenueEtb.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`}
+        </div>
+      </div>
+
+      <section className="bg-paper-bleached rounded-xl border border-ink-rule">
+        <header className="px-5 py-4 border-b border-ink-rule">
+          <h2 className="text-lg font-bold text-ink">{t('dashboard.todaySchedule')}</h2>
+        </header>
+        {!dashboard || dashboard.today.length === 0 ? (
+          <div className="p-6 text-sm text-ink-soft flex items-center gap-2">
+            <Calendar className="h-4 w-4 text-ink-stamp" />
+            {t('dashboard.noBookingsToday')}
+          </div>
+        ) : (
+          <ul role="list" className="divide-y divide-ink-rule">
+            {dashboard.today.map((b) => (
+              <li key={b.id} className="flex items-center gap-4 px-5 py-4">
+                <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-ink/10 text-ink font-semibold text-sm">
+                  {(b.customerName && b.customerName.charAt(0)) || '?'}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-ink truncate">
+                    {b.customerName || 'Customer'}
+                    {b.serviceName && <span className="text-ink-stamp"> · {b.serviceName}</span>}
+                  </div>
+                  <span
+                    className={`inline-block text-xs font-medium ${
+                      b.status === 'pending' ? 'text-accent-secondary-deep' : 'text-success-deep'
+                    }`}
+                  >
+                    {b.status}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1 text-sm font-semibold text-ink">
+                  <Clock className="h-4 w-4 text-ink-stamp" />
+                  {b.time}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </div>
+  );
+}
+
+/** WP2.4 slide-down banner for a newly-confirmed booking. */
+function NewBookingBanner({ item, onDismiss }: { item: DashboardAppointment; onDismiss: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <div className="fixed top-0 inset-x-0 z-50 flex justify-center px-4">
+      <button
+        onClick={onDismiss}
+        aria-live="polite"
+        className="animate-banner-slide-down mt-3 w-full max-w-md rounded-xl bg-primary text-white px-5 py-4 text-left shadow-lg shadow-black/20 hover:opacity-95 transition flex items-center gap-3"
+      >
+        <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/20">
+          <Calendar className="h-5 w-5" />
+        </span>
+        <span className="flex-1 min-w-0">
+          <span className="block font-bold">{t('dashboard.newBookingBanner')}</span>
+          <span className="block text-sm text-white/90 truncate">
+            {item.customerName} {t('dashboard.newBookingBannerAt')} {item.time}
+          </span>
+        </span>
+      </button>
+    </div>
+  );
+}
+
+/** Fixed bottom navigation — three tabs on mobile (Home, Shop, Site). */
+function BottomNav({ role, pathname }: { role: string | null; pathname: string }) {
+  const { t } = useTranslation();
+
+  const tabs: { key: string; to: string; icon: any; label: string }[] =
+    role === 'staff'
+      ? [{ key: 'bookings', to: '/dashboard/bookings', icon: Calendar, label: t('nav.dashboard') }]
+      : [
+        { key: 'home', to: '/dashboard', icon: Home, label: t('dashboard.home') },
+        { key: 'shop', to: '/dashboard/shop', icon: Store, label: t('dashboard.shop') },
+        { key: 'site', to: '/dashboard/website-builder', icon: Globe, label: t('dashboard.site') },
+      ];
+
+  const isActive = (to: string) =>
+    to === '/dashboard'
+      ? pathname === '/dashboard' || pathname === '/dashboard/'
+      : pathname === to || pathname.startsWith(to.replace(/\/$/, ''));
+
+  return (
+    <nav
+      className="fixed bottom-0 inset-x-0 z-40 bg-surface-raised border-t border-ink-rule flex"
+      style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 0rem)' }}
+      aria-label="Primary"
+    >
+      {tabs.map((tab) => {
+        const Icon = tab.icon;
+        const active = isActive(tab.to);
+        return (
+          <Link
+            key={tab.key}
+            to={tab.to}
+            className={`flex-1 flex flex-col items-center justify-center gap-1 min-h-[52px] py-2 transition-colors ${
+              active ? 'text-primary-deep' : 'text-ink-soft hover:text-ink'
+            }`}
+          >
+            <Icon className={`h-6 w-6 ${active ? 'text-primary' : ''}`} />
+            <span className="text-[11px] font-semibold">{tab.label}</span>
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
+
 /**
- * `/dashboard` defaults to the Overview tab for owners and admins. Staff
- * accounts have no Overview tab — bounce them to their only allowed tab,
- * Bookings, instantly so they never see the admin setup guide.
+ * `/dashboard` defaults to the Overview tab for owners and admins (desktop) or
+ * the Home mobile shell. Staff accounts have no Overview tab — bounce them to
+ * their only allowed tab, Bookings.
  */
-function OverviewOrRedirect() {
+function OverviewOrRedirect({ isMobile }: { isMobile: boolean }) {
+  const dashboard = useDashboardContext();
   if (isStaff()) {
     return <Navigate to="/dashboard/bookings" replace />;
+  }
+  if (isMobile) {
+    return <MobileHome dashboard={dashboard} />;
   }
   return <Overview />;
 }
@@ -166,6 +473,9 @@ function Overview() {
   );
   const [recent, setRecent] = useState<any[]>([]);
   const [loadingRecent, setLoadingRecent] = useState(true);
+  const [weeklyRevenue, setWeeklyRevenue] = useState<number | null>(null);
+  const [weeklyDaily, setWeeklyDaily] = useState<{date:string;revenue:number;bookings:number}[]>([]);
+  const [loadingAnalytics, setLoadingAnalytics] = useState(true);
 
   useEffect(() => {
     authFetch('/api/tenant/settings')
@@ -192,8 +502,6 @@ function Overview() {
         setCounts(c => ({ ...c, staff: Array.isArray(rows) ? rows.length : 0 })))
       .catch(() => {});
 
-    // Recent confirmed appointments feed — server may not implement
-    // status filtering, so we slice client-side after sorting by startTime desc.
     setLoadingRecent(true);
     authFetch('/api/bookings?status=confirmed')
       .then((r) => (r.ok ? r.json() : []))
@@ -208,6 +516,17 @@ function Overview() {
       })
       .catch(() => setRecent([]))
       .finally(() => setLoadingRecent(false));
+
+    setLoadingAnalytics(true);
+    authFetch('/api/tenant/analytics')
+    .then((r) => (r.ok ? r.json() : null))
+    .then((data: any) => {
+      if (!data) return;
+      setWeeklyRevenue(typeof data.totalRevenue === 'number' ? data.totalRevenue : null);
+      setWeeklyDaily(Array.isArray(data.daily) ? data.daily : []);
+    })
+    .catch(() => {})
+    .finally(() => setLoadingAnalytics(false));
   }, []);
 
   return (

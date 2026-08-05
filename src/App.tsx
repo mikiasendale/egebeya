@@ -23,6 +23,7 @@ const NotFound = lazy(() => import('./pages/NotFound').then(m => ({ default: m.N
 const Admin = lazy(() => import('./pages/Admin').then(m => ({ default: m.Admin })));
 const Privacy = lazy(() => import('./pages/Privacy').then(m => ({ default: m.Privacy })));
 const Terms = lazy(() => import('./pages/Terms').then(m => ({ default: m.Terms })));
+const EmbedBooking = lazy(() => import('./pages/EmbedBooking').then(m => ({ default: m.EmbedBooking })));
 
 function RouteFallback() {
   return (
@@ -84,6 +85,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/discover" element={<Discover />} />
+          <Route path="/embed/booking" element={<EmbedBooking />} />
           <Route path="/:slug/book" element={<PublicBookingPage />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />

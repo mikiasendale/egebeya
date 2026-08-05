@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 
-export type BuilderMode = 'visual' | 'code';
+export type BuilderMode = 'puck' | 'code';
 
 interface BuilderModeContextValue {
   mode: BuilderMode;
@@ -8,12 +8,12 @@ interface BuilderModeContextValue {
 }
 
 const BuilderModeContext = createContext<BuilderModeContextValue>({
-  mode: 'visual',
+  mode: 'puck',
   setMode: () => {},
 });
 
 export function BuilderModeProvider({ children }: { children: React.ReactNode }) {
-  const [mode, setMode] = useState<BuilderMode>('visual');
+  const [mode, setMode] = useState<BuilderMode>('puck');
   const value = { mode, setMode };
   return (
     <BuilderModeContext.Provider value={value}>

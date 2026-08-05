@@ -4,7 +4,7 @@ import en from './locales/en.json';
 import am from './locales/am.json';
 
 const stored = typeof window !== 'undefined' ? localStorage.getItem('i18nextLng') : null;
-const initialLng = stored || 'en';
+const initialLng = stored || (typeof navigator !== 'undefined' && navigator.language.toLowerCase().startsWith('am') ? 'am' : 'en');
 
 i18n.use(initReactI18next).init({
   resources: { en: { translation: en }, am: { translation: am } },

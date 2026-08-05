@@ -28,6 +28,8 @@ import crypto from 'crypto';
 import { requireAuth } from './middleware/auth';
 import { csrfProtection } from './middleware/csrf';
 import { requireProPlan } from './pro-site';
+import { tenantWriteLimiter } from '../../server/middleware/rateLimiter';
+import { generateBusinessDescription } from '../../server/lib/ai';
 
 const router = Router();
 
@@ -228,6 +230,51 @@ Make sure to escape any special characters properly in the JSON.`;
   } catch (err: any) {
     console.error('[ai-chat] OpenRouter fetch error:', err?.message || err);
     res.status(502).json({ error: 'Failed to contact AI service. Please try again.' });
+  }
+});
+
+/**
+ * POST /api/tenant/ai/generate-description
+ *
+ * Authenticated, Pro-gated endpoint that calls the AI generation wrapper
+ * to produce business description + tagline. Rate-limited per-tenant.
+ *
+ * Input: { businessName: string; category: string; city?: string; services: string[]; locale?: 'en' | 'am' }
+ * Output: { description: string; tagline: string }
+ */
+router.post('/ai/generate-description', tenantWriteLimiter, async (req, res) => {
+  const { tenantId } = (req as any).user;
+
+  // Pro-plan gate
+  const plan = await requireProPlan(req, res);
+  if (!plan) return;
+
+  try {
+    const { businessName, category, city, services, locale } = req.body;
+
+    if (!businessName || typeof businessName !== 'string' || businessName.trim().length === 0) {
+      return res.status(400).json({ error: 'businessName is required' });
+    }
+    if (!Array.isArray(services)) {
+      return res.status(400).json({ error: 'services must be an array' });
+    }
+    if (!category || typeof category !== 'string') {
+      return res.status(400).json({ error: 'category is required' });
+    }
+
+    const result = await generateBusinessDescription({
+      businessName: businessName.trim(),
+      category: category.trim(),
+      city: city?.trim() || undefined,
+      services,
+      locale: locale === 'am' ? 'am' : 'en',
+    });
+
+    res.json(result);
+  } catch (error: any) {
+    console.error('[ai] generate-description error:', error?.message || error);
+    // Never log the API key even in error
+    res.status(500).json({ error: 'Failed to generate description. Please try again.' });
   }
 });
 

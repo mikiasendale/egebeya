@@ -305,5 +305,51 @@
     "live": "ቀጥታ",
     "charge": "የቴሌቢር ክፍያ እየገባ ነው…",
     "chargeAm": "charging Telebirr…"
+  },
+  "dual": {
+    "viewSwitcher": "የተቀማጭ ማረጋገጫ እና የሕይወት ቀን ቁጠጠር ይተላለፉ",
+    "proofTab": "የተቀማጭ ማረጋገጫ",
+    "calendarTab": "የሕይወት ቀን ቁጠጠር"
+  },
+  "calendar": {
+    "ariaLabel": "የዛሬውን ቦታዎች የሚያሳይ የኢትዮጵያ ካላንደር",
+    "toggle": "የቀን ቁጠጠር ንዴዎን ቀይር",
+    "showGregorian": "ግሪጎሪያን ያሳይ",
+    "showEthiopian": "ኢትዮጵያዊ ያሳይ"
+  },
+  "dashboard": {
+    "generateSite": "ጣቢያዬን ይፍጠሩ",
+    "generatingSite": "እየተፈጠረ ነው…",
+    "shareToTelegram": "በቴሌግራም አጋራ",
+    "copyLink": "አገናኝ ቅዳ",
+    "linkCopied": "አገናኝ ተቀድቷል",
+    "siteReady": "ጣታዎ ለማጋራት ዝግጁ ነው",
+    "walkIn": "Walk-in",
+    "walkInName": "የደንበኛ ስም",
+    "walkInPhone": "ስልክ (አማራጭ)",
+    "walkInNamePlaceholder": "ለምሳሌ ሳባ",
+    "walkInPhonePlaceholder": "ለምሳሌ +251911123456",
+    "chooseService": "አገልግሎት ይምረጡ",
+    "chooseStaff": "ሰራተኛ ይምረጡ",
+    "chooseTime": "ሰዓት ይምረጡ",
+    "confirmWalkIn": "ቀዳሚን አረጋግጥ",
+    "submittingWalkIn": "እያረጋገጠ ነው…",
+    "cancel": "ይቅር",
+    "home": "Home",
+    "homeAm": "መነሻ",
+    "shop": "Shop",
+    "shopAm": "ሱቅ",
+    "site": "Site",
+    "siteAm": "ድር",
+    "todaySchedule": "Today's schedule",
+    "todayScheduleAm": "የዛሬ የስራ እቅድ",
+    "todayRevenue": "Today's revenue estimate",
+    "todayRevenueAm": "የዛሬ ገቢ ግምት",
+    "walkInAm": "በቀጥታ ገባ",
+    "newBookingBanner": "አዲስ ቀጠሮ!",
+    "newBookingBannerAt": "በ",
+    "noBookingsToday": "ዛሬ ገና ቀጠሮ የለም።",
+    "shopServices": "አገልግሎቶች",
+    "shopStaff": "ሰራተኞች"
   }
 }

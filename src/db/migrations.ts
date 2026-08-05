@@ -184,6 +184,31 @@ export async function ensureSchemaMigrations(): Promise<Record<string, string[]>
       column: 'refresh_token_id',
       sql: `ALTER TABLE users ADD COLUMN refresh_token_id TEXT NOT NULL DEFAULT ''`,
     },
+    {
+      // active_build_id — points to the current published Code Mode build
+      // folder under storage/pro-builds/{tenantId}/{buildId}/. Added for
+      // the new publish pipeline. Default NULL so existing tenants continue
+      // to work without a build.
+      table: 'site_config',
+      column: 'active_build_id',
+      sql: `ALTER TABLE site_config ADD COLUMN active_build_id TEXT`,
+    },
+    {
+      // sent_via — audit column on appointments recording which reminder
+      // channel was used ('sms', 'email', or 'both'). Nullable so existing
+      // rows (pre-SMS) report NULL in the dashboard audit view.
+      table: 'appointments',
+      column: 'sent_via',
+      sql: `ALTER TABLE appointments ADD COLUMN sent_via TEXT`,
+    },
+    {
+      // cancels_at — when payment_upfront is true, this is set to
+      // startTimeMs - 15min so abandoned pending slots are reclaimed by the
+      // cleanup cron without a manual refund step (refunds are manual).
+      table: 'appointments',
+      column: 'cancels_at',
+      sql: `ALTER TABLE appointments ADD COLUMN cancels_at INTEGER`,
+    },
   ];
 
   for (const m of migrations) {

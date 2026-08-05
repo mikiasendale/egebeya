@@ -38,7 +38,8 @@ export type SecurityEventType =
   | 'suspended_tenant_request'
   | 'plan_gate_denied'
   | 'webhook_idempotent_duplicate'
-  | 'data_deletion_request';
+  | 'data_deletion_request'
+  | 'reminder-sent-sms';
 
 export interface SecurityEventInput {
   type: SecurityEventType;

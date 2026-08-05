@@ -6,8 +6,9 @@
  * the canonical tenant identifier used by all public routes:
  *
  *   /:slug          → public tenant page (Puck or Code HTML)
- *   /book/:slug     → standalone booking flow
- *   /embed/:slug/*  → embeddable widget endpoints (when added)
+ *   /book/:slug     → standalone booking flow (full-page SPA)
+ *   /embed/booking?bid=SLUG → embeddable minimal booking widget (iframe-safe)
+ *   /embed/:slug/*  → future embeddable widget endpoints
  *
  * FUTURE LLM INTEGRATION: Pass this config to the AI's system prompt.
  * The AI must use these exact routes and the user's business_id (slug) to
@@ -24,9 +25,9 @@ export interface WidgetSpec {
   snippet: string;
 }
 
-/** Booking Engine — embed the full booking flow for a business. */
+/** Booking Engine — embed the booking flow for a business via the minimal iframe route. */
 export function getBookingWidget(businessId: string): WidgetSpec {
-  const src = `${APP_ROOT}/book/${businessId}`;
+  const src = `${APP_ROOT}/embed/booking?bid=${businessId}`;
   return {
     id: 'booking',
     label: 'Booking Engine',

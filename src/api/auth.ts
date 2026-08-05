@@ -6,6 +6,7 @@ import { users, tenants, passwordResets, plans, tenantSubscriptions } from '../d
 import { eq, sql } from 'drizzle-orm';
 import crypto from 'crypto';
 import { sendMail } from '../../server/lib/mailer';
+import { applyTemplate } from '../../server/lib/mailTemplates';
 import { jwtSecret, refreshSecret, requireAuth } from './middleware/auth';
 import { csrfProtection } from './middleware/csrf';
 import { authLimiter } from '../../server/middleware/rateLimiter';
@@ -340,11 +341,17 @@ router.post('/forgot-password', authLimiter, async (req, res) => {
 
     const resetLink = `${process.env.APP_URL || 'http://localhost:3000'}/reset-password?token=${token}`;
 
-    await sendMail({
-      to: email,
-      subject: 'Password Reset Request',
-      text: `Hello,\n\nYou requested to reset your password. Click the link below to reset it:\n${resetLink}\n\nThis link expires in 15 minutes.\nIf you did not request this, please ignore this email.`
-    });
+  const userWithTenant = await db.select({ tenantId: users.tenantId }).from(users).where(eq(users.id, user.id)).get();
+  const tenant = userWithTenant?.tenantId ? await db.select({ settings: tenants.settings }).from(tenants).where(eq(tenants.id, userWithTenant.tenantId)).get() : null;
+  const settings = (tenant?.settings as any) || {};
+  const locale: 'en' | 'am' = String(settings.defaultLocale || 'en').startsWith('am') ? 'am' : 'en';
+  const { subject, text } = applyTemplate('passwordReset', locale, { link: resetLink });
+
+  await sendMail({
+    to: email,
+    subject,
+    text,
+  });
 
     res.json({ success: true, message: 'If that email is registered, you will receive a reset link.' });
   } catch (error) {
