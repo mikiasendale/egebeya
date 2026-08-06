@@ -1,7 +1,7 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { Send, Link as LinkIcon, Check, Rocket, Loader2 } from 'lucide-react';
+import { Send, Link as LinkIcon, Check, Rocket, Loader2, Sparkles } from 'lucide-react';
 import { authFetch } from '../lib/api';
 import { InstantEmpireAnimation } from '../components/InstantEmpireAnimation';
 
@@ -214,8 +214,46 @@ export function SetupWizard() {
     }
   };
 
+  // Progressive "Instant Empire" loading carousel — cycles through setup steps
+  // every 800ms so the generation screen feels intentional, not frozen.
+  const empireSteps = [
+    'Setting up your Telebirr connection...',
+    'Generating your Ethiopian calendar...',
+    'Publishing your digital storefront...',
+  ];
+  const [empireStepIdx, setEmpireStepIdx] = useState(0);
+  useEffect(() => {
+    if (!generating || showEmpire) return;
+    setEmpireStepIdx(0);
+    const id = setInterval(() => {
+      setEmpireStepIdx((i) => (i + 1) % empireSteps.length);
+    }, 800);
+    return () => clearInterval(id);
+  }, [generating, showEmpire]);
+
   const busy = saving || generating;
   const finalLabel = generating ? 'Building your empire…' : 'Publish my business';
+
+  // ── GENERATING OVERLAY (before the cinematic) ──
+  if (generating && !showEmpire) {
+    return (
+      <div
+        className="min-h-screen flex flex-col items-center justify-center p-4"
+        style={{ backgroundColor: 'var(--color-paper)', fontFamily: 'var(--font-body)' }}
+      >
+        <div
+          className="w-12 h-12 rounded-full border-2 border-b-transparent animate-spin mb-6"
+          style={{ borderColor: 'var(--color-telebirr)', borderBottomColor: 'transparent' }}
+        />
+        <p
+          className="text-ink font-medium text-center"
+          style={{ fontFamily: 'var(--font-display)' }}
+        >
+          {empireSteps[empireStepIdx]}
+        </p>
+      </div>
+    );
+  }
 
   // ── INSTANT EMPIRE OVERLAY ──
   if (showEmpire && !empireComplete) {
