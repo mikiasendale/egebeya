@@ -80,6 +80,32 @@ export const discoverLimiter = rateLimit({
 });
 
 /**
+ * Intent-tracking endpoint (POST /api/public/intent). Anonymized buying-signal
+ * inserts from /discover — a scraper or a noisy client could spam rows, so we
+ * hold it to 1 request per minute per IP. Tight on purpose: the public
+ * /discover flow only fires one intent per page interaction.
+ */
+export const intentLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 1,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: isTestEnv,
+  message: {
+    error: 'Too many requests, please slow down.',
+    code: 'RATE_LIMITED_INTENT',
+  },
+  handler: (req, res, _next, options) => {
+    logSecurityEvent({
+      type: 'rate_limit',
+      ip: ipFromRequest(req),
+      details: { surface: 'intent', message: options.message },
+    });
+    res.status(429).json(options.message);
+  },
+});
+
+/**
  * Even stricter limiter for OTP/verify-style endpoints if/when we add
  * them (telebirr push, SMS-OTP). Reserved here so we don't accidentally
  * reuse the looser auth preset on something a script can blast at 20/15min.
