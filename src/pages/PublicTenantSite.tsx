@@ -7,6 +7,24 @@ import { Render } from '@measured/puck';
 import { config } from '../lib/puck.config';
 import '@measured/puck/dist/index.css';
 
+// Extract the Hero block's background image from a Puck document (client-side
+// mirror of the server's extractHeroImage — used for OG image injection).
+function extractHeroImage(pageContent: any): string | null {
+  if (!pageContent || typeof pageContent !== 'object') return null;
+  const blocks = Array.isArray(pageContent.content)
+    ? pageContent.content
+    : Array.isArray(pageContent.blocks)
+      ? pageContent.blocks
+      : [];
+  for (const b of blocks) {
+    if (b && b.type === 'Hero' && b.props) {
+      const img = b.props.backgroundImage;
+      if (typeof img === 'string' && img.trim()) return img.trim();
+    }
+  }
+  return null;
+}
+
 export function PublicTenantSite({ hostname }: { hostname: string }) {
   const [tenant, setTenant] = useState<any>(null);
   const [pageData, setPageData] = useState<any>(null);
@@ -108,6 +126,31 @@ export function PublicTenantSite({ hostname }: { hostname: string }) {
     >
       <Helmet>
         <title>{tenant.name} | {t('publicTenant.bookOnline')}</title>
+        <meta property="og:title" content={tenant.name} />
+        <meta
+          property="og:description"
+          content={
+            tenant.description ||
+            `Book your appointment at ${tenant.name} on Egebeya. Fast, easy, and local.`
+          }
+        />
+        <meta property="og:type" content="business.business" />
+        <meta property="og:site_name" content="Egebeya" />
+        {extractHeroImage(pageData) && (
+          <meta property="og:image" content={extractHeroImage(pageData)!} />
+        )}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={tenant.name} />
+        <meta
+          name="twitter:description"
+          content={
+            tenant.description ||
+            `Book your appointment at ${tenant.name} on Egebeya. Fast, easy, and local.`
+          }
+        />
+        {extractHeroImage(pageData) && (
+          <meta name="twitter:image" content={extractHeroImage(pageData)!} />
+        )}
         {tenant.description && (
           <meta name="description" content={tenant.description} />
         )}
