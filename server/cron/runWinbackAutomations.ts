@@ -193,8 +193,21 @@ export async function runOnce(deps: WinbackDeps = {}): Promise<number> {
   return sent;
 }
 
-// Only execute CLI on direct invocation, never on import.
-if (process.env.NODE_ENV !== 'test' || require.main === module) {
+import { fileURLToPath } from 'url';
+import path from 'path';
+
+// Only execute CLI on direct invocation, never on import (server.ts loads
+// this module for node-cron scheduling, so it must not self-run in a bundle).
+const isDirectRun = (() => {
+  if (process.env.NODE_ENV === 'test') return false;
+  try {
+    return process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
+  } catch {
+    return false;
+  }
+})();
+
+if (isDirectRun) {
   const isLoop = process.argv.includes('--loop');
 
   async function main(): Promise<void> {
