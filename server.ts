@@ -39,7 +39,7 @@ if (process.env['behind-proxy'] === 'true') {
 const SPA_CSP = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-  "style-src 'self' 'unsafe-inline'",
+  "style-src 'self' 'unsafe-inline' https:",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data: https:",
   "connect-src 'self' ws: wss:",
@@ -53,7 +53,7 @@ app.use(helmet({
       ? { directives: {
           'default-src': ["'self'"],
           'script-src': ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
-          'style-src': ["'self'", "'unsafe-inline'"],
+          'style-src': ["'self'", "'unsafe-inline'", 'https:'],
           'img-src': ["'self'", 'data:', 'blob:', 'https:'],
           'font-src': ["'self'", 'data:', 'https:'],
           'connect-src': ["'self'", 'ws:', 'wss:'],
@@ -95,6 +95,23 @@ app.use(cors({
     callback(null, allowed);
   },
 }));
+
+// Static asset CORS for the `crossorigin` stylesheet preloads Vite injects at
+// runtime. Vite's __vitePreload helper creates <link rel="stylesheet"
+// crossorigin> for lazily-imported chunk CSS (e.g. the puck editor chunk).
+// Browsers fire the `error` event on a crossorigin stylesheet unless the
+// response carries Access-Control-Allow-Origin — even for a SAME-origin
+// resource. Without this header the preload promise rejects, which bubbles
+// into the dynamic import chain and prevents React from mounting (blank page).
+// Assets are anonymous (no cookies/credentials), so a permissive ACAO is safe.
+app.use('/assets', (_req, res, next) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  next();
+});
+app.use('/uploads', (_req, res, next) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  next();
+});
 
 // Parse cookies (httpOnly access/refresh tokens + csrf_token) for the SPA
 // session model.
