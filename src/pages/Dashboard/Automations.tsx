@@ -66,16 +66,24 @@ export function Automations() {
     return () => { cancelled = true; };
   }, []);
 
+  // Maps each sequence to the tenant setting key the cron gates on.
+  // The cron only sends a sequence when its key is true in tenant.settings.
+  const settingKeyFor = (id: string): string =>
+    id === 'holiday_vip' ? 'gift_vouchers_enabled' : 'automations_enabled';
+
   const toggleSequence = useCallback(async (id: string) => {
     setSavingId(id);
     const nextEnabled = !sequences.find((s) => s.id === id)?.enabled;
+    const settingKey = settingKeyFor(id);
     try {
-      // Persist as a tenant setting (automations_enabled). The cron reads this
-      // flag to decide whether to run any sequence this pass.
+      // Persist the gate the cron reads: `automations_enabled` for the winback
+      // sequence, `gift_vouchers_enabled` for the VIP gift sequence. When the
+      // owner flips it OFF, the cron skips every customer without touching
+      // their automation_state — so they're caught on a later run if re-enabled.
       const res = await authFetch('/api/tenant/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ [id]: nextEnabled }),
+        body: JSON.stringify({ [settingKey]: nextEnabled }),
       });
       if (!res.ok) throw new Error('Save failed');
       setSequences((prev) => prev.map((s) => (s.id === id ? { ...s, enabled: nextEnabled } : s)));
