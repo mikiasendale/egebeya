@@ -13,6 +13,7 @@ import { Bookings } from './Bookings';
 import { WebsiteBuilder } from './WebsiteBuilder';
 import { CustomerHealth } from './CustomerHealth';
 import { Automations } from './Automations';
+import { MarketPulseWidget } from '../../components/dashboard/MarketPulseWidget';
 
 import { Settings as SettingsComponent } from './Settings';
 
@@ -406,6 +407,8 @@ function MobileHome({ dashboard }: { dashboard: DashboardData | null }) {
         </div>
       </div>
 
+      <MarketPulseWidget />
+
       <WinBackWidget />
 
       <section className="bg-paper-bleached rounded-xl border border-ink-rule">
@@ -584,6 +587,8 @@ function Overview() {
         </div>
 
         <QuickActions />
+
+        <MarketPulseWidget />
 
         <MarketingDeck />
 
