@@ -97,6 +97,12 @@ async function selectCandidates(
         eq(plans.name, 'pro'),
         // Active (or trialing, non-lapsed) Pro subscription only.
         sql`${tenantSubscriptions.status} IN ('active', 'trial')`,
+        // Tenant-owner opt-in gate. The winback sequence only fires when the
+        // owner has flipped `automations_enabled` ON in Settings. Filtered
+        // SQL-side so a disabled tenant's rows are never loaded AND never
+        // have their automation_state touched — they stay eligible for a
+        // later run if the owner turns the toggle back on.
+        sql`json_extract(${tenants.settings}, '$.automations_enabled') = 1`,
       ),
     )
     .limit(chunkSize)
