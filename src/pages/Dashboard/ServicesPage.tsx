@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
-import { Pencil, Plus, Trash2, Loader2 } from 'lucide-react';
+import { Pencil, Plus, Trash2, Loader2, Scissors } from 'lucide-react';
 
 import {
   Table,
@@ -224,16 +224,21 @@ export function ServicesPage() {
           <div className="p-8 text-center text-sm text-red-600">{error}</div>
         ) : services.length === 0 ? (
           <div className="p-12 text-center">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-paper-raised">
-              <Plus className="h-6 w-6 text-ink-stamp" />
+            <div
+              className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full"
+              style={{ backgroundColor: 'var(--color-ink-rule)', color: 'var(--color-ink-soft)' }}
+            >
+              <Scissors className="h-8 w-8" />
             </div>
-            <p className="font-medium text-ink">No services yet. Add your first service.</p>
-            <p className="text-sm text-ink-soft mt-1">
-              Services appear on your booking page for customers to choose from.
+            <p className="font-bold text-ink mb-2" style={{ fontFamily: 'var(--font-display)' }}>
+              No services added yet.
             </p>
-            <Button className="mt-4" onClick={openCreate}>
+            <p className="text-sm text-ink-soft mb-4 max-w-xs mx-auto">
+              Add the services customers can book on your public site.
+            </p>
+            <Button onClick={openCreate}>
               <Plus className="h-4 w-4" />
-              Add Service
+              Add Your First Service
             </Button>
           </div>
         ) : (
