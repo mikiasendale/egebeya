@@ -5,12 +5,18 @@ import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import multer from 'multer';
 import path from 'path';
+import cron from 'node-cron';
 import { createServer as createViteServer } from 'vite';
 import apiRoutes from './src/api';
 import { ensureSchemaMigrations } from './src/db/migrations';
 import { validateProductionEnv } from './src/lib/envGuards';
 import { jwtSecret, refreshSecret } from './src/api/middleware/auth';
 import { isDbUnavailableError } from './src/db/health';
+import { runOnce as runReminders } from './server/cron/sendReminders';
+import { runOnce as runWinback } from './server/cron/runWinbackAutomations';
+import { expandAllSeries } from './server/cron/expandRecurring';
+import { runOnce as runDowngradeExpired } from './server/cron/downgradeExpired';
+import { runOnce as runAggregateIntent } from './server/cron/aggregateIntent';
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
@@ -205,6 +211,62 @@ async function startServer() {
     app.get('*splat', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
+  }
+
+  // ── In-process cron schedules (replaces crontab on Render) ────────
+  // Only schedule when running inside the server process (not in tests).
+  if (process.env.NODE_ENV !== 'test') {
+    // SMS reminders — every 15 minutes.
+    cron.schedule('*/15 * * * *', async () => {
+      console.log('[CRON] Running SMS Reminders...');
+      try {
+        await runReminders();
+      } catch (e) {
+        console.error('[CRON] SMS Reminder failed:', e);
+      }
+    });
+
+    // Winback automations — daily at 23:00 UTC (02:00 AM Addis Ababa).
+    cron.schedule('0 23 * * *', async () => {
+      console.log('[CRON] Running Winback Automations...');
+      try {
+        await runWinback();
+      } catch (e) {
+        console.error('[CRON] Winback Automations failed:', e);
+      }
+    });
+
+    // Recurring series expansion — daily at 03:00 UTC (06:00 AM Addis).
+    cron.schedule('0 3 * * *', async () => {
+      console.log('[CRON] Expanding recurring series...');
+      try {
+        await expandAllSeries();
+      } catch (e) {
+        console.error('[CRON] Recurring expansion failed:', e);
+      }
+    });
+
+    // Downgrade expired subscriptions — daily at 03:05 UTC.
+    cron.schedule('5 3 * * *', async () => {
+      console.log('[CRON] Downgrading expired subscriptions...');
+      try {
+        await runDowngradeExpired();
+      } catch (e) {
+        console.error('[CRON] Downgrade expired failed:', e);
+      }
+    });
+
+    // Buying intent aggregation — every 2 hours.
+    cron.schedule('0 */2 * * *', async () => {
+      console.log('[CRON] Aggregating buying intent...');
+      try {
+        await runAggregateIntent();
+      } catch (e) {
+        console.error('[CRON] Aggregate intent failed:', e);
+      }
+    });
+
+    console.log('[CRON] 5 cron jobs scheduled (reminders, winback, expand, downgrade, intent)');
   }
 
   app.listen(PORT, HOST, () => {
