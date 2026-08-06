@@ -1,6 +1,5 @@
 version: "1"
 
-# The main Web Service (Frontend + Backend)
 services:
   - type: web
     name: egebeya-app
@@ -13,44 +12,18 @@ services:
       - key: NODE_ENV
         value: production
       - key: DATABASE_URL
-        sync: false # You will paste your Turso DB URL here in the Render Dashboard
+        sync: false # Paste your Turso Database URL here
+      - key: DATABASE_AUTH_TOKEN
+        sync: false # Paste your Turso Auth Token here
       - key: JWT_SECRET
         generateValue: true # Render auto-generates a secure secret
       - key: REFRESH_SECRET
         generateValue: true
       - key: CHAPA_SECRET_KEY
-        sync: false # Paste your Chapa test/live key
+        sync: false # Paste your Chapa Secret Key here
       - key: GEMINI_API_KEY
-        sync: false
+        sync: false # Paste your Gemini API Key here
+      - key: APP_URL
+        value: https://egebeya-app.onrender.com # Change to your actual Render URL once it is live
       - key: VITE_APP_URL
-        value: https://egebeya-app.onrender.com # Change to your Render URL
-
-  # The Cron Job for Win-Back Automations (Runs daily at 2:00 AM Addis Time)
-  - type: cron
-    name: egebeya-winback-cron
-    env: node
-    schedule: "0 23 * * *" # 23:00 UTC = 02:00 AM Addis Ababa (UTC+3)
-    startCommand: npm run winback-automations
-    plan: free
-    envVars:
-      - key: NODE_ENV
-        value: production
-      - key: DATABASE_URL
-        sync: false # Must match the web service database URL
-      - key: JWT_SECRET
-        sync: false
-
-  # The Cron Job for SMS Reminders (Runs every 15 minutes)
-  - type: cron
-    name: egebeya-sms-cron
-    env: node
-    schedule: "*/15 * * * *"
-    startCommand: npm run send-reminders
-    plan: free
-    envVars:
-      - key: NODE_ENV
-        value: production
-      - key: DATABASE_URL
-        sync: false
-      - key: JWT_SECRET
-        sync: false
+        value: https://egebeya-app.onrender.com # Change to your actual Render URL once it is live
