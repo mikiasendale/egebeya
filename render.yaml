@@ -21,6 +21,8 @@ services:
         generateValue: true
       - key: CHAPA_SECRET_KEY
         sync: false # Paste your Chapa Secret Key here
+      - key: CHAPA_WEBHOOK_SECRET
+        sync: false # Paste your Chapa Webhook Signature Secret here
       - key: GEMINI_API_KEY
         sync: false # Paste your Gemini API Key here
       - key: APP_URL
