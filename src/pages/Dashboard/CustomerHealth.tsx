@@ -10,7 +10,7 @@
  * Operate register: mobile-first, scanable, fits the existing bottom-nav shell.
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Loader2, AlertTriangle, Lock } from 'lucide-react';
+import { Loader2, AlertTriangle, Lock, Users } from 'lucide-react';
 import { authFetch } from '../../lib/api';
 import { showToast } from '../../components/ui/toast-helper';
 import { isProActive, type SubscriptionSummary } from '../../lib/subscription';
@@ -265,8 +265,19 @@ export function CustomerHealth() {
         )}
 
         {!loading && !error && customers.length === 0 && (
-          <div className="bg-paper-bleached rounded-xl border border-ink-rule p-6 text-sm text-ink-soft">
-            No customer history yet. Health tags appear once you have completed appointments.
+          <div className="bg-paper-bleached rounded-xl border border-ink-rule p-8 text-center">
+            <div
+              className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full"
+              style={{ backgroundColor: 'var(--color-ink-rule)', color: 'var(--color-ink-soft)' }}
+            >
+              <Users className="h-8 w-8" />
+            </div>
+            <p className="font-bold text-ink mb-2" style={{ fontFamily: 'var(--font-display)' }}>
+              No customers yet.
+            </p>
+            <p className="text-sm text-ink-soft max-w-xs mx-auto">
+              Once you get your first booking, your CRM will populate here automatically.
+            </p>
           </div>
         )}
 
