@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { format, startOfDay } from 'date-fns';
 import { DayPicker } from 'react-day-picker';
 import 'react-day-picker/dist/style.css';
+import { Calendar } from 'lucide-react';
 
 import { EthiopianDayPicker } from '../../components/EthiopianDayPicker';
 import { authFetch } from '../../lib/api';
@@ -165,11 +166,18 @@ export function Bookings() {
           <div className="p-8 text-center text-ink-soft">Loading...</div>
         ) : bookings.length === 0 ? (
           <div className="p-12 text-center">
-            <div className="w-16 h-16 bg-paper-raised rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-2xl text-ink-stamp">📅</span>
+            <div
+              className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
+              style={{ backgroundColor: 'var(--color-ink-rule)', color: 'var(--color-ink-soft)' }}
+            >
+              <Calendar className="h-8 w-8" />
             </div>
-            <p className="text-ink-soft font-medium mb-2">No bookings for this date</p>
-            <p className="text-sm text-ink-stamp">Select another date or wait for new bookings.</p>
+            <p className="font-bold text-ink mb-2" style={{ fontFamily: 'var(--font-display)' }}>
+              Your calendar is empty.
+            </p>
+            <p className="text-sm text-ink-soft max-w-xs mx-auto">
+              Tap 'Share Site' to send your link to your first customer on Telegram.
+            </p>
           </div>
         ) : (
           <div className="divide-y divide-ink-rule">
