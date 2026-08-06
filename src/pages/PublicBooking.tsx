@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { DayPicker } from 'react-day-picker';
 import 'react-day-picker/dist/style.css';
 import { EthiopianDayPicker } from '../components/EthiopianDayPicker';
+import { Loader2 } from 'lucide-react';
 import { PHONE_REGEX as _PHONE_REGEX } from './Register';
 import { showToast } from '../components/ui/toast-helper';
 
@@ -181,8 +182,15 @@ export function PublicBooking({ tenant, subdomain }: { tenant: any, subdomain: s
     resolver: zodResolver(BookingSchema),
   });
 
+  // Hard guard against double-clicks on slow 3G: a ref flips synchronously
+  // before React re-renders, so a second click can never start a duplicate
+  // booking attempt even before isSubmitting becomes true.
+  const submittingRef = useRef(false);
+
   const onSubmit = async (data: BookingFormData) => {
     if (!selectedService || !selectedStaff || !selectedDate || !selectedTime) return;
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     // Bot-check: if the widget rendered (i.e. site key is configured), the
     // customer MUST have a Turnstile token before the POST fires. The
     // backend independently re-verifies the token server-side.
@@ -228,9 +236,19 @@ export function PublicBooking({ tenant, subdomain }: { tenant: any, subdomain: s
         setSuccess(true);
       }
     } catch (err) {
-      showToast('An error occurred', 'Please try again.', 'destructive');
+      // Distinguish a genuine network failure (no data / dropped 3G) from an
+      // API error so the customer knows to check their connection.
+      const isNetworkError = err instanceof TypeError || !navigator.onLine;
+      showToast(
+        'Booking failed',
+        isNetworkError
+          ? 'Network error. Check your data balance and try again.'
+          : 'Something went wrong. Please try again.',
+        'destructive',
+      );
     } finally {
       setIsSubmitting(false);
+      submittingRef.current = false;
     }
   };
 
@@ -318,6 +336,17 @@ export function PublicBooking({ tenant, subdomain }: { tenant: any, subdomain: s
     const sub = confirmed
       ? t('booking.successConfirmed')
       : t('booking.successPending');
+    // Formal digital-receipt copy (also what goes out via SMS/Email). Kept in
+    // one place so the on-screen receipt and the notification text match.
+    const priceBirr = ((selectedService?.price ?? 0) / 100).toLocaleString();
+    const receiptText =
+      `✅ Booking Confirmed!\n` +
+      `Business: ${tenant?.name || '--'}\n` +
+      `Service: ${selectedService?.name || '--'}\n` +
+      `Date: ${selectedDate ? format(selectedDate, 'EEE d MMM yyyy') : '--'}\n` +
+      `Time: ${selectedTime} ${t('booking.addis')}\n` +
+      `Paid: ${priceBirr} ETB\n` +
+      `Reply C to cancel.`;
     return (
       <div style={page.bg} className="min-h-[80vh] px-5 sm:px-8 lg:px-12 py-12 sm:py-16">
         <div className="mx-auto max-w-xl">
@@ -330,13 +359,12 @@ export function PublicBooking({ tenant, subdomain }: { tenant: any, subdomain: s
                 <div className="mt-2" style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '2rem', color: 'var(--color-ink)' }}>
                   {heading}
                 </div>
-                <div className="receipt-print-in mt-4" style={page.mono}>
-                  {tenant?.name} · {selectedService?.name} · {t('booking.with')} {selectedStaff?.name}
-                  <br />
-                  {selectedDate ? format(selectedDate, 'EEE d MMM yyyy') : ''} {t('booking.at')} {selectedTime} {t('booking.addis')}
-                  <br />
-                  {t('booking.customerLabel')} · {confirmedCustomerName}
-                </div>
+                <pre
+                  className="receipt-print-in mt-4 whitespace-pre-wrap"
+                  style={{ ...page.mono, margin: 0, fontFamily: 'var(--font-receipt)' }}
+                >
+                  {receiptText}
+                </pre>
               </div>
               <p className="mt-4 text-base" style={{ color: 'var(--color-ink-soft)' }}>
                 {sub}
@@ -675,10 +703,11 @@ export function PublicBooking({ tenant, subdomain }: { tenant: any, subdomain: s
                     <button
                       type="submit"
                       disabled={isSubmitting || (!!turnstileSiteKey && !turnstileToken)}
-                      className="w-full inline-flex items-center justify-center px-6 py-4 mt-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                      className="w-full inline-flex items-center justify-center gap-2 px-6 py-4 mt-2 disabled:opacity-60 disabled:cursor-not-allowed"
                       style={page.btnTelebirr}
                     >
-                      {isSubmitting ? t('booking.confirming') : t('booking.confirm')}
+                      {isSubmitting && <Loader2 className="h-5 w-5 animate-spin" />}
+                      {isSubmitting ? 'Securing your slot...' : t('booking.confirm')}
                     </button>
                     <p className="text-xs" style={page.monoSoft}>
                       {tenant?.require_payment_upfront === true
