@@ -66,6 +66,291 @@ export async function ensureSchemaMigrations(): Promise<Record<string, string[]>
   const added: Record<string, string[]> = {};
 
   const migrations: Array<{ table: string; column: string; sql: string }> = [
+    // ────────────────────────────────────────────────────────────────
+    // Day-zero schema bootstrap. Drizzle's schema.ts declares these tables,
+    // but they only exist in a database after `drizzle-kit push` runs against
+    // it. Render/Turso databases start empty, so on every boot we CREATE the
+    // full core schema (IF NOT EXISTS keeps it a no-op for existing DBs).
+    // Parent tables come first so FK references resolve. Column names must
+    // match schema.ts exactly.
+    // ────────────────────────────────────────────────────────────────
+    {
+      table: 'tenants',
+      column: 'id',
+      sql: `
+        CREATE TABLE IF NOT EXISTS tenants (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          slug TEXT NOT NULL,
+          domain TEXT,
+          category TEXT,
+          is_listed INTEGER DEFAULT 1,
+          is_suspended INTEGER DEFAULT 0,
+          settings TEXT,
+          created_at INTEGER NOT NULL
+        )
+      `,
+    },
+    {
+      table: 'tenants',
+      column: 'idx_slug',
+      sql: `CREATE UNIQUE INDEX IF NOT EXISTS tenants_slug_unique ON tenants(slug)`,
+    },
+    {
+      table: 'tenants',
+      column: 'idx_domain',
+      sql: `CREATE UNIQUE INDEX IF NOT EXISTS tenants_domain_unique ON tenants(domain)`,
+    },
+    {
+      table: 'users',
+      column: 'id',
+      sql: `
+        CREATE TABLE IF NOT EXISTS users (
+          id TEXT PRIMARY KEY,
+          tenant_id TEXT REFERENCES tenants(id),
+          name TEXT NOT NULL,
+          phone TEXT NOT NULL,
+          email TEXT NOT NULL,
+          password_hash TEXT NOT NULL,
+          role TEXT NOT NULL,
+          is_superadmin INTEGER DEFAULT 0,
+          consent_given_at INTEGER,
+          token_version INTEGER NOT NULL DEFAULT 0,
+          refresh_token_id TEXT NOT NULL DEFAULT '',
+          created_at INTEGER NOT NULL
+        )
+      `,
+    },
+    {
+      table: 'users',
+      column: 'idx_phone',
+      sql: `CREATE UNIQUE INDEX IF NOT EXISTS users_phone_unique ON users(phone)`,
+    },
+    {
+      table: 'users',
+      column: 'idx_email',
+      sql: `CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique ON users(email)`,
+    },
+    {
+      table: 'password_resets',
+      column: 'id',
+      sql: `
+        CREATE TABLE IF NOT EXISTS password_resets (
+          id TEXT PRIMARY KEY,
+          token TEXT NOT NULL,
+          user_id TEXT REFERENCES users(id) NOT NULL,
+          expires_at INTEGER NOT NULL
+        )
+      `,
+    },
+    {
+      table: 'plans',
+      column: 'id',
+      sql: `
+        CREATE TABLE IF NOT EXISTS plans (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          price INTEGER NOT NULL,
+          max_staff INTEGER NOT NULL,
+          custom_domain_allowed INTEGER DEFAULT 0
+        )
+      `,
+    },
+    {
+      table: 'tenant_subscriptions',
+      column: 'id',
+      sql: `
+        CREATE TABLE IF NOT EXISTS tenant_subscriptions (
+          id TEXT PRIMARY KEY,
+          tenant_id TEXT REFERENCES tenants(id) NOT NULL,
+          plan_id TEXT REFERENCES plans(id),
+          status TEXT NOT NULL,
+          trial_ends_at INTEGER,
+          starts_at INTEGER,
+          ends_at INTEGER
+        )
+      `,
+    },
+    {
+      table: 'tenant_subscriptions',
+      column: 'idx_tenant',
+      sql: `CREATE UNIQUE INDEX IF NOT EXISTS tenant_subscriptions_tenant_id_unique ON tenant_subscriptions(tenant_id)`,
+    },
+    {
+      table: 'services',
+      column: 'id',
+      sql: `
+        CREATE TABLE IF NOT EXISTS services (
+          id TEXT PRIMARY KEY,
+          tenant_id TEXT REFERENCES tenants(id) NOT NULL,
+          name TEXT NOT NULL,
+          duration_minutes INTEGER NOT NULL,
+          price INTEGER NOT NULL,
+          image_path TEXT,
+          active INTEGER DEFAULT 1
+        )
+      `,
+    },
+    {
+      table: 'staff',
+      column: 'id',
+      sql: `
+        CREATE TABLE IF NOT EXISTS staff (
+          id TEXT PRIMARY KEY,
+          tenant_id TEXT REFERENCES tenants(id) NOT NULL,
+          user_id TEXT REFERENCES users(id),
+          name TEXT NOT NULL,
+          title TEXT,
+          bio TEXT,
+          image_path TEXT,
+          active INTEGER DEFAULT 1
+        )
+      `,
+    },
+    {
+      table: 'staff_services',
+      column: 'staff_id',
+      sql: `
+        CREATE TABLE IF NOT EXISTS staff_services (
+          staff_id TEXT REFERENCES staff(id) NOT NULL,
+          service_id TEXT REFERENCES services(id) NOT NULL
+        )
+      `,
+    },
+    {
+      table: 'staff_availability',
+      column: 'id',
+      sql: `
+        CREATE TABLE IF NOT EXISTS staff_availability (
+          id TEXT PRIMARY KEY,
+          staff_id TEXT REFERENCES staff(id) NOT NULL,
+          day_of_week INTEGER NOT NULL,
+          start_time TEXT NOT NULL,
+          end_time TEXT NOT NULL
+        )
+      `,
+    },
+    {
+      table: 'tenant_business_hours',
+      column: 'id',
+      sql: `
+        CREATE TABLE IF NOT EXISTS tenant_business_hours (
+          id TEXT PRIMARY KEY,
+          tenant_id TEXT REFERENCES tenants(id) NOT NULL,
+          day_of_week INTEGER NOT NULL,
+          open_time TEXT,
+          close_time TEXT,
+          is_closed INTEGER DEFAULT 0
+        )
+      `,
+    },
+    {
+      table: 'tenant_closures',
+      column: 'id',
+      sql: `
+        CREATE TABLE IF NOT EXISTS tenant_closures (
+          id TEXT PRIMARY KEY,
+          tenant_id TEXT REFERENCES tenants(id) NOT NULL,
+          date TEXT NOT NULL,
+          reason TEXT
+        )
+      `,
+    },
+    {
+      table: 'appointments',
+      column: 'id',
+      sql: `
+        CREATE TABLE IF NOT EXISTS appointments (
+          id TEXT PRIMARY KEY,
+          tenant_id TEXT REFERENCES tenants(id) NOT NULL,
+          customer_name TEXT NOT NULL,
+          customer_phone TEXT NOT NULL,
+          customer_email TEXT,
+          staff_id TEXT REFERENCES staff(id) NOT NULL,
+          service_id TEXT REFERENCES services(id) NOT NULL,
+          start_time INTEGER NOT NULL,
+          end_time INTEGER NOT NULL,
+          status TEXT NOT NULL,
+          reminder_sent INTEGER DEFAULT 0,
+          sent_via TEXT,
+          cancels_at INTEGER,
+          recurring_series_id TEXT
+        )
+      `,
+    },
+    {
+      table: 'appointment_services',
+      column: 'appointment_id',
+      sql: `
+        CREATE TABLE IF NOT EXISTS appointment_services (
+          appointment_id TEXT REFERENCES appointments(id) NOT NULL,
+          service_id TEXT REFERENCES services(id) NOT NULL,
+          price_at_booking INTEGER NOT NULL,
+          duration_minutes INTEGER NOT NULL,
+          PRIMARY KEY (appointment_id, service_id)
+        )
+      `,
+    },
+    {
+      table: 'payments',
+      column: 'id',
+      sql: `
+        CREATE TABLE IF NOT EXISTS payments (
+          id TEXT PRIMARY KEY,
+          tenant_id TEXT REFERENCES tenants(id) NOT NULL,
+          appointment_id TEXT REFERENCES appointments(id),
+          amount INTEGER NOT NULL,
+          gateway TEXT,
+          method TEXT,
+          gateway_reference TEXT,
+          status TEXT NOT NULL,
+          meta TEXT
+        )
+      `,
+    },
+    {
+      table: 'pages',
+      column: 'tenant_id',
+      sql: `
+        CREATE TABLE IF NOT EXISTS pages (
+          tenant_id TEXT REFERENCES tenants(id) PRIMARY KEY,
+          content TEXT
+        )
+      `,
+    },
+    {
+      table: 'pro_site_files',
+      column: 'id',
+      sql: `
+        CREATE TABLE IF NOT EXISTS pro_site_files (
+          id TEXT PRIMARY KEY,
+          tenant_id TEXT REFERENCES tenants(id) NOT NULL,
+          file_path TEXT NOT NULL,
+          content TEXT NOT NULL,
+          updated_at INTEGER NOT NULL
+        )
+      `,
+    },
+    {
+      table: 'pro_site_files',
+      column: 'idx_tenant_path',
+      sql: `CREATE UNIQUE INDEX IF NOT EXISTS pro_site_files_tenant_path_unique ON pro_site_files(tenant_id, file_path)`,
+    },
+    {
+      table: 'media',
+      column: 'id',
+      sql: `
+        CREATE TABLE IF NOT EXISTS media (
+          id TEXT PRIMARY KEY,
+          tenant_id TEXT REFERENCES tenants(id) NOT NULL,
+          path TEXT NOT NULL,
+          original_name TEXT NOT NULL,
+          mime_type TEXT NOT NULL,
+          size INTEGER NOT NULL,
+          created_at INTEGER NOT NULL
+        )
+      `,
+    },
     // `site_config` — the Website Builder's mode + published Code-Mode HTML.
     // Declared in schema.ts but must also be created here for existing DBs.
     {
