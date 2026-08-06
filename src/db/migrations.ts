@@ -387,6 +387,36 @@ export async function ensureSchemaMigrations(): Promise<Record<string, string[]>
       column: 'last_automation_sent_at',
       sql: `ALTER TABLE customer_stats ADD COLUMN last_automation_sent_at INTEGER`,
     },
+    {
+      // search_intent — anonymized buying-intent signals from /discover.
+      table: 'search_intent',
+      column: 'id',
+      sql: `
+        CREATE TABLE IF NOT EXISTS search_intent (
+          id TEXT PRIMARY KEY,
+          category TEXT,
+          city TEXT,
+          action TEXT NOT NULL,
+          created_at INTEGER NOT NULL
+        )
+      `,
+    },
+    {
+      // pro_alerts — demand pulses emitted by the aggregation cron.
+      table: 'pro_alerts',
+      column: 'id',
+      sql: `
+        CREATE TABLE IF NOT EXISTS pro_alerts (
+          id TEXT PRIMARY KEY,
+          tenant_id TEXT REFERENCES tenants(id) NOT NULL,
+          category TEXT NOT NULL,
+          city TEXT NOT NULL,
+          action_count INTEGER NOT NULL,
+          message TEXT NOT NULL,
+          created_at INTEGER NOT NULL
+        )
+      `,
+    },
   ];
 
   for (const m of migrations) {
