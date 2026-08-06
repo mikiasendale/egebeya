@@ -294,3 +294,26 @@ export const apiKeys = sqliteTable('api_keys', {
   lastUsedAt: integer('last_used_at'),
   createdAt: integer('created_at').notNull(),
 });
+
+// Local buying-intent signals from /discover. Each row is one anonymized
+// action (a search/filter or a card click). Aggregated by the cron into
+// per-(category, city) demand pulses. No customer PII.
+export const searchIntent = sqliteTable('search_intent', {
+  id: text('id').primaryKey(),
+  category: text('category'),
+  city: text('city'),
+  action: text('action').notNull(), // 'view' | 'search'
+  createdAt: integer('created_at').notNull(),
+});
+
+// Pro-merger demand alerts emitted by the aggregation cron. One row per
+// (tenant, category, city, window) pulse so the dashboard can render a history.
+export const proAlerts = sqliteTable('pro_alerts', {
+  id: text('id').primaryKey(),
+  tenantId: text('tenant_id').references(() => tenants.id, { onDelete: 'cascade' }).notNull(),
+  category: text('category').notNull(),
+  city: text('city').notNull(),
+  actionCount: integer('action_count').notNull(),
+  message: text('message').notNull(),
+  createdAt: integer('created_at').notNull(),
+});
