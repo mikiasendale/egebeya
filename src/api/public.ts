@@ -4,6 +4,7 @@ import { tenants, services, staff, staffServices, staffAvailability, appointment
 import { eq, and, inArray, gte, lt, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import crypto from 'crypto';
+import { searchIntent } from '../db/schema';
 import fs from 'fs';
 import path from 'path';
 import { sendMail } from '../../server/lib/mailer';
@@ -149,6 +150,18 @@ router.get('/discover', discoverLimiter, async (req, res) => {
 
     res.set('x-total-count', String(totalCount));
     res.json(out);
+
+    // Fire-and-forget buying-intent signal. A search/filter or card click is
+    // a demand signal — record it without blocking the listing response.
+    // 'search' when the visitor narrowed by category/city/query, else 'view'.
+    const isSearch = Boolean(
+      (category && category.trim()) || (city && city.trim()) || (q && q.trim()),
+    );
+    void recordDiscoverIntent({
+      category: category?.trim() || null,
+      city: city?.trim() || null,
+      action: isSearch ? 'search' : 'view',
+    });
   } catch (error) {
     console.error('Discover error:', error);
     res.status(500).json({ error: 'Failed to fetch discover listing' });
@@ -161,6 +174,29 @@ router.get('/discover', discoverLimiter, async (req, res) => {
 router.get('/turnstile-config', (_req, res) => {
   res.json({ siteKey: process.env.TURNSTILE_SITE_KEY?.trim() || null });
 });
+
+/**
+ * Record an anonymized buying-intent signal from /discover. Fire-and-forget:
+ * failures are logged but never thrown, so a DB hiccup never degrades the
+ * public listing response. Also reused by POST /api/public/intent.
+ */
+export async function recordDiscoverIntent(intent: {
+  category: string | null;
+  city: string | null;
+  action: 'view' | 'search';
+}): Promise<void> {
+  try {
+    await db.insert(searchIntent).values({
+      id: crypto.randomUUID(),
+      category: intent.category,
+      city: intent.city,
+      action: intent.action,
+      createdAt: Date.now(),
+    });
+  } catch (err) {
+    console.error('Intent record error:', err);
+  }
+}
 
 function extractHeroImage(pageContent: any): string | null {
   if (!pageContent || typeof pageContent !== 'object') return null;
