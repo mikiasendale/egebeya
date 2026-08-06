@@ -71,6 +71,7 @@ export default function App() {
     hostname === 'localhost' ||
     hostname === '127.0.0.1' ||
     hostname.includes('run.app') ||
+    hostname.endsWith('.onrender.com') || // Render preview/deploy host
     hostname === 'egebeya.et' ||
     hostname === 'www.egebeya.et' ||
     hostname === 'app.egebeya.et';
