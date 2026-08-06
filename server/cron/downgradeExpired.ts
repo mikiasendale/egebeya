@@ -53,8 +53,21 @@ export async function runOnce(now: number = Date.now()): Promise<number> {
   return count;
 }
 
-// Only execute CLI on direct invocation, never on import.
-if (process.env.NODE_ENV !== 'test' || require.main === module) {
+import { fileURLToPath } from 'url';
+import path from 'path';
+
+// Only execute CLI on direct invocation, never on import (server.ts loads
+// this module for node-cron scheduling, so it must not self-run in a bundle).
+const isDirectRun = (() => {
+  if (process.env.NODE_ENV === 'test') return false;
+  try {
+    return process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
+  } catch {
+    return false;
+  }
+})();
+
+if (isDirectRun) {
   async function main(): Promise<void> {
     const count = await runOnce();
     console.log(`[downgradeExpired] done. ${count} tenant(s) downgraded.`);
