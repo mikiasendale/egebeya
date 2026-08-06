@@ -38,7 +38,8 @@ describe('runWinbackAutomations cron', () => {
 
     await db.insert(tenants).values({
       id: tenantId, name: 'Winback Salon', slug,
-      settings: {}, createdAt: Date.now(),
+      // Owner opts into the winback sequence — the cron gates on this setting.
+      settings: { automations_enabled: true }, createdAt: Date.now(),
     });
     const ownerId = crypto.randomUUID();
     await db.insert(users).values({
@@ -134,7 +135,7 @@ describe('runWinbackAutomations cron', () => {
     const t2Id = crypto.randomUUID();
     const slug2 = `wb-limit-${Date.now()}-${crypto.randomUUID().slice(0, 6)}`;
     await db.insert(tenants).values({
-      id: t2Id, name: 'Limit Test', slug: slug2, settings: {}, createdAt: NOW,
+      id: t2Id, name: 'Limit Test', slug: slug2, settings: { automations_enabled: true }, createdAt: NOW,
     });
     await db.insert(tenantSubscriptions).values({
       id: crypto.randomUUID(), tenantId: t2Id, planId: proPlanId, status: 'active', startsAt: NOW,
@@ -193,5 +194,51 @@ describe('runWinbackAutomations cron', () => {
     await db.delete(customerStats).where(eq(customerStats.tenantId, freeId));
     await db.delete(tenantSubscriptions).where(eq(tenantSubscriptions.tenantId, freeId));
     await db.delete(tenants).where(eq(tenants.id, freeId));
+  });
+
+  it('gating: does NOT send and does NOT touch state when automations_enabled is false', async () => {
+    const offId = crypto.randomUUID();
+    const slugOff = `wb-off-${Date.now()}-${crypto.randomUUID().slice(0, 6)}`;
+    await db.insert(tenants).values({
+      id: offId, name: 'Automation Off', slug: slugOff,
+      // Toggle left OFF — the winback sequence must not fire.
+      settings: { automations_enabled: false }, createdAt: NOW,
+    });
+    await db.insert(tenantSubscriptions).values({
+      id: crypto.randomUUID(), tenantId: offId, planId: proPlanId, status: 'active', startsAt: NOW,
+    });
+    for (let i = 0; i < 10; i++) {
+      await db.insert(customerStats).values({
+        tenantId: offId,
+        customerPhone: `+2515${String(i).padStart(9, '0')}`,
+        customerName: `Off ${i}`,
+        lastVisitAt: NOW - 50 * DAY_MS,
+        visitCount: 2,
+        automationState: 'active',
+        createdAt: NOW,
+      });
+    }
+
+    const sendSmsFn = vi.fn(async () => ({ success: true }));
+    const count = await runOnce({ now: NOW, chunkSize: 50, throttleMs: 0, sendSmsFn });
+
+    // No messages sent...
+    expect(count).toBe(0);
+    expect(sendSmsFn).not.toHaveBeenCalled();
+
+    // ...and automation_state is untouched, so these customers stay eligible
+    // for a later run if the owner flips the toggle back on.
+    const rows = await db.select().from(customerStats)
+      .where(eq(customerStats.tenantId, offId))
+      .all();
+    expect(rows.length).toBe(10);
+    for (const r of rows) {
+      expect(r.automationState).toBe('active');
+      expect(r.lastAutomationSentAt).toBeNull();
+    }
+
+    await db.delete(customerStats).where(eq(customerStats.tenantId, offId));
+    await db.delete(tenantSubscriptions).where(eq(tenantSubscriptions.tenantId, offId));
+    await db.delete(tenants).where(eq(tenants.id, offId));
   });
 });
