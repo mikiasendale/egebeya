@@ -1,7 +1,12 @@
+"scripts": {
+  "start": "tsx server.ts", // or whatever your start command is
+  "winback-automations": "tsx server/cron/runWinbackAutomations.ts",
+  "send-reminders": "tsx server/cron/sendReminders.ts"
+}
 {
-  "name": "react-example",
+  "name": "egebeya",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.1.0",
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
