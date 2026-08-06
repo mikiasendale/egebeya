@@ -30,7 +30,7 @@ services:
     name: egebeya-winback-cron
     env: node
     schedule: "0 23 * * *" # 23:00 UTC = 02:00 AM Addis Ababa (UTC+3)
-    command: npm run winback-automations
+    startCommand: npm run winback-automations
     plan: free
     envVars:
       - key: NODE_ENV
@@ -45,7 +45,7 @@ services:
     name: egebeya-sms-cron
     env: node
     schedule: "*/15 * * * *"
-    command: npm run send-reminders
+    startCommand: npm run send-reminders
     plan: free
     envVars:
       - key: NODE_ENV
