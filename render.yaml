@@ -23,6 +23,8 @@ services:
         sync: false # Paste your Chapa Secret Key here
       - key: CHAPA_WEBHOOK_SECRET
         sync: false # Paste your Chapa Webhook Signature Secret here
+      - key: ALLOW_UNVERIFIED_PAYMENTS
+        sync: false # Set to true to boot without Chapa keys while your account is unverified
       - key: GEMINI_API_KEY
         sync: false # Paste your Gemini API Key here
       - key: APP_URL
