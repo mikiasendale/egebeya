@@ -95,7 +95,7 @@ export function AuthShell({
 
       {/* Form panel (ledger paper) — right on desktop, below on mobile */}
       <main className="flex-1 bg-[var(--color-paper)] px-6 sm:px-10 lg:px-14 flex items-center justify-center">
-        <div className="w-full max-w-xl py-10 lg:py-16">{children}</div>
+        <div className="w-full max-w-lg py-10 lg:py-16">{children}</div>
       </main>
     </div>
   );

@@ -26,7 +26,6 @@ export function Register() {
       });
       const data = await res.json();
       if (res.ok) {
-        // Session lives in httpOnly cookies. Only non-secret UI hints here.
         if (data.tenantId) localStorage.setItem('tenantId', data.tenantId);
         if (data.tenant?.slug) localStorage.setItem('tenantSlug', data.tenant.slug);
         if (data.role) localStorage.setItem('role', data.role);
@@ -69,30 +68,34 @@ export function Register() {
     >
       {error && <Flash kind="error">{error}</Flash>}
       <form onSubmit={handleSubmit}>
-        <Field index="፩" id="name" labelText="Full Name" amHint="ሙሉ ስም">
-          <input type="text" required value={formData.name} onChange={set('name')}
-            placeholder="e.g. Abebe Kebede" style={inkStyles.squaredInput}
-            onFocus={e => Object.assign(e.target.style, inkStyles.squaredInputFocus)}
-            onBlur={e => Object.assign(e.target.style, inkStyles.squaredInput)} />
-        </Field>
-        <Field index="፪" id="phone" labelText="Phone Number" amHint="ስልክ" helper="Format: +251 followed by 9 digits">
-          <input type="tel" required value={formData.phone} onChange={set('phone')}
-            placeholder="+251911234567" style={inkStyles.squaredInput}
-            onFocus={e => Object.assign(e.target.style, inkStyles.squaredInputFocus)}
-            onBlur={e => { Object.assign(e.target.style, inkStyles.squaredInput); validate(); }} />
-        </Field>
-        <Field index="፫" id="email" labelText="Email" amHint="ኢሜይል" helper="Used for password recovery">
-          <input type="email" required value={formData.email} onChange={set('email')}
-            placeholder="you@example.com" style={inkStyles.squaredInput}
-            onFocus={e => Object.assign(e.target.style, inkStyles.squaredInputFocus)}
-            onBlur={e => { Object.assign(e.target.style, inkStyles.squaredInput); validate(); }} />
-        </Field>
-        <Field index="፬" id="businessName" labelText="Business Name" amHint="የንግድ ስም">
-          <input type="text" required value={formData.businessName} onChange={set('businessName')}
-            placeholder="e.g. Lux Nails & Spa" style={inkStyles.squaredInput}
-            onFocus={e => Object.assign(e.target.style, inkStyles.squaredInputFocus)}
-            onBlur={e => Object.assign(e.target.style, inkStyles.squaredInput)} />
-        </Field>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field index="፩" id="name" labelText="Full Name" amHint="ሙሉ ስም">
+            <input type="text" required value={formData.name} onChange={set('name')}
+              placeholder="e.g. Abebe Kebede" style={inkStyles.squaredInput}
+              onFocus={e => Object.assign(e.target.style, inkStyles.squaredInputFocus)}
+              onBlur={e => Object.assign(e.target.style, inkStyles.squaredInput)} />
+          </Field>
+          <Field index="፪" id="phone" labelText="Phone Number" amHint="ስልክ" helper="Format: +251 followed by 9 digits">
+            <input type="tel" required value={formData.phone} onChange={set('phone')}
+              placeholder="+251911234567" style={inkStyles.squaredInput}
+              onFocus={e => Object.assign(e.target.style, inkStyles.squaredInputFocus)}
+              onBlur={e => { Object.assign(e.target.style, inkStyles.squaredInput); validate(); }} />
+          </Field>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field index="፫" id="email" labelText="Email" amHint="ኢሜይል" helper="Used for password recovery">
+            <input type="email" required value={formData.email} onChange={set('email')}
+              placeholder="you@example.com" style={inkStyles.squaredInput}
+              onFocus={e => Object.assign(e.target.style, inkStyles.squaredInputFocus)}
+              onBlur={e => { Object.assign(e.target.style, inkStyles.squaredInput); validate(); }} />
+          </Field>
+          <Field index="፬" id="businessName" labelText="Business Name" amHint="የንግድ ስም">
+            <input type="text" required value={formData.businessName} onChange={set('businessName')}
+              placeholder="e.g. Lux Nails & Spa" style={inkStyles.squaredInput}
+              onFocus={e => Object.assign(e.target.style, inkStyles.squaredInputFocus)}
+              onBlur={e => Object.assign(e.target.style, inkStyles.squaredInput)} />
+          </Field>
+        </div>
         <Field index="፭" id="slug" labelText="Website URL (Subdomain)" amHint="ድረ-ገጽ" helper="mybusiness.egebeya.et">
           <div className="flex rounded-md">
             <input type="text" required value={formData.slug}
@@ -100,8 +103,8 @@ export function Register() {
               onBlur={() => handleSlugCheck(formData.slug)} placeholder="mybusiness"
               style={{ ...inkStyles.squaredInput, borderTopRightRadius: 0, borderBottomRightRadius: 0 }}
               onFocus={e => Object.assign(e.target.style, inkStyles.squaredInputFocus)} />
-            <span className="inline-flex items-center px-3 rounded-r-md border border-l-0 border-ink-rule"
-              style={{ background: 'var(--color-paper)', color: 'var(--color-ink-soft)', fontFamily: 'var(--font-mono)', fontSize: '0.82rem' }}>
+            <span className="inline-flex items-center px-3 rounded-r-md border border-l-0"
+              style={{ borderColor: 'var(--color-ink-rule)', background: 'var(--color-paper)', color: 'var(--color-ink-soft)', fontFamily: 'var(--font-mono)', fontSize: '0.82rem' }}>
               .egebeya.et
             </span>
           </div>
@@ -118,25 +121,28 @@ export function Register() {
             onFocus={e => Object.assign(e.target.style, inkStyles.squaredInputFocus)}
             onBlur={e => Object.assign(e.target.style, inkStyles.squaredInput)} />
         </Field>
-        <div className="form-row is-active" style={{ padding: '1rem 1.25rem', gap: '1.25rem' }}>
-          <div aria-hidden style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, fontSize: '0.95rem', color: 'var(--color-ink-stamp)', textAlign: 'center', minWidth: '1.5rem' }}>፰</div>
-          <div className="flex-1 min-w-0">
-            <label className="flex items-start gap-3 cursor-pointer">
-              <input id="consent" type="checkbox" required checked={formData.consent}
-                onChange={e => setFormData({ ...formData, consent: e.target.checked })}
-                className="mt-1 h-4 w-4 rounded" style={{ accentColor: 'var(--color-telebirr)' }} />
-              <div>
-                <div className="form-row__label" style={{ textTransform: 'none', letterSpacing: 'normal' }}>
-                  I agree to the{' '}
-                  <Link to="/privacy" target="_blank" style={{ color: 'var(--color-telebirr-deep)', textDecoration: 'underline', textUnderlineOffset: 2 }}>Privacy Policy</Link>{' '}
-                  and{' '}
-                  <Link to="/terms" target="_blank" style={{ color: 'var(--color-telebirr-deep)', textDecoration: 'underline', textUnderlineOffset: 2 }}>Terms of Service</Link>.
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div />
+          <div className="form-row is-active" style={{ padding: '1rem 1.25rem', gap: '1.25rem' }}>
+            <div aria-hidden style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, fontSize: '0.95rem', color: 'var(--color-ink-stamp)', textAlign: 'center', minWidth: '1.5rem' }}>፰</div>
+            <div className="flex-1 min-w-0">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input id="consent" type="checkbox" required checked={formData.consent}
+                  onChange={e => setFormData({ ...formData, consent: e.target.checked })}
+                  className="mt-1 h-4 w-4 rounded" style={{ accentColor: 'var(--color-telebirr)' }} />
+                <div>
+                  <div className="form-row__label" style={{ textTransform: 'none', letterSpacing: 'normal' }}>
+                    I agree to the{' '}
+                    <Link to="/privacy" target="_blank" style={{ color: 'var(--color-telebirr-deep)', textDecoration: 'underline', textUnderlineOffset: 2 }}>Privacy Policy</Link>{' '}
+                    and{' '}
+                    <Link to="/terms" target="_blank" style={{ color: 'var(--color-telebirr-deep)', textDecoration: 'underline', textUnderlineOffset: 2 }}>Terms of Service</Link>.
+                  </div>
+                  <div className="mt-1 text-xs" style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-ink-stamp)', letterSpacing: '0.04em' }}>
+                    Your consent is recorded with a timestamp. You can request data export at any time.
+                  </div>
                 </div>
-                <div className="mt-1 text-xs" style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-ink-stamp)', letterSpacing: '0.04em' }}>
-                  Your consent is recorded with a timestamp. You can request data export at any time.
-                </div>
-              </div>
-            </label>
+              </label>
+            </div>
           </div>
         </div>
         <div style={{ padding: '1rem 1.25rem' }}>
