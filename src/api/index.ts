@@ -43,9 +43,9 @@ router.use('/bookings', bookingsRoutes);
 router.use('/public', publicRoutes);
 router.use('/v1', apiKeyLimiter, v1Routes);
 router.use('/payments', paymentRoutes);
-  router.use('/admin', adminRoutes);
+router.use('/admin', adminRoutes);
 
-  // Test-only routes must NEVER ship to production. Mounted only when
+// Test-only routes must NEVER ship to production. Mounted only when
 // explicitly enabled via ENABLE_TEST_ENDPOINTS=true.
 if (process.env.ENABLE_TEST_ENDPOINTS === 'true') {
   router.use('/test', testRoutes);
