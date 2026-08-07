@@ -24,13 +24,13 @@ const PORT = Number(process.env.PORT || 3000);
 // exposure); production binds all interfaces. Override with HOST.
 const HOST = process.env.HOST || (process.env.NODE_ENV === 'production' ? '0.0.0.0' : '127.0.0.1');
 
-// Trust the first proxy hop so req.ip / rate-limit keys resolve real client
-// IPs behind a CDN/reverse proxy in production. Only enabled when the
-// operator explicitly sets behind-proxy=true (Plesk/nginx environment);
-// defaults to untrusted (loopback in dev, safe in production without opt-in).
-if (process.env['behind-proxy'] === 'true') {
-  app.set('trust proxy', 1);
-}
+// Trust the first proxy hop so req.ip / rate-limit keys resolve the real
+// client IP behind Render's reverse proxy (and Plesk/nginx-style setups).
+// Without this, express-rate-limit keys on the proxy's IP and every user
+// shares one bucket. Trusting one hop is safe: the app always runs behind a
+// reverse proxy in production, and in local dev there is no X-Forwarded-For
+// to trust (falls back to the socket address).
+app.set('trust proxy', 1);
 
 // Security headers. CSP is relaxed (but bounded) only where the
 // Sandpack/Puck editor forces unsafe-eval/inline; public tenant surfaces get
@@ -148,7 +148,13 @@ if (allowedApiOrigins.length > 0) {
 
 // Capture the raw request body buffer so the Chapa webhook can HMAC-verify
 // the exact bytes the provider signed.
+//
+// JSON body parser — mounted BEFORE any API routes so req.body is populated
+// for every JSON handler. A 64kb limit rejects oversized payloads as 413
+// (Express default error) instead of letting malformed/oversized bodies
+// reach route handlers as undefined.
 app.use(express.json({
+  limit: '64kb',
   verify: (req: any, _res, buf) => {
     req.rawBody = buf;
   },
@@ -186,6 +192,9 @@ app.use((err: any, _req: any, res: any, _next: any) => {
   }
   if (err?.type === 'entity.parse.failed' || err instanceof SyntaxError) {
     return res.status(400).json({ error: 'Invalid JSON payload.' });
+  }
+  if (err?.type === 'entity.too.large') {
+    return res.status(413).json({ error: 'Request payload too large.' });
   }
   console.error('[error]', err);
   res.status(500).json({ error: 'An internal server error occurred.' });
