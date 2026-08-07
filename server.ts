@@ -32,6 +32,16 @@ const HOST = process.env.HOST || (process.env.NODE_ENV === 'production' ? '0.0.0
 // to trust (falls back to the socket address).
 app.set('trust proxy', 1);
 
+// JSON body parser — MUST be mounted immediately after trust proxy so
+// req.body is populated for all API routes. 64kb limit rejects oversized
+// payloads as 413 instead of undefined body.
+app.use(express.json({
+  limit: '64kb',
+  verify: (req: any, _res, buf) => {
+    req.rawBody = buf;
+  },
+}));
+
 // Security headers. CSP is relaxed (but bounded) only where the
 // Sandpack/Puck editor forces unsafe-eval/inline; public tenant surfaces get
 // a Strict CSP via server/middleware/csp.ts. In dev, CSP stays off so Vite
@@ -145,20 +155,6 @@ if (allowedApiOrigins.length > 0) {
     allowedHeaders: ['Content-Type', 'x-api-key'],
   }));
 }
-
-// Capture the raw request body buffer so the Chapa webhook can HMAC-verify
-// the exact bytes the provider signed.
-//
-// JSON body parser — mounted BEFORE any API routes so req.body is populated
-// for every JSON handler. A 64kb limit rejects oversized payloads as 413
-// (Express default error) instead of letting malformed/oversized bodies
-// reach route handlers as undefined.
-app.use(express.json({
-  limit: '64kb',
-  verify: (req: any, _res, buf) => {
-    req.rawBody = buf;
-  },
-}));
 
 // API Routes
 app.use('/api', apiRoutes);

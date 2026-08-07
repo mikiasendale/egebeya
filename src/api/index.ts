@@ -20,8 +20,12 @@ import { dbHealthMiddleware } from '../db/health';
 
 const router = Router();
 
-// Database-resilience guard — mounted FIRST so an unreachable DB degrades
-// the entire API to a clean 503 instead of leaking per-route stack traces.
+// Health check — mounted FIRST so it can respond even when DB is unreachable.
+// UptimeRobot pings this to keep the app awake on Render.
+router.use('/health', healthRoutes);
+
+// Database-resilience guard — mounted before other routes so an unreachable DB
+// degrades the entire API to a clean 503 instead of leaking stack traces.
 router.use(dbHealthMiddleware);
 
 router.use('/auth', authRoutes);
@@ -39,10 +43,9 @@ router.use('/bookings', bookingsRoutes);
 router.use('/public', publicRoutes);
 router.use('/v1', apiKeyLimiter, v1Routes);
 router.use('/payments', paymentRoutes);
-router.use('/admin', adminRoutes);
-router.use('/health', healthRoutes);
+  router.use('/admin', adminRoutes);
 
-// Test-only routes must NEVER ship to production. Mounted only when
+  // Test-only routes must NEVER ship to production. Mounted only when
 // explicitly enabled via ENABLE_TEST_ENDPOINTS=true.
 if (process.env.ENABLE_TEST_ENDPOINTS === 'true') {
   router.use('/test', testRoutes);
