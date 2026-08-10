@@ -40,6 +40,57 @@ function resolveAccessToken(req: Request): string | null {
  * `tokenVersion` against the users table so that logout / password changes
  * revoke previously issued access tokens immediately.
  */
+
+
+/**
+ * Middleware to require superadmin role.
+ * Verifies the JWT's userId, then looks up the user fresh on every request
+ * so revoking superadmin status takes effect immediately.
+ * Also verifies tokenVersion so a revoked session cannot reach admin surfaces.
+ */
+export function requireSuperadmin() {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    const token = resolveAccessToken(req);
+    if (!token) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    let payload: any;
+    try {
+      payload = jwt.verify(token, jwtSecret());
+    } catch {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    if (!payload?.userId) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const user = await db.select().from(users).where(eq(users.id, payload.userId)).get();
+    if (!user) {
+      return res.status(401).json({ error: 'User not found' });
+    }
+
+    const currentVersion = (user as any).tokenVersion ?? 0;
+    if (typeof payload.tokenVersion !== 'number' || payload.tokenVersion !== currentVersion) {
+      return res.status(401).json({ error: 'Session has been revoked, please sign in again' });
+    }
+
+    if (!(user as any).isSuperadmin) {
+      return res.status(403).json({ error: 'Forbidden — superadmin only' });
+    }
+
+    (req as any).user = {
+      userId: user.id,
+      tenantId: user.tenantId,
+      role: user.role,
+      name: user.name,
+      email: user.email,
+    };
+    next();
+  };
+}
+
 export function requireAuth(options: AuthOptions = {}) {
   return async (req: Request, res: Response, next: NextFunction) => {
     const token = resolveAccessToken(req);

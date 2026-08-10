@@ -4,7 +4,7 @@ import {
   tenants, users, tenantSubscriptions, plans, appointments,
 } from '../db/schema';
 import { eq, sql, desc } from 'drizzle-orm';
-import { requireAuth } from './middleware/auth';
+import { requireAuth, requireSuperadmin } from './middleware/auth';
 import { csrfProtection } from './middleware/csrf';
 import { adminWriteLimiter } from '../../server/middleware/rateLimiter';
 
@@ -19,27 +19,7 @@ const router = Router();
 router.use(requireAuth());
 router.use(csrfProtection);
 router.use(adminWriteLimiter);
-router.use(async (req, res, next) => {
-  try {
-    const user = await db.select().from(users).where(eq(users.id, (req as any).user.userId)).get();
-    if (!user) {
-      return res.status(401).json({ error: 'User not found' });
-    }
-    if (!(user as any).isSuperadmin) {
-      return res.status(403).json({ error: 'Forbidden — superadmin only' });
-    }
-    (req as any).user = {
-      userId: user.id,
-      tenantId: user.tenantId,
-      role: user.role,
-      name: user.name,
-      email: user.email,
-    };
-    next();
-  } catch (err) {
-    res.status(401).json({ error: 'Invalid token' });
-  }
-});
+router.use(requireSuperadmin());
 
 /**
  * GET /api/admin/stats
