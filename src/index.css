@@ -86,7 +86,7 @@ body {
   font-family: var(--font-body);
 }
 .form-row.is-active {
-  background-color: var(--color-paper-raised);
+  background-color: var(--color-surface-raised);
   border-top: 1px solid var(--color-ink);
   border-bottom: 1px solid var(--color-ink);
 }
@@ -94,7 +94,7 @@ body {
   font-family: var(--font-mono);
   font-weight: 500;
   font-size: 0.95rem;
-  color: var(--color-ink-stamp);
+  color: var(--color-ink-soft);
   text-align: center;
 }
 .form-row__label {
@@ -846,6 +846,55 @@ button:hover .num-roller {
   border-bottom-width: 2px;
 }
 
+/* Slug field group — the dashed underline spans the input and its fixed
+   suffix; focus thickens the shared line in primary (receipt-input language). */
+.field-slug {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px dashed var(--color-ink-rule-dashed);
+  transition: border-color 120ms ease-out;
+}
+.field-slug:focus-within {
+  border-bottom: 2px solid var(--color-primary);
+}
+.field-slug.has-error {
+  border-bottom: 1px solid var(--color-accent);
+}
+.field-slug .slug-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  outline: none;
+  padding: 0.625rem 0 0.625rem 0.125rem;
+  font-family: var(--font-body);
+  color: var(--color-ink);
+}
+.field-slug .slug-input::placeholder {
+  color: color-mix(in srgb, var(--color-ink-soft) 80%, transparent);
+}
+.field-slug__suffix {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  color: var(--color-ink-soft);
+  white-space: nowrap;
+  padding-left: 0.5rem;
+}
+
+/* Auth inputs — click focus stays underline-only; keyboard focus-visible
+   gets a telebirr-deep ring. */
+.auth-input {
+  outline: none;
+}
+.auth-input:focus-visible,
+.btn-submit:focus-visible,
+.field-slug .slug-input:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
 /* Telebirr deposit print-in: clip-path reveal */
 @keyframes receipt-print {
   0% { clip-path: inset(0 100% 0 0); opacity: 0.4; }
@@ -1528,6 +1577,107 @@ button:hover .num-roller {
 }
 .skeleton-fade-out {
   animation: skeleton-fade-out 300ms ease-out forwards;
+}
+
+/* ═════════════════════════════════════════════════════════════════════
+   DELIGHT · The commitment is a stamp press.
+   In Egebeya's world a deposit clears when a stamp slams onto the receipt
+   and the record prints. The owner's own commit moments borrow that
+   physics: the register / sign-in button presses like a rubber stamp,
+   prints its ink while the record is being written, slams settled on
+   success — and the row being filled carries the receipt's telebirr
+   marker line. ──────────────────────────────────────────────────────── */
+
+/* Press language: commit controls slam instead of clicking; the hover
+   tilt is the stamp hovering above the paper before it presses. */
+.btn-ink:hover,
+.btn-telebirr:hover {
+  transform: translateY(-1px) rotate(-0.75deg);
+}
+.btn-ink:active,
+.btn-telebirr:active,
+.btn-outline:active {
+  transform: rotate(-1deg) scale(0.97);
+}
+
+/* The form row being filled: the ticket-card telebirr marker overprints
+   the row's left edge while any of its fields has focus — you always
+   know which line of the form you're writing on. */
+.form-row.is-active:focus-within {
+  box-shadow: inset 2px 0 0 0 var(--color-primary);
+}
+
+/* Auth submit — a stamp that presses, and prints its ink while the
+   record is written to the ledger. */
+.btn-submit {
+  position: relative;
+  overflow: hidden;
+}
+.btn-submit:active {
+  transform: rotate(-1deg) scale(0.97);
+}
+.stamp-submit__label {
+  position: relative;
+  z-index: 1;
+}
+.btn-submit::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-color: var(--color-primary-deep);
+  transform-origin: left center;
+  transform: scaleX(0);
+  pointer-events: none;
+}
+.btn-submit.is-printing::after {
+  animation: stamp-print-fill 1.5s steps(15, jump-none) infinite;
+}
+.btn-submit.is-printing .stamp-submit__label {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+}
+@keyframes stamp-print-fill {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+
+/* Success — the stamp slams down and its ink settles to telebirr-deep:
+   the record is stamped, the deposit confirms. */
+.btn-submit.is-stamping {
+  background-color: var(--color-primary-deep);
+  animation: deposit-cleared 420ms cubic-bezier(0.2, 0.9, 0.25, 1);
+}
+.btn-submit.is-stamping .stamp-submit__label {
+  font-family: var(--font-mono);
+  letter-spacing: 0.06em;
+}
+@keyframes deposit-cleared {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(0.965) rotate(-0.6deg); }
+  100% { transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-ink:hover,
+  .btn-telebirr:hover,
+  .btn-ink:active,
+  .btn-telebirr:active,
+  .btn-outline:active,
+  .btn-submit:active {
+    transform: none;
+  }
+  .btn-submit.is-printing::after { animation: none; }
+  .btn-submit.is-printing .stamp-submit__label,
+  .btn-submit.is-stamping .stamp-submit__label {
+    font-family: inherit;
+    font-size: inherit;
+    letter-spacing: inherit;
+  }
+  .btn-submit.is-stamping {
+    background-color: var(--color-primary-deep);
+    animation: none;
+  }
 }
 
 :root {
