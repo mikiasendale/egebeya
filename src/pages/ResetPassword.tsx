@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { AuthShell, Field, Submit, Flash, inkStyles } from '../components/AuthShell';
+import { AuthShell, Field, Submit, Flash, Input, PasswordInput } from '../components/AuthShell';
 
 export function ResetPassword() {
   const navigate = useNavigate();
@@ -71,51 +71,39 @@ export function ResetPassword() {
           </p>
         </div>
       ) : (
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} style={{ fontFamily: 'var(--font-body)' }}>
           {error && <Flash kind="error">{error}</Flash>}
 
           <Field index="፩" id="current-password" labelText="Current password" amHint="የአሁኑ የይለፍ ቃል" helper="For your security, confirm your current password even when resetting.">
-            <input
+            <PasswordInput
               id="current-password"
               name="current-password"
-              type="password"
-              autoComplete="current-password"
               required
               value={oldPassword}
               onChange={e => setOldPassword(e.target.value)}
-              style={inkStyles.squaredInput}
-              onFocus={e => Object.assign(e.target.style, inkStyles.squaredInputFocus)}
-              onBlur={e => Object.assign(e.target.style, inkStyles.squaredInput)}
+              autoComplete="current-password"
             />
           </Field>
 
           <Field index="፪" id="password" labelText="New password" amHint="አዲስ የይለፍ ቃል">
-            <input
+            <PasswordInput
               id="password"
               name="password"
-              type="password"
-              autoComplete="new-password"
               required
               value={password}
               onChange={e => setPassword(e.target.value)}
-              style={inkStyles.squaredInput}
-              onFocus={e => Object.assign(e.target.style, inkStyles.squaredInputFocus)}
-              onBlur={e => Object.assign(e.target.style, inkStyles.squaredInput)}
+              autoComplete="new-password"
             />
           </Field>
 
           <Field index="፫" id="confirm" labelText="Confirm new password" amHint="አረጋግጡ">
-            <input
+            <PasswordInput
               id="confirm"
               name="confirm"
-              type="password"
-              autoComplete="new-password"
               required
               value={confirm}
               onChange={e => setConfirm(e.target.value)}
-              style={inkStyles.squaredInput}
-              onFocus={e => Object.assign(e.target.style, inkStyles.squaredInputFocus)}
-              onBlur={e => Object.assign(e.target.style, inkStyles.squaredInput)}
+              autoComplete="new-password"
             />
           </Field>
 
@@ -125,23 +113,22 @@ export function ResetPassword() {
         </form>
       )}
 
-      <p
-        className="text-center mt-6"
-        style={{
-          fontFamily: 'var(--font-mono)',
-          fontSize: '0.75rem',
-          color: 'var(--color-ink-soft)',
-          letterSpacing: '0.04em',
-        }}
-      >
-        <Link
-          to="/login"
-          className="underline underline-offset-2"
-          style={{ color: 'var(--color-telebirr-deep)' }}
+        <p
+          className="text-center"
+          style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: '0.78rem',
+            color: 'var(--color-link)',
+            letterSpacing: '0.04em',
+          }}
         >
-          Back to login
-        </Link>
-      </p>
+          <Link
+            to="/login"
+            className="underline underline-offset-2"
+          >
+            Back to login
+          </Link>
+        </p>
     </AuthShell>
   );
 }

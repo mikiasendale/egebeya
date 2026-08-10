@@ -112,6 +112,7 @@ export async function expandAllSeries(): Promise<{ created: number; skipped: num
             return;
           }
 
+          const opaqueId = crypto.randomBytes(16).toString('hex');
           await tx.insert(appointments).values({
             id: crypto.randomUUID(),
             tenantId: series.tenantId,
@@ -125,6 +126,7 @@ export async function expandAllSeries(): Promise<{ created: number; skipped: num
             status: 'confirmed',
             reminderSent: false,
             recurringSeriesId: series.id,
+            opaqueId,
           });
           totalCreated += 1;
         }, { behavior: 'immediate' });

@@ -5,7 +5,7 @@
  *   - Free-tenant owner can add staff up to `plans.maxStaff` (2 today)
  *     but is hard-stopped on the 3rd with a 403 carrying the
  *     "Staff limit reached" message.
- *   - Pro-tenant owner (after upgrading via /api/tenant/subscription/upgrade)
+ *   - Pro-tenant owner (after being upgraded to Pro)
  *     can add staff beyond the Free cap (10 in seeded data). We exhaust the
  *     Pro ceiling as well to lock down the contract symmetrically.
  *   - The 403 paths return a stable JSON shape the dashboard warns against;

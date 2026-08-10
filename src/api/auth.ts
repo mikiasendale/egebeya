@@ -2,8 +2,8 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { db } from '../db';
-import { users, tenants, passwordResets, plans, tenantSubscriptions } from '../db/schema';
-import { eq, sql } from 'drizzle-orm';
+import { users, tenants, passwordResets, plans, tenantSubscriptions, refreshTokenFamilies } from '../db/schema';
+import { eq, sql, and, desc } from 'drizzle-orm';
 import crypto from 'crypto';
 import { sendMail } from '../../server/lib/mailer';
 import { applyTemplate } from '../../server/lib/mailTemplates';
@@ -13,6 +13,63 @@ import { authLimiter, otpLimiter } from '../../server/middleware/rateLimiter';
 import { logSecurityEvent, ipFromRequest } from '../../server/lib/securityLog';
 import { normalizePhone } from '../lib/phone';
 import { generateOtp, verifyOtp } from '../../server/lib/otp';
+
+import zxcvbn from 'zxcvbn';
+
+/**
+ * Password validation with strength checking.
+ * Enforces minimum length, complexity, and uses zxcvbn for strength estimation.
+ */
+interface PasswordValidationResult {
+  valid: boolean;
+  score: number; // 0-4 (zxcvbn score)
+  feedback: string[];
+  error?: string;
+}
+
+function validatePassword(password: string): PasswordValidationResult {
+  const minLength = 8;
+  const errors: string[] = [];
+
+  if (password.length < minLength) {
+    errors.push(`Password must be at least ${minLength} characters long`);
+  }
+
+  // Check for character variety
+  const hasUpper = /[A-Z]/.test(password);
+  const hasLower = /[a-z]/.test(password);
+  const hasNumber = /[0-9]/.test(password);
+  const hasSpecial = /[^A-Za-z0-9]/.test(password);
+
+  if (!hasUpper) errors.push('Password must contain at least one uppercase letter');
+  if (!hasLower) errors.push('Password must contain at least one lowercase letter');
+  if (!hasNumber) errors.push('Password must contain at least one number');
+  if (!hasSpecial) errors.push('Password must contain at least one special character (!@#$%^&* etc.)');
+
+  // Use zxcvbn for additional strength checking
+  const result = zxcvbn(password);
+  const score = result.score; // 0-4
+
+  // Provide feedback based on zxcvbn suggestions
+  const feedback: string[] = [];
+  if (result.feedback.warning) feedback.push(result.feedback.warning);
+  feedback.push(...result.feedback.suggestions);
+
+  // For very weak passwords (score 0-1), add extra feedback
+  if (score <= 1) {
+    feedback.push('Consider using a longer password or a passphrase');
+  }
+
+  // Combine custom errors with zxcvbn feedback
+  const allFeedback = [...errors, ...feedback];
+
+  return {
+    valid: errors.length === 0 && score >= 2, // Require at least score 2 (fair)
+    score,
+    feedback: allFeedback,
+    error: errors.length > 0 ? errors.join('; ') : undefined,
+  };
+}
 
 const router = Router();
 
@@ -121,6 +178,16 @@ router.post('/register', authLimiter, async (req, res) => {
       return res.status(400).json({ error: 'Business URL already taken' });
     }
 
+    // Validate password strength
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+      return res.status(400).json({ 
+        error: passwordValidation.error || 'Password does not meet requirements',
+        passwordFeedback: passwordValidation.feedback,
+        passwordScore: passwordValidation.score,
+      });
+    }
+
     const tenantId = crypto.randomUUID();
     const userId = crypto.randomUUID();
     const passwordHash = await bcrypt.hash(password, 10);
@@ -194,113 +261,105 @@ router.post('/register', authLimiter, async (req, res) => {
 });
 
 router.post('/login', authLimiter, async (req, res) => {
-  try {
-    const { phone, password } = req.body;
-
-    const normalizedPhone = normalizePhone(phone);
-    if (!normalizedPhone) {
-      return res.status(400).json({ error: 'Enter a valid Ethiopian phone number (+251XXXXXXXXX)' });
-    }
-
-    const user = await db.select().from(users).where(eq(users.phone, normalizedPhone)).get();
-    if (!user) {
-      logSecurityEvent({ type: 'failed_login', ip: ipFromRequest(req), details: { reason: 'no_user' } });
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-
-    const isValid = await bcrypt.compare(password, user.passwordHash);
-    if (!isValid) {
-      logSecurityEvent({ type: 'failed_login', tenantId: user.tenantId ?? undefined, ip: ipFromRequest(req), details: { reason: 'bad_password' } });
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-
-    const tenant = user.tenantId
-      ? await db.select().from(tenants).where(eq(tenants.id, user.tenantId)).get()
-      : null;
-
-    const tokenVersion = (user as any).tokenVersion ?? 0;
-    const isSuperadmin = !!(user as any).isSuperadmin;
-
-    // Issue a fresh refresh-token jti on every login so a refresh token from
-    // a previous (possibly compromised) session cannot be replayed once the
-    // user has logged in again.
-    const refreshJti = crypto.randomUUID();
-    await db.update(users).set({ refreshTokenId: refreshJti }).where(eq(users.id, user.id));
-
-    const token = jwt.sign({ userId: user.id, tenantId: user.tenantId, role: user.role, tokenVersion }, jwtSecret(), { expiresIn: '15m' });
-    const refreshToken = jwt.sign({ userId: user.id, tenantId: user.tenantId, tokenVersion, jti: refreshJti }, refreshSecret(), { expiresIn: '7d' });
-    setAuthCookies(res, token, refreshToken);
-
-    res.json({
-      message: 'Login successful',
-      role: user.role,
-      isSuperadmin,
-      tenantId: user.tenantId,
-      tenant: tenant ? { id: tenant.id, name: tenant.name, slug: tenant.slug } : null,
-      name: user.name,
-      user: {
-        id: user.id,
-        role: user.role,
-        tenantId: user.tenantId,
-        tenantSlug: tenant?.slug ?? null,
-        name: user.name,
-      },
-    });
-  } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ error: 'Failed to login' });
+ try {
+  const { phone, password } = req.body;
+  const normalizedPhone = normalizePhone(phone);
+  if (!normalizedPhone) {
+   return res.status(400).json({ error: 'Enter a valid Ethiopian phone number (+251XXXXXXXXX)' });
   }
-});
-
-router.post('/refresh', authLimiter, async (req, res) => {
-  try {
-    const refreshToken = (req as any).cookies?.refreshToken || req.body?.refreshToken;
-    if (!refreshToken) return res.status(401).json({ error: 'Refresh token required' });
-
-    jwt.verify(refreshToken, refreshSecret(), async (err: any, payload: any) => {
-      if (err) return res.status(403).json({ error: 'Invalid or expired refresh token' });
-
-      const user = await db.select().from(users).where(eq(users.id, payload.userId)).get();
-      if (!user) return res.status(404).json({ error: 'User not found' });
-
-      if (typeof payload.tokenVersion !== 'number' || payload.tokenVersion !== (user as any).tokenVersion) {
-        return res.status(403).json({ error: 'Refresh token has been revoked' });
-      }
-
-      // Replay detection — the JWT's `jti` claim must match the user's
-      // currently-stored refresh_token_id. When the legitimate client
-      // refreshes, we ROTATE the stored id and re-issue tokens below; any
-      // token that arrives with the now-stale jti is an attempted replay and
-      // is rejected (and the session is fully revoked by bumping
-      // tokenVersion so any access-token derived from it is also dead).
-      const storedJti = (user as any).refreshTokenId || '';
-      if (!payload.jti || typeof payload.jti !== 'string' || payload.jti !== storedJti) {
-        await db.update(users)
-          .set({ tokenVersion: sql`token_version + 1` })
-          .where(eq(users.id, user.id));
-        return res.status(403).json({ error: 'Refresh token replay detected — all sessions revoked' });
-      }
-
-      const tokenVersion = (user as any).tokenVersion ?? 0;
-      // Rotate the refresh-token jti on every successful refresh. The
-      // legitimate cookie is updated atomically; any captured copy of the
-      // previous refresh token is now invalid for the next /refresh call.
-      const newRefreshJti = crypto.randomUUID();
-      await db.update(users).set({ refreshTokenId: newRefreshJti }).where(eq(users.id, user.id));
-
-      const newToken = jwt.sign({ userId: user.id, tenantId: user.tenantId, role: user.role, tokenVersion }, jwtSecret(), { expiresIn: '15m' });
-      const newRefresh = jwt.sign({ userId: user.id, tenantId: user.tenantId, tokenVersion, jti: newRefreshJti }, refreshSecret(), { expiresIn: '7d' });
-      setAuthCookies(res, newToken, newRefresh);
-
-      res.json({ success: true });
-    });
-  } catch (error) {
-    console.error('Refresh token error:', error);
-    res.status(500).json({ error: 'Failed to refresh token' });
+  const user = await db.select().from(users).where(eq(users.phone, normalizedPhone)).get();
+  if (!user) {
+   logSecurityEvent({ type: 'failed_login', ip: ipFromRequest(req), details: { reason: 'no_user' } });
+   return res.status(401).json({ error: 'Invalid credentials' });
   }
-});
-
-// GET /api/auth/me — hydrate the SPA's user context from the session cookie.
+  const isValid = await bcrypt.compare(password, user.passwordHash);
+  if (!isValid) {
+   logSecurityEvent({ type: 'failed_login', tenantId: user.tenantId ?? undefined, ip: ipFromRequest(req), details: { reason: 'bad_password' } });
+   return res.status(401).json({ error: 'Invalid credentials' });
+  }
+  const tenant = user.tenantId ? await db.select().from(tenants).where(eq(tenants.id, user.tenantId)).get() : null;
+  const tokenVersion = (user as any).tokenVersion ?? 0;
+  const isSuperadmin = !!(user as any).isSuperadmin;
+  // Start a new refresh-token family for this device/session.
+  const parentJti = crypto.randomUUID();
+  const childJti = crypto.randomUUID();
+  await db.insert(refreshTokenFamilies).values({
+   id: crypto.randomUUID(),
+   userId: user.id,
+   parentJti,
+   childJti,
+   createdAt: Date.now(),
+   lastUsedAt: Date.now(),
+  });
+  const token = jwt.sign({ userId: user.id, tenantId: user.tenantId, role: user.role, tokenVersion }, jwtSecret(), { expiresIn: '15m' });
+  const refreshToken = jwt.sign({ userId: user.id, tenantId: user.tenantId, tokenVersion, jti: childJti }, refreshSecret(), { expiresIn: '7d' });
+  setAuthCookies(res, token, refreshToken);
+  res.json({
+   message: 'Login successful',
+   role: user.role,
+   isSuperadmin,
+   tenantId: user.tenantId,
+   tenant: tenant ? { id: tenant.id, name: tenant.name, slug: tenant.slug } : null,
+   name: user.name,
+   user: {
+    id: user.id,
+    role: user.role,
+    tenantId: user.tenantId,
+    tenantSlug: tenant?.slug ?? null,
+    name: user.name,
+   },
+  });
+ } catch (error) {
+  console.error('Login error:', error);
+  res.status(500).json({ error: 'Failed to login' });
+ }
+});router.post('/refresh', authLimiter, async (req, res) => {
+ try {
+  const refreshToken = (req as any).cookies?.refreshToken || req.body?.refreshToken;
+  if (!refreshToken) return res.status(401).json({ error: 'Refresh token required' });
+  jwt.verify(refreshToken, refreshSecret(), async (err: any, payload: any) => {
+   if (err) return res.status(403).json({ error: 'Invalid or expired refresh token' });
+   const user = await db.select().from(users).where(eq(users.id, payload.userId)).get();
+   if (!user) return res.status(404).json({ error: 'User not found' });
+   if (typeof payload.tokenVersion !== 'number' || payload.tokenVersion !== (user as any).tokenVersion) {
+   return res.status(403).json({ error: 'Refresh token has been revoked' });
+  }
+  // Family-based rotation: match the presented child JTI against the
+  // current active family. Rotate on success; revoke the whole family on
+  // mismatch (replay/forgery).
+  const presentedChild = typeof payload.jti === 'string' ? payload.jti : '';
+  const family = await db.select()
+   .from(refreshTokenFamilies)
+   .where(and(
+    eq(refreshTokenFamilies.userId, user.id),
+    sql`${refreshTokenFamilies.revokedAt} IS NULL`,
+   ))
+   .orderBy(desc(refreshTokenFamilies.createdAt))
+   .get();
+  if (!family || !presentedChild) {
+   await db.update(users).set({ tokenVersion: sql`token_version + 1` }).where(eq(users.id, user.id));
+   return res.status(403).json({ error: 'Refresh token invalid' });
+  }
+  if (family.childJti !== presentedChild) {
+   await db.update(refreshTokenFamilies).set({ revokedAt: Date.now() }).where(eq(refreshTokenFamilies.id, family.id));
+   await db.update(users).set({ tokenVersion: sql`token_version + 1` }).where(eq(users.id, user.id));
+   return res.status(403).json({ error: 'Refresh token replay detected — all sessions revoked' });
+  }
+  const newChildJti = crypto.randomUUID();
+  await db.update(refreshTokenFamilies)
+   .set({ childJti: newChildJti, lastUsedAt: Date.now() })
+   .where(eq(refreshTokenFamilies.id, family.id));
+  const tokenVersion = (user as any).tokenVersion ?? 0;
+  const newToken = jwt.sign({ userId: user.id, tenantId: user.tenantId, role: user.role, tokenVersion }, jwtSecret(), { expiresIn: '15m' });
+  const newRefresh = jwt.sign({ userId: user.id, tenantId: user.tenantId, tokenVersion, jti: newChildJti }, refreshSecret(), { expiresIn: '7d' });
+  setAuthCookies(res, newToken, newRefresh);
+  res.json({ success: true });
+ });
+} catch (error) {
+ console.error('Refresh token error:', error);
+ res.status(500).json({ error: 'Failed to refresh token' });
+}
+});// GET /api/auth/me — hydrate the SPA's user context from the session cookie.
 router.get('/me', requireAuth(), async (req: any, res) => {
   try {
     const user = await db.select().from(users).where(eq(users.id, req.user.userId)).get();
@@ -371,6 +430,16 @@ router.post('/reset-password', authLimiter, async (req, res) => {
     // required so a user who genuinely forgot their password can recover it.
     const { token, newPassword } = req.body;
     if (!token || !newPassword) return res.status(400).json({ error: 'Token and new password required' });
+
+    // Validate new password strength
+    const passwordValidation = validatePassword(newPassword);
+    if (!passwordValidation.valid) {
+      return res.status(400).json({ 
+        error: passwordValidation.error || 'Password does not meet requirements',
+        passwordFeedback: passwordValidation.feedback,
+        passwordScore: passwordValidation.score,
+      });
+    }
 
     const resetRecord = await db.select().from(passwordResets).where(eq(passwordResets.token, token)).get();
     if (!resetRecord) return res.status(400).json({ error: 'Invalid or expired token' });
@@ -451,6 +520,16 @@ router.post('/register-with-phone', otpLimiter, async (req, res) => {
 
     if (!password || typeof password !== 'string' || password.length < 6) {
       return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+
+    // Validate password strength
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+      return res.status(400).json({ 
+        error: passwordValidation.error || 'Password does not meet requirements',
+        passwordFeedback: passwordValidation.feedback,
+        passwordScore: passwordValidation.score,
+      });
     }
 
     // Store registration data temporarily in request for verify-otp to use.
@@ -706,6 +785,16 @@ router.post('/confirm-password-reset', otpLimiter, async (req, res) => {
       return res.status(400).json({ error: 'Password must be at least 6 characters' });
     }
 
+    // Validate new password strength
+    const passwordValidation = validatePassword(newPassword);
+    if (!passwordValidation.valid) {
+      return res.status(400).json({ 
+        error: passwordValidation.error || 'Password does not meet requirements',
+        passwordFeedback: passwordValidation.feedback,
+        passwordScore: passwordValidation.score,
+      });
+    }
+
     const resetRecord = await db.select().from(passwordResets).where(eq(passwordResets.token, resetToken)).get();
     if (!resetRecord) {
       return res.status(400).json({ error: 'Invalid or expired reset token. Please start the reset process again.' });
@@ -740,28 +829,42 @@ router.post('/confirm-password-reset', otpLimiter, async (req, res) => {
 });
 
 router.post('/logout', csrfProtection, async (req, res) => {
-  try {
-    const authHeader = req.headers.authorization;
-    const cookieToken = (req as any).cookies?.accessToken;
-    const token = cookieToken || (authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null);
-    if (!token) {
-      return res.status(401).json({ error: 'Authentication required' });
-    }
-
-    jwt.verify(token, jwtSecret(), async (err: any, payload: any) => {
-      if (err) return res.status(401).json({ error: 'Invalid token' });
-
-      await db.update(users)
-        .set({ tokenVersion: sql`token_version + 1` })
-        .where(eq(users.id, payload.userId));
-
-      clearAuthCookies(res);
-      res.json({ success: true });
-    });
-  } catch (error) {
-    console.error('Logout error:', error);
-    res.status(500).json({ error: 'Failed to logout' });
+ try {
+  const authHeader = req.headers.authorization;
+  const cookieToken = (req as any).cookies?.accessToken;
+  const token = cookieToken || (authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null);
+  if (!token) {
+   return res.status(401).json({ error: 'Authentication required' });
   }
-});
-
-export default router;
+  jwt.verify(token, jwtSecret(), async (err: any, payload: any) => {
+   if (err) return res.status(401).json({ error: 'Invalid token' });
+   // Revoke only the family tied to this refresh token (if we can identify
+   // it). Fall back to the legacy single-jti path if no family exists yet
+   // (e.g. a user logged in before this deploy).
+   const presentedChild = typeof payload.jti === 'string' ? payload.jti : '';
+   if (presentedChild) {
+    const family = await db.select({ id: refreshTokenFamilies.id })
+     .from(refreshTokenFamilies)
+     .where(and(
+      eq(refreshTokenFamilies.userId, payload.userId),
+      eq(refreshTokenFamilies.childJti, presentedChild),
+      sql`${refreshTokenFamilies.revokedAt} IS NULL`,
+     ))
+     .get();
+    if (family) {
+     await db.update(refreshTokenFamilies).set({ revokedAt: Date.now() }).where(eq(refreshTokenFamilies.id, family.id));
+     clearAuthCookies(res);
+     return res.json({ success: true });
+    }
+   }
+   // Legacy fallback: no family match found; bump tokenVersion to revoke
+   // the current access token family behavior.
+   await db.update(users).set({ tokenVersion: sql`token_version + 1` }).where(eq(users.id, payload.userId));
+   clearAuthCookies(res);
+   res.json({ success: true });
+  });
+ } catch (error) {
+  console.error('Logout error:', error);
+  res.status(500).json({ error: 'Failed to logout' });
+ }
+});export default router;

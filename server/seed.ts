@@ -173,6 +173,7 @@ async function seed() {
     endTime: startTime + 45 * 60000,
     status: 'confirmed',
     reminderSent: false,
+    opaqueId: crypto.randomBytes(16).toString('hex'),
   });
 
   // ====================================================================
