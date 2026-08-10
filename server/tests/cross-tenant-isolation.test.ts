@@ -42,7 +42,7 @@ describe('Cross-tenant isolation — every scoped resource rejects B-ids when au
       { id: tB, name: 'B', slug: slugB, settings: {}, createdAt: Date.now() },
     ]);
     const aUserId = crypto.randomUUID();
-    await db.insert(users).values({ id: aUserId, tenantId: tA, name: 'AO', phone: ph, email: `a@${Date.now()}.t`, passwordHash: pw, role: 'owner', createdAt: Date.now() });
+    await db.insert(users).values({ id: aUserId, tenantId: tA, name: 'AO', phone: ph, email: `a@${Date.now()}@test.com`, passwordHash: pw, role: 'owner', createdAt: Date.now() });
 
     const fp = await db.select().from(plans).where(eq(plans.name, 'free')).get();
     if (!fp) throw new Error('free plan not seeded');
@@ -55,12 +55,12 @@ describe('Cross-tenant isolation — every scoped resource rejects B-ids when au
     svcA = crypto.randomUUID(); svcB = crypto.randomUUID();
     staA = crypto.randomUUID(); staB = crypto.randomUUID();
     await db.insert(services).values([
-      { id: svcA, tenantId: tA, name: 'AHair', durationMinutes: 30, price: 5000, active: true },
-      { id: svcB, tenantId: tB, name: 'BMassage', durationMinutes: 60, price: 15000, active: true },
+        { id: svcA, tenantId: tA, name: 'AHair', durationMinutes: 30, price: 5000, active: true },
+        { id: svcB, tenantId: tB, name: 'BMassage', durationMinutes: 60, price: 15000, active: true },
     ]);
     await db.insert(staff).values([
-      { id: staA, tenantId: tA, name: 'ASt', active: true },
-      { id: staB, tenantId: tB, name: 'BTh', active: true },
+        { id: staA, tenantId: tA, name: 'ASt', active: true },
+        { id: staB, tenantId: tB, name: 'BTh', active: true },
     ]);
     await db.insert(staffServices).values({ staffId: staA, serviceId: svcA });
     await db.insert(staffServices).values({ staffId: staB, serviceId: svcB });
@@ -70,6 +70,7 @@ describe('Cross-tenant isolation — every scoped resource rejects B-ids when au
     await db.insert(appointments).values({
       id: apptA, tenantId: tA, customerName: 'CA', customerPhone: '+251911111111',
       staffId: staA, serviceId: svcA, startTime: sl, endTime: sl + 1800000, status: 'pending',
+        opaqueId: crypto.randomBytes(16).toString('hex')
     });
     await db.insert(payments).values({
       id: payA, tenantId: tA, appointmentId: apptA, amount: 5000,
@@ -81,8 +82,8 @@ describe('Cross-tenant isolation — every scoped resource rejects B-ids when au
     ]);
     mediaB = crypto.randomUUID();
     await db.insert(media).values([
-      { id: crypto.randomUUID(), tenantId: tA, path: '/u/a.jpg', originalName: 'a.jpg', mimeType: 'image/jpeg', size: 1, createdAt: Date.now() },
-      { id: mediaB, tenantId: tB, path: '/u/b.jpg', originalName: 'b.jpg', mimeType: 'image/jpeg', size: 1, createdAt: Date.now() },
+      { id: crypto.randomUUID(), tenantId: tA, path: '/u/a.jpg', originalName: 'a.jpg', mimeType: 'image/jpeg', size: 1, createdAt: Date.now()  },
+      { id: mediaB, tenantId: tB, path: '/u/b.jpg', originalName: 'b.jpg', mimeType: 'image/jpeg', size: 1, createdAt: Date.now()  },
     ]);
     await db.insert(proSiteFiles).values({
       id: crypto.randomUUID(), tenantId: tB, filePath: 'App.js', content: '//B', updatedAt: Date.now(),

@@ -28,6 +28,7 @@ describe('Public appointment status (Feature C)', () => {
   let serviceId: string;
   let staffId: string;
   let apptId: string;
+  let apptOpaqueId: string;
   const customerPhone = '+251911123456';
 
   beforeAll(async () => {
@@ -35,6 +36,7 @@ describe('Public appointment status (Feature C)', () => {
     serviceId = crypto.randomUUID();
     staffId = crypto.randomUUID();
     apptId = crypto.randomUUID();
+    apptOpaqueId = crypto.randomBytes(16).toString('hex');
 
     await db.insert(tenants).values({
       id: tenantId, name: 'Status Test Shop', slug,
@@ -54,6 +56,7 @@ describe('Public appointment status (Feature C)', () => {
       startTime: Date.now() + 86400000,
       endTime: Date.now() + 86400000 + 1800000,
       status: 'confirmed', reminderSent: false,
+      opaqueId: apptOpaqueId,
     });
     await db.insert(payments).values({
       id: crypto.randomUUID(), tenantId, appointmentId: apptId,
@@ -72,7 +75,7 @@ describe('Public appointment status (Feature C)', () => {
 
   it('returns 200 with Ethiopian date projection when phone matches', async () => {
     const res = await request(app)
-      .get(`/api/public/appointments/${apptId}/status`)
+      .get(`/api/public/appointments/${apptOpaqueId}/status`)
       .query({ customer_phone: customerPhone })
       .set('X-Tenant-Slug', slug);
 
@@ -91,7 +94,7 @@ describe('Public appointment status (Feature C)', () => {
 
   it('returns 403 when phone does not match', async () => {
     const res = await request(app)
-      .get(`/api/public/appointments/${apptId}/status`)
+      .get(`/api/public/appointments/${apptOpaqueId}/status`)
       .query({ customer_phone: '+251911999999' })
       .set('X-Tenant-Slug', slug);
 
@@ -107,7 +110,7 @@ describe('Public appointment status (Feature C)', () => {
     });
 
     const res = await request(app)
-      .get(`/api/public/appointments/${apptId}/status`)
+      .get(`/api/public/appointments/${apptOpaqueId}/status`)
       .query({ customer_phone: customerPhone })
       .set('X-Tenant-Slug', otherSlug);
 
@@ -118,7 +121,7 @@ describe('Public appointment status (Feature C)', () => {
 
   it('returns 400 when phone query param is missing', async () => {
     const res = await request(app)
-      .get(`/api/public/appointments/${apptId}/status`)
+      .get(`/api/public/appointments/${apptOpaqueId}/status`)
       .set('X-Tenant-Slug', slug);
 
     expect(res.status).toBe(400);

@@ -45,7 +45,7 @@ describe('F7 — UUID-only media filenames', () => {
     expect(res.body).not.toHaveProperty('originalName');
     expect(res.body.path).toMatch(/^\/uploads\/[^/]+\/[A-Za-z0-9-]+\.jpg$/);
   });
-  it('does not persist originalName in DB', async () => {
+  it('does not persist originalName in DB (empty string stored due to NOT NULL constraint)', async () => {
     const res = await request(app)
       .post('/api/tenant/upload')
       .set('Authorization', `Bearer ${token}`)
@@ -53,6 +53,8 @@ describe('F7 — UUID-only media filenames', () => {
     const row = await db.select().from(media).where(eq(media.id, res.body.id)).get();
     expect(row).toBeDefined();
     expect(row!.path).toMatch(/^\/uploads\/[^/]+\/[A-Za-z0-9-]+\.jpg$/);
-    expect((row as any).originalName).toBeUndefined();
+    // originalName column has NOT NULL constraint in DB; we store empty string to satisfy it
+    // while not persisting the user-provided filename
+    expect((row as any).originalName).toBe('');
   });
 });

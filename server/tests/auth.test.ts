@@ -16,7 +16,7 @@ describe('Auth flow (register / login / refresh / forgot-password)', () => {
   const phone = `+251${String(Math.floor(Math.random() * 1e9)).padStart(9, '0')}`;
   const slug = `auth-test-${Date.now()}`;
   const email = `auth-test-${Date.now()}@egebeya.test`;
-  const password = 'securePass456';
+  const password = 'SecurePass456!';
 
   let token: string;
   let refreshToken: string;

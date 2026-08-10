@@ -97,6 +97,7 @@ describe('Customer Health & Risk Scoring', () => {
       customerName: name, customerPhone: phone,
       startTime: start, endTime: start + 30 * 60 * 1000,
       status: 'confirmed',
+        opaqueId: crypto.randomBytes(16).toString('hex')
     });
     return id;
   }

@@ -51,8 +51,8 @@ describe('Auth roundtrip + protected-route middleware', () => {
   const slug = `auth-rt-${Date.now()}-${crypto.randomUUID().slice(0, 6)}`;
   const phone = `+251${String(Math.floor(Math.random() * 1e9)).padStart(9, '0')}`;
   const email = `auth-rt-${Date.now()}@egebeya.test`;
-  const oldPassword = 'oldPass1234';
-  const newPassword = 'newPass5678';
+  const oldPassword = 'OldPass1234!';
+  const newPassword = 'NewPass5678!';
 
   let tenantId: string;
   let userId: string;
@@ -269,7 +269,7 @@ describe('Auth roundtrip + protected-route middleware', () => {
     });
 
     // 4) Change the password (reset-password bumps token_version).
-    const newerPassword = 'newerPass999';
+    const newerPassword = 'NewerPass999!';
     const resetRes = await request(app)
       .post('/api/auth/reset-password')
       .send({ token: pwtoken, oldPassword: newPassword, newPassword: newerPassword });
@@ -288,7 +288,7 @@ describe('Auth roundtrip + protected-route middleware', () => {
     // 1) Login with the post-reset password to get fresh tokens.
     const loginRes = await request(app)
       .post('/api/auth/login')
-      .send({ phone, password: 'newerPass999' });
+      .send({ phone, password: 'NewerPass999!' });
     expect(loginRes.status).toBe(200);
     const accessToken = cookieValue(loginRes, 'accessToken');
     const refreshToken = cookieValue(loginRes, 'refreshToken');
