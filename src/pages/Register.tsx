@@ -158,7 +158,7 @@ export function Register() {
           <PasswordInput type="password" required value={formData.password} onChange={set('password')}
             placeholder="Choose a password" autoComplete="new-password" />
         </Field>
-        <Field index="፰" id="consent" labelText="Consent" amHint="ስምምነት" helper="Required to create your account">
+        <Field index="፰" id="consent" labelText="Consent" amHint="ስምምነት" helper="Consent· ስምምነት\nRequired to create your account">
           <div className="form-row is-active" style={{ padding: '1rem 1.25rem', gap: '1.25rem' }}>
             <label className="flex items-start gap-3 cursor-pointer">
               <input id="consent" type="checkbox" required checked={formData.consent}
