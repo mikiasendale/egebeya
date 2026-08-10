@@ -160,10 +160,10 @@ export function Register() {
         </Field>
         <Field index="፰" id="consent" labelText="Consent" amHint="ስምምነት" helper="Consent· ስምምነት\nRequired to create your account">
           <div className="form-row is-active" style={{ padding: '1rem 1.25rem', gap: '1.25rem' }}>
-            <label className="flex items-start gap-3 cursor-pointer">
+            <label className="flex items-center gap-3 cursor-pointer">
               <input id="consent" type="checkbox" required checked={formData.consent}
                 onChange={e => setFormData({ ...formData, consent: e.target.checked })}
-                className="mt-1 h-4 w-4 rounded" style={{ accentColor: 'var(--color-primary)' }} />
+                className="h-5 w-5 rounded" style={{ accentColor: 'var(--color-primary)', flexShrink: 0 }} />
               <div>
                 <div className="form-row__label" style={{ textTransform: 'none', letterSpacing: 'normal' }}>
                   I agree to the{' '}
