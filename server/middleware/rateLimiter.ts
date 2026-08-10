@@ -254,6 +254,35 @@ export const tenantWriteLimiter = rateLimit({
 });
 
 /**
+ * Dashboard read limiter — prevents scraping/abuse via dashboard GET requests.
+ * 600 requests per 10 minutes per IP+tenant.
+ */
+export const dashboardReadLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 600,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: isTestEnv,
+  message: {
+    error: 'Too many dashboard requests, please slow down.',
+    code: 'RATE_LIMITED_DASHBOARD_READ',
+  },
+  keyGenerator: (req) => {
+    const tenantId = (req as any)?.user?.tenantId ?? 'anon';
+    return `dashboard:${ipFromRequest(req) ?? 'unknown'}:${tenantId}`;
+  },
+  handler: (req, res, _next, options) => {
+    logSecurityEvent({
+      type: 'rate_limit',
+      tenantId: (req as any)?.user?.tenantId ?? null,
+      ip: ipFromRequest(req),
+      details: { surface: 'dashboard_read', path: req.path, message: options.message },
+    });
+    res.status(429).json(options.message);
+  },
+});
+
+/**
  * Media upload (POST /api/tenant/upload specifically). Stricter than the
  * general tenant-write limiter because uploads are CPU/IO-expensive
  * (sharp resize) and an attacker with a stolen token could otherwise use
