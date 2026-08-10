@@ -22,7 +22,7 @@ import {
   recurringSeries,
   inventoryItems,
 } from '../db/schema';
-import { eq, and, inArray, desc, sql, gte, lt, or, isNull } from 'drizzle-orm';
+import { eq, and, inArray, desc, sql, gte, lt, lte, or, isNull } from 'drizzle-orm';
 import crypto from 'crypto';
 import { z } from 'zod';
 import multer from 'multer';
@@ -841,7 +841,8 @@ router.post('/upload', uploadLimiter, upload.single('file'), async (req, res) =>
       id,
       tenantId,
       path: publicPath,
-        mimeType: req.file.mimetype,
+      originalName: '',
+      mimeType: req.file.mimetype,
       size: req.file.size,
       createdAt: Date.now(),
     });
@@ -849,7 +850,7 @@ router.post('/upload', uploadLimiter, upload.single('file'), async (req, res) =>
     res.json({
       id,
       path: publicPath,
-        mimeType: req.file.mimetype,
+      mimeType: req.file.mimetype,
       size: req.file.size,
     });
   } catch (error) {
@@ -1275,6 +1276,7 @@ async function expandRecurringSeries(seriesId: string): Promise<{ created: numbe
           return;
         }
 
+        const opaqueId = crypto.randomBytes(16).toString('hex');
         await tx.insert(appointments).values({
           id: crypto.randomUUID(),
           tenantId: series.tenantId,
@@ -1288,6 +1290,7 @@ async function expandRecurringSeries(seriesId: string): Promise<{ created: numbe
           status: 'confirmed',
           reminderSent: false,
           recurringSeriesId: seriesId,
+          opaqueId,
         });
         created += 1;
       }, { behavior: 'immediate' });
@@ -1530,4 +1533,230 @@ router.post('/inventory/:id/adjust', async (req, res) => {
   }
 });
 
+
+
+/**
+ * GET /api/tenant/export/csv
+ * Export tenant data as CSV (bookings, customers, services, staff, payments).
+ * Owner-only. Streams CSV to avoid memory bloat on large datasets.
+ */
+router.get('/export/csv', async (req, res) => {
+  const { tenantId } = (req as any).user;
+  const { type = 'bookings', startDate, endDate } = req.query;
+
+  try {
+    // Set CSV headers
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${tenantId}-${type}-${Date.now()}.csv"`);
+
+    // Helper to escape CSV fields
+    const escapeCsv = (field: any): string => {
+      if (field === null || field === undefined) return '';
+      const str = String(field);
+      if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+        return '"' + str.replace(/"/g, '""') + '"';
+      }
+      return str;
+    };
+
+    // Write CSV header and stream data
+    const writeHeader = (headers: string[]) => {
+      res.write(headers.map(escapeCsv).join(',') + '\n');
+    };
+
+    const writeRow = (row: any[]) => {
+      res.write(row.map(escapeCsv).join(',') + '\n');
+    };
+
+    switch (type) {
+      case 'bookings': {
+        writeHeader(['ID', 'Customer Name', 'Customer Phone', 'Customer Email', 'Service', 'Staff', 'Start Time', 'End Time', 'Status', 'Payment Status', 'Amount (ETB)']);
+
+        const { startTime, endTime, status } = req.query;
+        const whereConditions = [eq(appointments.tenantId, tenantId)];
+        if (startTime) whereConditions.push(gte(appointments.startTime, parseInt(startTime as string)));
+        if (endTime) whereConditions.push(lte(appointments.startTime, parseInt(endTime as string)));
+        if (status) whereConditions.push(eq(appointments.status, status as string));
+
+        const bookingsData = await db.select({
+          id: appointments.id,
+          customerName: appointments.customerName,
+          customerPhone: appointments.customerPhone,
+          customerEmail: appointments.customerEmail,
+          serviceName: servicesTable.name,
+          staffName: staff.name,
+          startTime: appointments.startTime,
+          endTime: appointments.endTime,
+          status: appointments.status,
+          paymentStatus: payments.status,
+          amount: payments.amount,
+        })
+        .from(appointments)
+        .leftJoin(servicesTable, eq(appointments.serviceId, servicesTable.id))
+        .leftJoin(staff, eq(appointments.staffId, staff.id))
+        .leftJoin(payments, eq(payments.appointmentId, appointments.id))
+        .where(and(...whereConditions))
+        .orderBy(desc(appointments.startTime))
+        .all();
+
+        for (const booking of bookingsData) {
+          writeRow([
+            booking.id,
+            booking.customerName,
+            booking.customerPhone,
+            booking.customerEmail || '',
+            booking.serviceName || '',
+            booking.staffName || '',
+            new Date(booking.startTime).toISOString(),
+            new Date(booking.endTime).toISOString(),
+            booking.status,
+            booking.paymentStatus || '',
+            booking.amount ? (booking.amount / 100).toFixed(2) : '',
+          ]);
+        }
+        break;
+      }
+
+      case 'customers': {
+        writeHeader(['Phone', 'Name', 'First Visit', 'Last Visit', 'Visit Count', 'Total Spend (ETB)', 'Marketing Opt-in', 'No-show Count']);
+
+        const customersData = await db.select()
+          .from(customerStats)
+          .where(eq(customerStats.tenantId, tenantId))
+          .orderBy(desc(customerStats.lastVisitAt))
+          .all();
+
+        for (const customer of customersData) {
+          writeRow([
+            customer.customerPhone,
+            customer.customerName,
+            customer.firstVisitAt ? new Date(customer.firstVisitAt).toISOString() : '',
+            customer.lastVisitAt ? new Date(customer.lastVisitAt).toISOString() : '',
+            customer.visitCount,
+            (customer.totalSpendEtbCents / 100).toFixed(2),
+            customer.marketingOptIn ? 'Yes' : 'No',
+            customer.noShowCount,
+          ]);
+        }
+        break;
+      }
+
+      case 'services': {
+        writeHeader(['ID', 'Name', 'Duration (min)', 'Price (ETB)', 'Active']);
+
+        const servicesData = await db.select()
+          .from(servicesTable)
+          .where(eq(servicesTable.tenantId, tenantId))
+          .orderBy(servicesTable.name)
+          .all();
+
+        for (const service of servicesData) {
+          writeRow([
+            service.id,
+            service.name,
+            service.durationMinutes,
+            (service.price / 100).toFixed(2),
+            service.active ? 'Yes' : 'No',
+          ]);
+        }
+        break;
+      }
+
+      case 'staff': {
+        writeHeader(['ID', 'Name', 'Title', 'Active', 'Assigned Services']);
+
+        // Batch fetch all staff and their service links in one go
+        const staffData = await db.select()
+          .from(staff)
+          .where(eq(staff.tenantId, tenantId))
+          .orderBy(staff.name)
+          .all();
+
+        // Get all service links for these staff members in one query
+        const staffIds = staffData.map(s => s.id);
+        const allServiceLinks = staffIds.length > 0
+          ? await db.select()
+              .from(staffServices)
+              .where(inArray(staffServices.staffId, staffIds))
+              .all()
+            : [];
+
+        // Get all service IDs from the links
+        const allServiceIds = [...new Set(allServiceLinks.map(l => l.serviceId))];
+        const serviceData = allServiceIds.length > 0
+          ? await db.select({ id: servicesTable.id, name: servicesTable.name })
+              .from(servicesTable)
+              .where(and(eq(servicesTable.tenantId, tenantId), inArray(servicesTable.id, allServiceIds)))
+              .all()
+            : [];
+
+        // Build a map of serviceId -> serviceName
+        const serviceNameMap = new Map(serviceData.map(s => [s.id, s.name]));
+
+        // Build a map of staffId -> serviceNames
+        const staffServiceMap = new Map<string, string>();
+        for (const link of allServiceLinks) {
+          const serviceName = serviceNameMap.get(link.serviceId);
+          if (serviceName) {
+            const existing = staffServiceMap.get(link.staffId) || '';
+            staffServiceMap.set(link.staffId, existing ? existing + '; ' + serviceName : serviceName);
+          }
+        }
+
+        for (const staffMember of staffData) {
+          const serviceNames = staffServiceMap.get(staffMember.id) || '';
+
+          writeRow([
+            staffMember.id,
+            staffMember.name,
+            staffMember.title || '',
+            staffMember.active ? 'Yes' : 'No',
+            serviceNames,
+          ]);
+        }
+        break;
+      }
+
+      case 'payments': {
+        writeHeader(['ID', 'Appointment ID', 'Amount (ETB)', 'Gateway', 'Method', 'Gateway Ref', 'Status', 'Created']);
+
+        const { startDate, endDate, status } = req.query;
+        const whereConditions = [eq(payments.tenantId, tenantId)];
+        if (startDate) whereConditions.push(gte(payments.id, startDate as string));
+        if (endDate) whereConditions.push(lte(payments.id, endDate as string));
+        if (status) whereConditions.push(eq(payments.status, status as string));
+
+        const paymentsData = await db.select()
+          .from(payments)
+          .where(and(...whereConditions))
+          .orderBy(desc(payments.id))
+          .all();
+
+        for (const payment of paymentsData) {
+          writeRow([
+            payment.id,
+            payment.appointmentId || '',
+            (payment.amount / 100).toFixed(2),
+            payment.gateway || '',
+            payment.method || '',
+            payment.gatewayReference || '',
+            payment.status,
+            '',
+          ]);
+        }
+        break;
+      }
+
+      default:
+        res.status(400).write('Invalid export type. Supported: bookings, customers, services, staff, payments');
+    }
+
+    res.end();
+  } catch (error) {
+    console.error('CSV export error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Failed to export CSV' });
+    }
+  }
+});
 export default router;
