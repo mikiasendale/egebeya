@@ -392,7 +392,7 @@ function TrustBar() {
           style={{ borderTop: '1px solid var(--color-ink-rule)' }}
         >
           <span className="stamp positive self-start sm:self-auto">
-            {t('trustBar.ledger')}&nbsp;·&nbsp;{t('trustBar.ledgerAm')}
+            {t('trustBar.ledger')} · {t('trustBar.ledgerAm')}
           </span>
           <div
             className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs"
@@ -403,11 +403,11 @@ function TrustBar() {
               textTransform: 'uppercase',
             }}
           >
-            <span>{t('trustBar.city')}&nbsp;·&nbsp;{t('trustBar.cityAm')}</span>
+            <span>{t('trustBar.city')} · {t('trustBar.cityAm')}</span>
             <span aria-hidden style={{ color: 'var(--color-ink-rule-dashed)' }}>·</span>
-            <span>{t('trustBar.verified')}&nbsp;·&nbsp;{t('trustBar.verifiedAm')}</span>
+            <span>{t('trustBar.verified')} · {t('trustBar.verifiedAm')}</span>
             <span aria-hidden style={{ color: 'var(--color-ink-rule-dashed)' }}>·</span>
-            <span>{t('trustBar.noCard')}&nbsp;·&nbsp;{t('trustBar.noCardAm')}</span>
+            <span>{t('trustBar.noCard')} · {t('trustBar.noCardAm')}</span>
           </div>
           <div
             className="sm:ml-auto flex-1 sm:flex-none sm:max-w-xs min-w-0"
@@ -432,10 +432,10 @@ function TrustBar() {
                   )}
                   <span className="truncate">
                     <span className="ledger-feed__ref">{row.ref}</span>
-                    <span style={{ color: 'var(--color-ink-stamp)' }}>&nbsp;·&nbsp;{row.price}&nbsp;·&nbsp;{row.when}</span>
+                    <span style={{ color: 'var(--color-ink-stamp)' }}> · {row.price} · {row.when}</span>
                   </span>
                   <span style={{ color: 'var(--color-telebirr-deep)' }}>
-                    {t('liveFeed.settled')}&nbsp;·&nbsp;{t('liveFeed.settledAm')}
+                    {t('liveFeed.settled')} · {t('liveFeed.settledAm')}
                   </span>
                 </div>
               ))}
@@ -630,7 +630,7 @@ function Lead() {
                   fontSize: '0.85rem',
                 }}
               >
-                {t('lead.ctaTariff')}&nbsp;<span aria-hidden className="btn-arrow ml-2">→</span>
+                {t('lead.ctaTariff')} <span aria-hidden className="btn-arrow ml-2">→</span>
               </a>
             </div>
             <p
@@ -773,12 +773,12 @@ function ProofForm({ clock }: { clock: AddisClock }) {
       >
         <div className="pay-slip__row">
           {phase === 'verifying' ? (
-            <span className="stamp fill">{t('liveFeed.verify')}&nbsp;·&nbsp;{t('liveFeed.verifyAm')}</span>
+            <span className="stamp fill">{t('liveFeed.verify')} · {t('liveFeed.verifyAm')}</span>
           ) : (
-            <span>{t('liveFeed.incoming')}&nbsp;·&nbsp;{t('liveFeed.incomingAm')}</span>
+            <span>{t('liveFeed.incoming')} · {t('liveFeed.incomingAm')}</span>
           )}
           <span className="pay-slip__merchant truncate">
-            {pending.service}&nbsp;·&nbsp;Br&nbsp;{pending.price}
+            {pending.service} · Br {pending.price}
           </span>
         </div>
         <div className="pay-slip__bar" />
@@ -788,7 +788,7 @@ function ProofForm({ clock }: { clock: AddisClock }) {
         style={{ borderBottom: '1px solid var(--color-ink-rule)' }}
       >
         <div>
-          <div className="stamp" style={{ borderColor: 'var(--color-ink)' }}>FORM&nbsp;EGB-01</div>
+          <div className="stamp" style={{ borderColor: 'var(--color-ink)' }}>FORM EGB-01</div>
           <div
             className="mt-2"
             style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: '1.35rem', letterSpacing: '-0.01em' }}
@@ -800,7 +800,7 @@ function ProofForm({ clock }: { clock: AddisClock }) {
           className="text-right"
           style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem', color: 'var(--color-ink-stamp)', letterSpacing: '0.06em' }}
         >
-          <div>{t('proofForm.ref')}&nbsp;{refLabel}</div>
+          <div>{t('proofForm.ref')} {refLabel}</div>
         </div>
       </div>
 
@@ -812,8 +812,8 @@ function ProofForm({ clock }: { clock: AddisClock }) {
           <StaticRow geo="፪" label={t('proofForm.service')} value={`${slot.service} · ${slot.duration}`} hint={slot.serviceAm} />
           <StaticRow geo="፫" label={t('proofForm.staff')} value={slot.staff} hint="ሰራተኛ" />
           <StaticRow geo="፬" label={t('proofForm.when')} value={`Mon 27 ሐምሌ · ${slot.time}`} hint="ሰዓት" />
-          <StaticRow geo="፭" label={t('proofForm.tariff')} value={`Br&nbsp;${slot.price}`} hint="ዋጋ" mono />
-          <StaticRow geo="፮" label={t('proofForm.deposit')} value={`Br&nbsp;${slot.price}`} hint="ቀዳሚ" mono positive />
+          <StaticRow geo="፭" label={t('proofForm.tariff')} value={`Br ${slot.price}`} hint="ዋጋ" mono />
+          <StaticRow geo="፮" label={t('proofForm.deposit')} value={`Br ${slot.price}`} hint="ቀዳሚ" mono positive />
           <li
             className="form-row is-active"
             style={{ marginTop: 6, paddingLeft: '1.25rem' }}
@@ -824,7 +824,7 @@ function ProofForm({ clock }: { clock: AddisClock }) {
               <div className="text-xs" style={{ color: 'var(--color-ink-soft)', fontFamily: 'var(--font-mono)' }}>{t('proofForm.paidAtChair')}</div>
             </div>
             <div className="form-row__value" style={{ color: 'var(--color-ink)', fontWeight: 600 }}>
-              <span key={String(settled)} className={settled ? 'balance-flash' : undefined}>Br&nbsp;0.00</span>
+              <span key={String(settled)} className={settled ? 'balance-flash' : undefined}>Br 0.00</span>
             </div>
           </li>
         </React.Fragment>
@@ -893,15 +893,15 @@ function ProofForm({ clock }: { clock: AddisClock }) {
           className="text-sm min-w-0 break-all"
           style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-ink)', letterSpacing: '0.1em' }}
         >
-          {t('proofForm.ref')}&nbsp;{refLabel}
+          {t('proofForm.ref')} {refLabel}
         </div>
         <div className="sm:ml-auto sm:text-right min-w-0">
-          <span className="stamp" aria-hidden>STUB&nbsp;·&nbsp;KEEP&nbsp;THIS</span>
+          <span className="stamp" aria-hidden>STUB · KEEP THIS</span>
           <div
             className="mt-2 text-xs"
             style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-ink-stamp)', letterSpacing: '0.05em' }}
           >
-            {t('proofForm.ref')}&nbsp;{refLabel}
+            {t('proofForm.ref')} {refLabel}
           </div>
         </div>
       </div>
@@ -914,7 +914,7 @@ function Specimen() {
   const { t } = useTranslation();
   return (
     <span className="specimen" aria-hidden>
-      {t('specimen.label')}&nbsp;·&nbsp;{t('specimen.labelAm')}
+      {t('specimen.label')} · {t('specimen.labelAm')}
     </span>
   );
 }
@@ -1075,7 +1075,7 @@ function TariffSection() {
             </p>
           </div>
           <div className="flex flex-col items-start sm:items-end gap-2">
-            <span className="stamp" aria-hidden>{t('tariffSection.location')}&nbsp;·&nbsp;{t('tariffSection.locationAm')}</span>
+            <span className="stamp" aria-hidden>{t('tariffSection.location')} · {t('tariffSection.locationAm')}</span>
           </div>
         </header>
 
@@ -1119,11 +1119,11 @@ function TariffSection() {
                     className="tariff-price text-right"
                     style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, fontSize: '1.05rem', color: 'var(--color-ink)' }}
                   >
-                    <span className="tariff-price__br" aria-hidden>Br&nbsp;</span>
+                    <span className="tariff-price__br" aria-hidden>Br </span>
                     {s.price}
                   </span>
                   <span className="stamp positive rubber tariff-book" aria-hidden>
-                    {t('tariffSection.book')}&nbsp;·&nbsp;{t('tariffSection.bookAm')}
+                    {t('tariffSection.book')} · {t('tariffSection.bookAm')}
                   </span>
                 </div>
                 {/* Ink mirror — telebirr-deep duplicate of each row cell, opened
@@ -1155,7 +1155,7 @@ function TariffSection() {
                     </span>
                   </span>
                   <span>
-                    Br&nbsp;{s.price}
+                    Br {s.price}
                   </span>
                 </span>
                 <span className="tariff-ink-rule" aria-hidden />
@@ -1332,7 +1332,7 @@ function QueueSection() {
                 style={{ borderBottom: '1px solid var(--color-ink-rule)' }}
               >
                 <div>
-                  <div className="stamp" aria-hidden>{t('queueSection.todayQueue')}&nbsp;·&nbsp;{t('queueSection.day')}</div>
+                  <div className="stamp" aria-hidden>{t('queueSection.todayQueue')} · {t('queueSection.day')}</div>
                   <div
                     className="mt-2"
                     style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: '1.2rem', letterSpacing: '-0.01em', color: 'var(--color-ink)' }}
@@ -1357,16 +1357,16 @@ function QueueSection() {
                   </span>
                 </span>
                 <span className="stamp positive" aria-hidden>
-                  {t('queueSection.nowServing')}&nbsp;·&nbsp;{t('queueSection.nowServingAm')}
+                  {t('queueSection.nowServing')} · {t('queueSection.nowServingAm')}
                 </span>
                 <span
                   className="truncate"
                   style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, fontSize: '0.95rem', color: 'var(--color-ink)' }}
                 >
                   {serving?.time}
-                  <span style={{ color: 'var(--color-ink-soft)', fontWeight: 400 }}>&nbsp;·&nbsp;</span>
+                  <span style={{ color: 'var(--color-ink-soft)', fontWeight: 400 }}> · </span>
                   {serving?.service}
-                  <span style={{ color: 'var(--color-ink-soft)', fontWeight: 400 }}>&nbsp;·&nbsp;</span>
+                  <span style={{ color: 'var(--color-ink-soft)', fontWeight: 400 }}> · </span>
                   {serving?.staff}
                 </span>
                 <span
@@ -1382,7 +1382,7 @@ function QueueSection() {
                 aria-label={t('queueSection.chairOpenAria')}
               >
                 <span className="now-serving-elapsed__num">{formatElapsed(servingElapsed)}</span>
-                <span>&nbsp;{t('queueSection.chairOpen')}</span>
+                <span> {t('queueSection.chairOpen')}</span>
               </div>
 
               <ol className="m-0 mt-2 p-0 list-none" role="list">
@@ -1411,7 +1411,7 @@ function QueueSection() {
                           }}
                         >
                           {q.time}
-                          <span style={{ color: 'var(--color-ink-soft)', fontWeight: 400 }}>&nbsp;·&nbsp;</span>
+                          <span style={{ color: 'var(--color-ink-soft)', fontWeight: 400 }}> · </span>
                           {q.service}
                         </div>
                         <div
@@ -1644,7 +1644,7 @@ function SearchSection() {
             marginBottom: 6,
           }}
         >
-          Find a business&nbsp;
+          Find a business 
           <span style={{ fontFamily: 'var(--font-serif-ethiopic)', fontWeight: 700, color: 'var(--color-ink-soft)' }}>
             ንግድ ይፈልጉ
           </span>
