@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Check } from 'lucide-react';
 import { AuthShell, Field, Submit, Flash, Input, PasswordInput } from '../components/AuthShell';
+import zxcvbn from 'zxcvbn';
 
 export const PHONE_REGEX = /^\+251\d{9}$/;
 export const PHONE_ERROR_MESSAGE = 'Enter a valid Ethiopian phone number (+251XXXXXXXXX)';
@@ -16,6 +17,7 @@ export function Register() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [slugStatus, setSlugStatus] = useState<'idle' | 'checking' | 'available' | 'unavailable'>('idle');
   const [loading, setLoading] = useState(false);
+  const [passwordStrength, setPasswordStrength] = useState<{ score: number; feedback: string[] } | null>(null);
 
   const validate = () => {
     const errors: Record<string, string> = {};
@@ -24,6 +26,16 @@ export function Register() {
     }
     if (formData.phone && !PHONE_REGEX.test(formData.phone.trim())) {
       errors.phone = PHONE_ERROR_MESSAGE;
+    }
+    // Validate password strength
+    if (formData.password) {
+      const result = zxcvbn(formData.password);
+      setPasswordStrength({ score: result.score, feedback: [...result.feedback.suggestions, ...(result.feedback.warning ? [result.feedback.warning] : [])] });
+      if (result.score < 2) {
+        errors.password = 'Password is too weak. Please use a stronger password.';
+      }
+    } else {
+      setPasswordStrength(null);
     }
     setFieldErrors(errors);
     setError('');
@@ -86,8 +98,7 @@ export function Register() {
     >
       {error && <Flash kind="error">{error}</Flash>}
       <form onSubmit={handleSubmit} style={{ fontFamily: 'var(--font-body)' }}>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field index="፩" id="name" labelText="Full Name" amHint="ሙሉ ስም">
+        <Field index="፩" id="name" labelText="Full Name" amHint="ሙሉ ስም">
             <Input type="text" required value={formData.name} onChange={set('name')}
               placeholder="e.g. Abebe Kebede" autoComplete="name" />
           </Field>
@@ -96,9 +107,7 @@ export function Register() {
               placeholder="+251911234567" autoComplete="tel" error={!!fieldErrors.phone}
               onBlur={e => { validate(); }} />
           </Field>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field index="፫" id="email" labelText="Email" amHint="ኢሜይል" helper="Used for password recovery" error={fieldErrors.email}>
+        <Field index="፫" id="email" labelText="Email" amHint="ኢሜይል" helper="Used for password recovery" error={fieldErrors.email}>
             <Input type="email" required value={formData.email} onChange={set('email')}
               placeholder="you@example.com" autoComplete="email" error={!!fieldErrors.email}
               onBlur={e => { validate(); }} />
@@ -107,7 +116,6 @@ export function Register() {
             <Input type="text" required value={formData.businessName} onChange={set('businessName')}
               placeholder="e.g. Lux Nails & Spa" autoComplete="organization" />
           </Field>
-        </div>
         <Field index="፭" id="slug" labelText="Website URL (Subdomain)" amHint="ድረ-ገጽ" helper="mybusiness.egebeya.et" error={fieldErrors.slug}>
           <div className="flex">
             <Input type="text" required value={formData.slug}
@@ -150,30 +158,26 @@ export function Register() {
           <PasswordInput type="password" required value={formData.password} onChange={set('password')}
             placeholder="Choose a password" autoComplete="new-password" />
         </Field>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div />
+        <Field index="፰" id="consent" labelText="Consent" amHint="ስምምነት" helper="Required to create your account">
           <div className="form-row is-active" style={{ padding: '1rem 1.25rem', gap: '1.25rem' }}>
-            <div aria-hidden style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, fontSize: '0.95rem', color: 'var(--color-ink-stamp)', textAlign: 'center', minWidth: '1.5rem' }}>፰</div>
-            <div className="flex-1 min-w-0">
-              <label className="flex items-start gap-3 cursor-pointer">
-                <input id="consent" type="checkbox" required checked={formData.consent}
-                  onChange={e => setFormData({ ...formData, consent: e.target.checked })}
-                  className="mt-1 h-4 w-4 rounded" style={{ accentColor: 'var(--color-primary)' }} />
-                <div>
-                  <div className="form-row__label" style={{ textTransform: 'none', letterSpacing: 'normal' }}>
-                    I agree to the{' '}
-                    <Link to="/privacy" target="_blank" style={{ color: 'var(--color-link)', textDecoration: 'underline', textUnderlineOffset: 2 }}>Privacy Policy</Link>{' '}
-                    and{' '}
-                    <Link to="/terms" target="_blank" style={{ color: 'var(--color-link)', textDecoration: 'underline', textUnderlineOffset: 2 }}>Terms of Service</Link>.
-                  </div>
-                  <div className="mt-1 text-xs" style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-ink-stamp)', letterSpacing: '0.04em' }}>
-                    Your consent is recorded with a timestamp. You can request data export at any time.
-                  </div>
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input id="consent" type="checkbox" required checked={formData.consent}
+                onChange={e => setFormData({ ...formData, consent: e.target.checked })}
+                className="mt-1 h-4 w-4 rounded" style={{ accentColor: 'var(--color-primary)' }} />
+              <div>
+                <div className="form-row__label" style={{ textTransform: 'none', letterSpacing: 'normal' }}>
+                  I agree to the{' '}
+                  <Link to="/privacy" target="_blank" style={{ color: 'var(--color-link)', textDecoration: 'underline', textUnderlineOffset: 2 }}>Privacy Policy</Link>{' '}
+                  and{' '}
+                  <Link to="/terms" target="_blank" style={{ color: 'var(--color-link)', textDecoration: 'underline', textUnderlineOffset: 2 }}>Terms of Service</Link>.
                 </div>
-              </label>
-            </div>
+                <div className="mt-1 text-xs" style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-ink-stamp)', letterSpacing: '0.04em' }}>
+                  Your consent is recorded with a timestamp. You can request data export at any time.
+                </div>
+              </div>
+            </label>
           </div>
-        </div>
+        </Field>
         <div style={{ padding: '1rem 1.25rem' }}>
           <Submit loading={loading || !!error}>{loading ? 'Creating account...' : 'Start 14-day free trial'}</Submit>
         </div>
