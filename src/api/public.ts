@@ -752,6 +752,7 @@ router.post('/bookings', bookingWriteLimiter, async (req, res) => {
           throw new Error('CONFLICT');
         }
 
+         const opaqueId = crypto.randomBytes(16).toString('hex');
          await tx.insert(appointments).values({
           id: appId,
           tenantId: tenant.id,
@@ -765,6 +766,7 @@ router.post('/bookings', bookingWriteLimiter, async (req, res) => {
           status: initialStatus,
           reminderSent: false,
           cancelsAt: requiresPayment ? startTimeMs - 15 * 60 * 1000 : null,
+          opaqueId,
         });
 
         // Persist the multi-service breakdown into appointment_services
@@ -1057,7 +1059,7 @@ router.post('/bookings/:id/reschedule', bookingWriteLimiter, async (req, res) =>
  */
 router.get('/appointments/:id/status', async (req, res) => {
   const tenant = (req as any).tenant;
-  const { id } = req.params;
+  const { id } = req.params; // This is now opaqueId
   const phone = normalizePhone(req.query.customer_phone as string | undefined);
 
   if (!phone) {
@@ -1066,7 +1068,7 @@ router.get('/appointments/:id/status', async (req, res) => {
 
   try {
     const appt = await db.select().from(appointments)
-      .where(and(eq(appointments.id, id), eq(appointments.tenantId, tenant.id))).get();
+      .where(and(eq(appointments.opaqueId, id), eq(appointments.tenantId, tenant.id))).get();
 
     if (!appt) {
       return res.status(404).json({ error: 'Booking not found' });
@@ -1110,6 +1112,7 @@ router.get('/appointments', async (req, res) => {
 
   try {
     const rows = await db.select({
+      id: appointments.opaqueId, // Return opaqueId instead of internal UUID
       startTime: appointments.startTime,
       endTime: appointments.endTime,
       status: appointments.status,

@@ -67,19 +67,20 @@ describe('Owner Home dashboard (WP2.3/2.4)', () => {
     await db.delete(tenants).where(eq(tenants.id, tenantId)).catch(() => {});
   });
 
-  function seedAppt(startMs: number, status: string, phone: string, email: string | null): string {
+  async function seedAppt(startMs: number, status: string, phone: string, email: string | null): Promise<string> {
     const id = crypto.randomUUID();
-    db.insert(appointments).values({
+    await db.insert(appointments).values({
       id, tenantId, customerName: `C-${id.slice(0, 4)}`,
       customerPhone: phone, customerEmail: email,
       staffId, serviceId: svcId,
       startTime: startMs, endTime: startMs + 3600000, status, reminderSent: false,
+      opaqueId: crypto.randomBytes(16).toString('hex'),
     }).run();
     return id;
   }
 
-  function payCompleted(apptId: string, amountCents: number) {
-    db.insert(payments).values({
+  async function payCompleted(apptId: string, amountCents: number) {
+    await db.insert(payments).values({
       id: crypto.randomUUID(), tenantId, appointmentId: apptId,
       amount: amountCents, gateway: 'chapa', status: 'completed',
     }).run();
@@ -89,14 +90,14 @@ describe('Owner Home dashboard (WP2.3/2.4)', () => {
     const dayStart = addisDayStartMs();
 
     // Recent past booking (yesterday) must NOT appear in today's feed.
-    seedAppt(dayStart - 86400000, 'confirmed', '+251955555555', 'old@test.com');
+    await await seedAppt(dayStart - 86400000, 'confirmed', '+251955555555', 'old@test.com');
 
     // Today: one confirmed, one pending — both appear in the schedule.
-    const confirmedId = seedAppt(dayStart + 9 * 3600000, 'confirmed', '+25190000011', 'c1@test.com');
-    seedAppt(dayStart + 11 * 3600000, 'pending', '+25190000012', null);
+    const confirmedId = await await seedAppt(dayStart + 9 * 3600000, 'confirmed', '+25190000011', 'c1@test.com');
+    await await seedAppt(dayStart + 11 * 3600000, 'pending', '+25190000012', null);
 
     // Today: a completed appointment with a completed Telebirr payment.
-    const completedId = seedAppt(dayStart + 14 * 3600000, 'completed', '+25190000013', null);
+    const completedId = await await seedAppt(dayStart + 14 * 3600000, 'completed', '+25190000013', null);
     payCompleted(completedId, 5000); // 50.00 ETB
 
     const res = await request(app)
@@ -139,7 +140,7 @@ describe('Owner Home dashboard (WP2.3/2.4)', () => {
 
   it('exposes the walk-in trigger only to owners', async () => {
     const dayStart = addisDayStartMs();
-    seedAppt(dayStart + 10 * 3600000, 'confirmed', '+25190000014', null);
+    await await seedAppt(dayStart + 10 * 3600000, 'confirmed', '+25190000014', null);
 
     const ownerRes = await request(app)
       .get('/api/tenant/dashboard')

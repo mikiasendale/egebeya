@@ -3,6 +3,8 @@ import { db } from '../../src/db';
 import { services as servicesTable, appointments, payments, inventoryItems } from '../../src/db/schema';
 import { eq, and, gte, lt, sql, lte } from 'drizzle-orm';
 import { requireAuth } from '../../src/api/middleware/auth';
+import { nonceCsp } from '../middleware/nonceCsp';
+import { dashboardReadLimiter } from '../middleware/rateLimiter';
 import {
   getAddisDateString,
   parseAddisDate,
@@ -12,6 +14,8 @@ import {
 const router = Router();
 
 router.use(requireAuth({ roles: ['owner', 'admin', 'staff'] }));
+router.use(nonceCsp);
+router.use(dashboardReadLimiter);
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 

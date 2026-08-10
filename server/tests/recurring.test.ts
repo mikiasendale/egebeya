@@ -163,6 +163,7 @@ describe('Recurring Appointments', () => {
       customerName: 'Pre-conflict',
       customerPhone: '+251900000001',
       startTime: conflictStart, endTime: conflictEnd, status: 'confirmed', reminderSent: false,
+        opaqueId: crypto.randomBytes(16).toString('hex')
     });
 
     const res = await request(app)

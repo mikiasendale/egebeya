@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { AuthShell, Field, Submit, Flash, inkStyles } from '../components/AuthShell';
+import { AuthShell, Field, Submit, Flash, Input } from '../components/AuthShell';
 
 export function ForgotPassword() {
   const navigate = useNavigate();
@@ -47,9 +47,9 @@ export function ForgotPassword() {
           <Submit onClick={() => navigate('/login')}>Back to login</Submit>
         </div>
       ) : (
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} style={{ fontFamily: 'var(--font-body)' }}>
           <Field index="፩" id="email" labelText="Email address" amHint="ኢሜይል">
-            <input
+            <Input
               id="email"
               name="email"
               type="email"
@@ -58,9 +58,6 @@ export function ForgotPassword() {
               value={email}
               onChange={e => setEmail(e.target.value)}
               placeholder="you@example.com"
-              style={inkStyles.squaredInput}
-              onFocus={e => Object.assign(e.target.style, inkStyles.squaredInputFocus)}
-              onBlur={e => Object.assign(e.target.style, inkStyles.squaredInput)}
             />
           </Field>
 
@@ -73,7 +70,7 @@ export function ForgotPassword() {
             style={{
               fontFamily: 'var(--font-mono)',
               fontSize: '0.75rem',
-              color: 'var(--color-ink-soft)',
+              color: 'var(--color-link)',
               letterSpacing: '0.04em',
             }}
           >
@@ -81,7 +78,6 @@ export function ForgotPassword() {
             <Link
               to="/login"
               className="underline underline-offset-2"
-              style={{ color: 'var(--color-telebirr-deep)' }}
             >
               Back to login
             </Link>

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { Eye, EyeOff } from 'lucide-react';
 
 /* ─────────────────────────────────────────────────────────────────────
  * AuthShell — shared layout for Register / Login / ForgotPassword /
@@ -190,6 +191,82 @@ export function Field({
   );
 }
 
+/* Input — shared squared input with focus/blur style management and
+   optional error state. Eliminates the per-field style/onFocus/onBlur
+   boilerplate that was repeated across Register, Login, ResetPassword,
+   and ForgotPassword. */
+export function Input({
+  id,
+  className,
+  error: hasError,
+  style,
+  onFocus,
+  onBlur,
+  ...props
+}: React.InputHTMLAttributes<HTMLInputElement> & { error?: boolean }) {
+  const baseStyle = hasError ? inkStyles.squaredInputError : inkStyles.squaredInput;
+  const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    Object.assign(e.target.style, inkStyles.squaredInputFocus);
+    onFocus?.(e);
+  };
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    Object.assign(e.target.style, baseStyle);
+    onBlur?.(e);
+  };
+  return (
+    <input
+      id={id}
+      className={className}
+      style={{ ...baseStyle, ...style }}
+      onFocus={handleFocus}
+      onBlur={handleBlur}
+      {...props}
+    />
+  );
+}
+
+/* PasswordInput — Input with an eye toggle for password visibility */
+export function PasswordInput({
+  id,
+  className,
+  style,
+  onFocus,
+  onBlur,
+  ...props
+}: React.InputHTMLAttributes<HTMLInputElement>) {
+  const [visible, setVisible] = React.useState(false);
+  return (
+    <div className="relative">
+      <Input
+        id={id}
+        className={className}
+        style={{ ...style, paddingRight: '2.5rem' }}
+        onFocus={onFocus}
+        onBlur={onBlur}
+        {...props}
+        type={visible ? 'text' : 'password'}
+      />
+      <button
+        type="button"
+        onClick={() => setVisible(!visible)}
+        aria-label={visible ? 'Hide password' : 'Show password'}
+        className="absolute right-2 top-1/2 -translate-y-1/2"
+        style={{
+          background: 'transparent',
+          border: 'none',
+          cursor: 'pointer',
+          color: 'var(--color-ink-soft)',
+          padding: 0,
+          display: 'inline-flex',
+          alignItems: 'center',
+        }}
+      >
+        {visible ? <EyeOff size={16} /> : <Eye size={16} />}
+      </button>
+    </div>
+  );
+}
+
 /* Submit — the indigo Primary button at full width */
 export function Submit({
   children,
@@ -265,7 +342,7 @@ export function Flash({ kind, children }: { kind: 'error' | 'success'; children:
 export const inkStyles = {
   squaredInput: {
     border: '1px solid var(--color-ink-rule)',
-    borderRadius: 'var(--rd-input)' as const,
+    borderRadius: 'var(--rd-card)',
     background: 'var(--color-paper)',
     padding: '0.7rem 0.85rem',
     fontFamily: 'var(--font-body)' as const,
@@ -277,5 +354,16 @@ export const inkStyles = {
   squaredInputFocus: {
     border: '1px solid var(--color-ink)',
     background: 'var(--color-paper-raised)',
+  },
+  squaredInputError: {
+    border: '1px solid var(--color-signal)',
+    borderRadius: 'var(--rd-card)',
+    background: 'var(--color-paper)',
+    padding: '0.7rem 0.85rem',
+    fontFamily: 'var(--font-body)' as const,
+    color: 'var(--color-ink)',
+    width: '100%' as const,
+    outline: 'none' as const,
+    transition: 'border-color 120ms ease-out, background-color 120ms ease-out',
   },
 };

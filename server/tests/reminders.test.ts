@@ -68,22 +68,23 @@ describe('Reminder cron (WP3.2)', () => {
     await db.delete(tenants).where(eq(tenants.id, tenantId)).catch(() => {});
   });
 
-  function seedAppt(params: { hoursOffset: number; status: string; email: string | null }): string {
+  async function seedAppt(params: { hoursOffset: number; status: string; email: string | null }): Promise<string> {
     const now = Date.now();
     const start = now + params.hoursOffset * 3600 * 1000 + 5000; // +5s to clear gt boundary
     const end = start + 3600 * 1000;
     const id = crypto.randomUUID();
-    db.insert(appointments).values({
+    await db.insert(appointments).values({
       id, tenantId, customerName: `C-${id.slice(0, 4)}`,
       customerPhone: `+2517000000${id.charCodeAt(0) % 10}`,
       customerEmail: params.email, staffId: staffId, serviceId: svcId,
       startTime: start, endTime: end, status: params.status, reminderSent: false,
+      opaqueId: crypto.randomBytes(16).toString('hex'),
     }).run();
     return id;
   }
 
   it('marks confirmed appointment inside 1.5–2.5h window as reminderSent=true (with email)', async () => {
-    const id = seedAppt({ hoursOffset: 2, status: 'confirmed', email: 'x@test.com' });
+    const id = await await seedAppt({ hoursOffset: 2, status: 'confirmed', email: 'x@test.com' });
     const before = await db.select().from(appointments).where(eq(appointments.id, id)).get();
     expect(before?.reminderSent).toBe(false);
 
@@ -94,21 +95,21 @@ describe('Reminder cron (WP3.2)', () => {
   });
 
   it('marks confirmed appointment inside window as reminderSent=true even without email', async () => {
-    const id = seedAppt({ hoursOffset: 2.1, status: 'confirmed', email: null });
+    const id = await await seedAppt({ hoursOffset: 2.1, status: 'confirmed', email: null });
     await runOnce(tenantId);
     const after = await db.select().from(appointments).where(eq(appointments.id, id)).get();
     expect(after?.reminderSent).toBe(true);
   });
 
   it('does NOT mark appointment outside the 1.5–2.5h window', async () => {
-    const id = seedAppt({ hoursOffset: 5, status: 'confirmed', email: null });
+    const id = await await seedAppt({ hoursOffset: 5, status: 'confirmed', email: null });
     await runOnce(tenantId);
     const after = await db.select().from(appointments).where(eq(appointments.id, id)).get();
     expect(after?.reminderSent).toBe(false);
   });
 
   it('marks pending appointments inside the window as reminderSent=true', async () => {
-    const id = seedAppt({ hoursOffset: 2, status: 'pending', email: null });
+    const id = await await seedAppt({ hoursOffset: 2, status: 'pending', email: null });
     await runOnce(tenantId);
     const after = await db.select().from(appointments).where(eq(appointments.id, id)).get();
     expect(after?.reminderSent).toBe(true); // cron includes 'pending' per spec
@@ -119,10 +120,11 @@ describe('Reminder cron (WP3.2)', () => {
     const now = Date.now();
     const start = now + 2 * 3600 * 1000 + 5000; // +5s to clear gt boundary
     const end = start + 3600 * 1000;
-    db.insert(appointments).values({
+    await db.insert(appointments).values({
       id: preSent, tenantId, customerName: 'Sent', customerPhone: '+25170000000',
       customerEmail: null, staffId: staffId, serviceId: svcId,
       startTime: start, endTime: end, status: 'confirmed', reminderSent: true,
+      opaqueId: crypto.randomBytes(16).toString('hex'),
     }).run();
 
     await runOnce(tenantId);
@@ -134,7 +136,7 @@ describe('Reminder cron (WP3.2)', () => {
     const otherTenantId = crypto.randomUUID();
     const otherStaffId = crypto.randomUUID();
     await db.insert(tenants).values({ id: otherTenantId, name: 'Other', slug: `other-rem-${Date.now()}`, createdAt: Date.now() }).catch(() => {});
-    await db.insert(staff).values({ id: otherStaffId, tenantId: otherTenantId, name: 'Other Barber', active: true }).catch(() => {});
+    await db.insert(staff).values({ id: otherStaffId, tenantId: otherTenantId, name: 'Other Barber', active: true  }).catch(() => {});
 
     const now = Date.now();
     const start = now + 2 * 3600 * 1000 + 5000; // +5s to clear gt boundary
@@ -142,18 +144,20 @@ describe('Reminder cron (WP3.2)', () => {
 
     // This appointment belongs to tenantId; it WILL be touched when we call runOnce(tenantId).
     const mainId = crypto.randomUUID();
-    db.insert(appointments).values({
+    await db.insert(appointments).values({
       id: mainId, tenantId, customerName: 'MainTel', customerPhone: '+25170000002',
       customerEmail: null, staffId, serviceId: svcId,
       startTime: start, endTime: end, status: 'confirmed', reminderSent: false,
+      opaqueId: crypto.randomBytes(16).toString('hex'),
     }).run();
 
     // This appointment belongs to a DIFFERENT tenant; runOnce(tenantId) must NOT touch it.
     const otherId = crypto.randomUUID();
-    db.insert(appointments).values({
+    await db.insert(appointments).values({
       id: otherId, tenantId: otherTenantId, customerName: 'Other', customerPhone: '+25170000001',
       customerEmail: null, staffId: otherStaffId, serviceId: svcId,
       startTime: start, endTime: end, status: 'confirmed', reminderSent: false,
+      opaqueId: crypto.randomBytes(16).toString('hex'),
     }).run();
 
     await runOnce(tenantId);

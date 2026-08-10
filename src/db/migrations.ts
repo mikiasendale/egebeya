@@ -53,7 +53,12 @@ async function addColumnIfMissing(
   sql: string,
 ): Promise<string | null> {
   const cols = await getColumns(table);
-  if (cols.has(column)) return null;
+  console.log(`[migration] Checking ${table}.${column}, existing columns:`, Array.from(cols));
+  if (cols.has(column)) {
+    console.log(`[migration] Column ${table}.${column} already exists, skipping`);
+    return null;
+  }
+  console.log(`[migration] Adding column ${table}.${column} with SQL:`, sql);
   const driver = (db as any).session?.client ?? (db as any).$client ?? (db as any).driver;
   const client = driver ?? db;
   if (client.execute) {
@@ -61,6 +66,7 @@ async function addColumnIfMissing(
   } else {
     await db.run((({ sql } as unknown) as any));
   }
+  console.log(`[migration] Successfully added ${table}.${column}`);
   return column;
 }
 
@@ -282,6 +288,16 @@ export async function ensureSchemaMigrations(): Promise<Record<string, string[]>
       )`,
     },
     {
+      table: 'appointments',
+      column: 'opaque_id',
+      sql: `ALTER TABLE appointments ADD COLUMN opaque_id TEXT`,
+    },
+    {
+      table: 'appointments',
+      column: 'opaque_id_unique',
+      sql: `CREATE UNIQUE INDEX IF NOT EXISTS appointments_opaque_id_unique ON appointments(opaque_id)`,
+    },
+    {
       table: 'appointment_services',
       column: 'appointment_id',
       sql: `CREATE TABLE IF NOT EXISTS appointment_services (
@@ -338,7 +354,7 @@ export async function ensureSchemaMigrations(): Promise<Record<string, string[]>
         id TEXT PRIMARY KEY,
         tenant_id TEXT REFERENCES tenants(id) NOT NULL,
         path TEXT NOT NULL,
-        original_name TEXT NOT NULL,
+        original_name TEXT,
         mime_type TEXT NOT NULL,
         size INTEGER NOT NULL,
         created_at INTEGER NOT NULL
@@ -396,6 +412,16 @@ export async function ensureSchemaMigrations(): Promise<Record<string, string[]>
       table: 'appointments',
       column: 'recurring_series_id',
       sql: `ALTER TABLE appointments ADD COLUMN IF NOT EXISTS recurring_series_id TEXT`,
+    },
+    {
+      table: 'appointments',
+      column: 'opaque_id',
+      sql: `ALTER TABLE appointments ADD COLUMN opaque_id TEXT`,
+    },
+    {
+      table: 'appointments',
+      column: 'opaque_id_unique',
+      sql: `CREATE UNIQUE INDEX IF NOT EXISTS appointments_opaque_id_unique ON appointments(opaque_id)`,
     },
     {
       table: 'customer_stats',
@@ -603,8 +629,25 @@ export async function ensureSchemaMigrations(): Promise<Record<string, string[]>
       column: 'idx_tenant_created',
       sql: `CREATE INDEX IF NOT EXISTS security_events_tenant_created_idx ON security_events(tenant_id, created_at)`,
     },
+    {
+      table: 'refresh_token_families',
+      column: 'id',
+      sql: `CREATE TABLE IF NOT EXISTS refresh_token_families (
+        id TEXT PRIMARY KEY,
+        user_id TEXT REFERENCES users(id) ON DELETE CASCADE NOT NULL,
+        parent_jti TEXT NOT NULL,
+        child_jti TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        last_used_at INTEGER,
+        revoked_at INTEGER
+      )`,
+    },
+    {
+      table: 'refresh_token_families',
+      column: 'idx_user',
+      sql: `CREATE INDEX IF NOT EXISTS refresh_token_families_user_id_idx ON refresh_token_families(user_id)`,
+    },
   ];
-
   for (const m of migrations) {
     try {
       const addedCol = await addColumnIfMissing(m.table, m.column, m.sql);
@@ -618,6 +661,7 @@ export async function ensureSchemaMigrations(): Promise<Record<string, string[]>
 
   await normalizePlanRows();
   await backfillOnboardingCompletedFlag();
+  await backfillAppointmentOpaqueIds();
 
   return added;
 }
@@ -632,6 +676,24 @@ export async function ensureSchemaMigrations(): Promise<Record<string, string[]>
  * New tenants default to unlisted + un-onboarded via the register endpoint;
  * this migration only reconciles tenants that pre-date the flag.
  */
+async function backfillAppointmentOpaqueIds(): Promise<void> {
+  try {
+    const driver = (db as any).session?.client ?? (db as any).$client ?? (db as any).driver;
+    const client = driver ?? db;
+    // Generate opaqueId for appointments that don't have one
+    const sqlStmt = "UPDATE appointments " +
+      "SET opaque_id = lower(hex(randomblob(8))) || '-' || lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(12))) " +
+      "WHERE opaque_id IS NULL OR opaque_id = ''";
+    if (client.execute) {
+      await client.execute(sqlStmt);
+    } else {
+      await db.run((({ sql: sqlStmt } as unknown) as any));
+    }
+  } catch (err) {
+    console.warn('[migrations] backfillAppointmentOpaqueIds skipped:', (err as Error)?.message);
+  }
+}
+
 async function backfillOnboardingCompletedFlag(): Promise<void> {
   try {
     const driver = (db as any).session?.client ?? (db as any).$client ?? (db as any).driver;

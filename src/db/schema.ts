@@ -120,6 +120,7 @@ export const appointments = sqliteTable('appointments', {
   sentVia: text('sent_via'), // 'sms', 'email', 'both' — audit which channel a reminder went out on
   cancelsAt: integer('cancels_at'), // UTC epoch ms; set when payment pending so stale slots free up
   recurringSeriesId: text('recurring_series_id'), // FK to recurring_series.id, nullable
+  opaqueId: text('opaque_id').notNull().unique(), // Public-facing ID for booking URLs (short, unguessable)
 });
 
 export const appointmentServices = sqliteTable('appointment_services', {
@@ -182,7 +183,7 @@ export const media = sqliteTable('media', {
   id: text('id').primaryKey(),
   tenantId: text('tenant_id').references(() => tenants.id).notNull(),
   path: text('path').notNull(), // public URL path e.g. /uploads/<tenantId>/<filename>
-  originalName: text('original_name').notNull(),
+  originalName: text('original_name'),
   mimeType: text('mime_type').notNull(),
   size: integer('size').notNull(),
   createdAt: integer('created_at').notNull(),
@@ -316,4 +317,17 @@ export const proAlerts = sqliteTable('pro_alerts', {
   actionCount: integer('action_count').notNull(),
   message: text('message').notNull(),
   createdAt: integer('created_at').notNull(),
+});
+
+// Refresh token families for multi-device session management.
+// Each login creates a new family; the refresh token carries a child JTI.
+// Rotation updates the family's current child JTI; reuse revokes the whole family.
+export const refreshTokenFamilies = sqliteTable('refresh_token_families', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  parentJti: text('parent_jti').notNull(),
+  childJti: text('child_jti').notNull(),
+  createdAt: integer('created_at').notNull(),
+  lastUsedAt: integer('last_used_at'),
+  revokedAt: integer('revoked_at'),
 });
