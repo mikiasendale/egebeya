@@ -567,7 +567,7 @@ function Lead() {
               style={{
                 fontFamily: 'var(--font-serif-ethiopic)',
                 fontWeight: 700,
-                fontSize: 'clamp(2.5rem, 6vw, 5rem)',
+                fontSize: 'clamp(2.05rem, 7.5vw, 5rem)',
                 lineHeight: 1.02,
                 letterSpacing: '-0.01em',
               }}
@@ -1685,10 +1685,9 @@ function SearchSection() {
           />
           <button
             type="submit"
-            className="btn-ink"
+            className="btn-ink px-4 sm:px-7 py-4"
             style={{
               border: 'none',
-              padding: '16px 28px',
               fontFamily: 'var(--font-mono)',
               fontWeight: 600,
               fontSize: '0.8rem',
@@ -1712,6 +1711,7 @@ function SearchSection() {
             <a
               key={cat}
               href="/discover"
+              className="search-chip"
               style={{
                 color: 'var(--color-ink)',
                 textDecoration: 'none',
@@ -1719,7 +1719,6 @@ function SearchSection() {
                 fontSize: '0.72rem',
                 letterSpacing: '0.06em',
                 textTransform: 'uppercase',
-                padding: '7px 13px',
                 border: '1px solid var(--color-ink)',
                 borderRadius: 'var(--rd-card)',
                 transition: 'background-color 120ms, color 120ms',
