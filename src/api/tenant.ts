@@ -841,8 +841,7 @@ router.post('/upload', uploadLimiter, upload.single('file'), async (req, res) =>
       id,
       tenantId,
       path: publicPath,
-      originalName: req.file.originalname,
-      mimeType: req.file.mimetype,
+        mimeType: req.file.mimetype,
       size: req.file.size,
       createdAt: Date.now(),
     });
@@ -850,8 +849,7 @@ router.post('/upload', uploadLimiter, upload.single('file'), async (req, res) =>
     res.json({
       id,
       path: publicPath,
-      originalName: req.file.originalname,
-      mimeType: req.file.mimetype,
+        mimeType: req.file.mimetype,
       size: req.file.size,
     });
   } catch (error) {

@@ -5,10 +5,12 @@ import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import multer from 'multer';
 import path from 'path';
+import fs from 'fs';
 import cron from 'node-cron';
 import { createServer as createViteServer } from 'vite';
 import apiRoutes from './src/api';
 import { ensureSchemaMigrations } from './src/db/migrations';
+import { cspNonceMiddleware, nonceCsp } from './server/middleware/nonceCsp';
 import { validateProductionEnv } from './src/lib/envGuards';
 import { jwtSecret, refreshSecret } from './src/api/middleware/auth';
 import { isDbUnavailableError } from './src/db/health';
@@ -46,32 +48,12 @@ app.use(express.json({
 // Sandpack/Puck editor forces unsafe-eval/inline; public tenant surfaces get
 // a Strict CSP via server/middleware/csp.ts. In dev, CSP stays off so Vite
 // HMR works. Override with CSP_DISABLED=true if the editor needs more room.
-const SPA_CSP = [
-  "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-  "style-src 'self' 'unsafe-inline' https:",
-  "img-src 'self' data: blob: https:",
-  "font-src 'self' data: https:",
-  "connect-src 'self' ws: wss:",
-  "frame-src 'self' blob: data: https:",
-  "object-src 'none'",
-  "base-uri 'self'",
-].join('; ');
+// CSP is now handled per-route:
+// - strictCsp middleware for public surfaces (public pages, booking API, media)
+// - nonceCsp middleware for dashboard/editor (with per-request nonces)
+// - No CSP for dev (Vite HMR)
 app.use(helmet({
-  contentSecurityPolicy:
-    process.env.NODE_ENV === 'production' && process.env.CSP_DISABLED !== 'true'
-      ? { directives: {
-          'default-src': ["'self'"],
-          'script-src': ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
-          'style-src': ["'self'", "'unsafe-inline'", 'https:'],
-          'img-src': ["'self'", 'data:', 'blob:', 'https:'],
-          'font-src': ["'self'", 'data:', 'https:'],
-          'connect-src': ["'self'", 'ws:', 'wss:'],
-          'frame-src': ["'self'", 'blob:', 'data:', 'https:'],
-          'object-src': ["'none'"],
-          'base-uri': ["'self'"],
-        } }
-      : false,
+  contentSecurityPolicy: false,
   // The SPA itself can be iframed only from egebeya.et origins (required
   // for the Egebeya widget iframes /book/{slug} to render on the same
   // domain). Cross-origin framing by arbitrary third parties is still
@@ -126,6 +108,9 @@ app.use('/uploads', (_req, res, next) => {
 // Parse cookies (httpOnly access/refresh tokens + csrf_token) for the SPA
 // session model.
 app.use(cookieParser());
+
+// Per-request CSP nonce generator (must run before nonceCsp)
+app.use(cspNonceMiddleware);
 
 // ── CORS for /api/v1 (Developer Marketplace) ─────────────────────────
 // Uses ALLOWED_API_ORIGINS env var (comma-separated). No wildcard.
@@ -231,7 +216,25 @@ async function startServer() {
     // dist-server/ so dist/server.cjs is never downloadable).
     app.use(express.static(distPath));
     app.get('*splat', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+      // Inject CSP nonce into the HTML for the SPA
+      const nonce = res.locals.cspNonce;
+      if (nonce) {
+        const indexPath = path.join(distPath, 'index.html');
+        let html = fs.readFileSync(indexPath, 'utf8');
+        // Add nonce to script and style tags
+        html = html.replace(
+          '<script type="module" src="/src/main.tsx"></script>',
+          `<script type="module" nonce="${nonce}" src="/src/main.tsx"></script>`
+        );
+        // Also add meta tag with nonce for dynamic script creation
+        html = html.replace(
+          '</head>',
+          `<meta name="csp-nonce" content="${nonce}" /></head>`
+        );
+        res.send(html);
+      } else {
+        res.sendFile(path.join(distPath, 'index.html'));
+      }
     });
   }
 
