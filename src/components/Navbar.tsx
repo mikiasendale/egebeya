@@ -49,6 +49,7 @@ export function Navbar() {
         backgroundColor: isScrolled ? 'var(--color-paper)' : 'transparent',
         borderBottom: isScrolled ? '1px solid var(--color-ink-rule)' : '1px solid transparent',
         backdropFilter: isScrolled ? 'saturate(180%) blur(4px)' : 'none',
+        paddingTop: 'env(safe-area-inset-top)',
       }}
     >
       <div className="mx-auto max-w-6xl px-5 sm:px-8 lg:px-12 h-16 flex items-center justify-between">
