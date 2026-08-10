@@ -190,6 +190,7 @@ describe('Payment webhook security', () => {
       startTime: slotMs,
       endTime: slotMs + 30 * 60 * 1000,
       status: 'pending',
+        opaqueId: crypto.randomBytes(16).toString('hex')
     });
 
     txRef = `TX-webhook-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;

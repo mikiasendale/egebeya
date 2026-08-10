@@ -51,22 +51,19 @@ if (!process.env.CHAPA_WEBHOOK_SECRET) {
 
 // Now that the DB is available, make sure the schema is up-to-date. This
 // is the same call server.ts makes on boot — but we have to invoke it
-// ourselves because the tests don't go through server.ts. Failure here
-// is logged but non-fatal: the individual test that needs the table will
-// surface a clearer error if its required schema is missing.
-import('./../../src/db/migrations').then(async (mod) => {
-  try {
-    const added = await mod.ensureSchemaMigrations();
-    const flat = Object.values(added).flat();
-    if (flat.length > 0) {
-      console.log(`[test-setup] added columns: ${flat.join(', ')}`);
-    }
-  } catch (err) {
-    console.error('[test-setup] ensureSchemaMigrations failed:', err);
+// ourselves because the tests don't go through server.ts.
+import { ensureSchemaMigrations } from './../../src/db/migrations';
+
+try {
+  const added = await ensureSchemaMigrations();
+  const flat = Object.values(added).flat();
+  if (flat.length > 0) {
+    console.log(`[test-setup] added columns: ${flat.join(', ')}`);
   }
-}).catch((err) => {
-  console.error('[test-setup] load migrations failed:', err);
-});
+} catch (err) {
+  console.error('[test-setup] ensureSchemaMigrations failed:', err);
+  throw err;
+}
 
 // Seed the canonical plan rows ('free' / 'pro'). server.ts:ensurePlansSeeded
 // does this in production; tests bypass server.ts, so we replicate the

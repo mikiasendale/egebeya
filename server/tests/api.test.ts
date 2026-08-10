@@ -30,7 +30,7 @@ describe('API Tests', () => {
       .send({
         name: 'Test Owner',
         phone: testPhone,
-        password: 'password123',
+        password: 'Password123!@#',
         businessName: 'Test Business',
         slug: testSlug,
         email: `test-${Date.now()}@egebeya.test`,
@@ -52,7 +52,7 @@ describe('API Tests', () => {
       .send({
         name: 'Bad Phone Owner',
         phone: '1234567890',
-        password: 'password123',
+        password: 'Password123!@#',
         businessName: 'Bad Phone Business',
         slug: `bad-phone-${Date.now()}`,
         email: `bad-phone-${Date.now()}@egebeya.test`,
@@ -69,7 +69,7 @@ describe('API Tests', () => {
       .send({
         name: 'Another Owner',
         phone: '+251900000000',
-        password: 'password123',
+        password: 'Password123!@#',
         businessName: 'Another Business',
         slug: testSlug, // same slug
         email: `another-${Date.now()}@egebeya.test`,
@@ -96,7 +96,7 @@ describe('API Tests', () => {
       .post('/api/auth/login')
       .send({
         phone: testPhone,
-        password: 'password123',
+        password: 'Password123!@#',
       });
 
     expect(res.status).toBe(200);

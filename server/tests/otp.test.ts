@@ -51,7 +51,7 @@ interface SendOpts {
 function sendOtpRequest(opts: SendOpts) {
   return request(app).post('/api/auth/register-with-phone').send({
     phone: opts.phone,
-    password: opts.password ?? 'securePass123',
+    password: opts.password ?? 'SecurePass123!',
     businessName: opts.businessName ?? 'OTP Test Business',
     slug: opts.slug ?? `otp-${Date.now()}-${crypto.randomUUID().slice(0, 6)}`,
     consent: true,
@@ -63,7 +63,7 @@ function verifyRegisterRequest(phone: string, code: string, slug: string) {
     phone,
     code,
     intent: 'register',
-    password: 'securePass123',
+    password: 'SecurePass123!',
     businessName: 'OTP Test Business',
     slug,
     consent: true,
@@ -170,7 +170,7 @@ describe('SMS OTP identity (Feature E)', () => {
     const reg = await request(app).post('/api/auth/register').send({
       name: 'Reset Owner',
       phone,
-      password: 'oldPass123',
+      password: 'OldPass123!',
       businessName: 'Reset Test Business',
       slug,
       email: `reset-${slug}@egebeya.test`,
@@ -192,14 +192,14 @@ describe('SMS OTP identity (Feature E)', () => {
 
     const confirm = await request(app).post('/api/auth/confirm-password-reset').send({
       resetToken: verify.body.resetToken,
-      newPassword: 'brandNewPass456',
+      newPassword: 'BrandNewPass456!',
     });
     expect(confirm.status).toBe(200);
     expect(confirm.body.success).toBe(true);
 
     // The new password actually works for login.
     const login = await request(app).post('/api/auth/login').send({
-      phone, password: 'brandNewPass456',
+      phone, password: 'BrandNewPass456!',
     });
     expect(login.status).toBe(200);
     expect(cookieValue(login, 'accessToken')).toBeTruthy();

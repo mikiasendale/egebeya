@@ -38,7 +38,7 @@ async function registerOwner(businessName: string, slug: string): Promise<{ toke
   const res = await request(app).post('/api/auth/register').send({
     name: 'Onboarding Owner',
     phone: randomPhone(),
-    password: 'securePass123',
+    password: 'SecurePass123!',
     businessName,
     slug,
     email: `onboarding-${slug}@egebeya.test`,

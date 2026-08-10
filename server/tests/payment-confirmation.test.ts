@@ -103,11 +103,13 @@ describe('Payment confirmation UX (Feature C)', () => {
 
   describe('GET /api/public/appointments/:id/status', () => {
     let apptId: string;
+    let apptOpaqueId: string;
     let customerPhone: string;
 
     beforeAll(async () => {
       customerPhone = '+251911123456';
       apptId = crypto.randomUUID();
+      apptOpaqueId = crypto.randomBytes(16).toString('hex');
       const startTime = futureSlot(3, 10);
       const endTime = startTime + 45 * 60000;
 
@@ -116,6 +118,7 @@ describe('Payment confirmation UX (Feature C)', () => {
         customerPhone, customerEmail: 'test@example.com',
         staffId, serviceId, startTime, endTime,
         status: 'pending', reminderSent: false,
+        opaqueId: apptOpaqueId,
       });
 
       await db.insert(payments).values({
@@ -127,7 +130,7 @@ describe('Payment confirmation UX (Feature C)', () => {
 
     it('returns 200 with correct status and Ethiopian date when phone matches', async () => {
       const res = await request(app)
-        .get(`/api/public/appointments/${apptId}/status`)
+        .get(`/api/public/appointments/${apptOpaqueId}/status`)
         .query({ customer_phone: customerPhone })
         .set('X-Tenant-Slug', slug);
 
@@ -146,7 +149,7 @@ describe('Payment confirmation UX (Feature C)', () => {
 
     it('returns 403 when phone does not match', async () => {
       const res = await request(app)
-        .get(`/api/public/appointments/${apptId}/status`)
+        .get(`/api/public/appointments/${apptOpaqueId}/status`)
         .query({ customer_phone: '+251911999999' })
         .set('X-Tenant-Slug', slug);
 
@@ -156,7 +159,7 @@ describe('Payment confirmation UX (Feature C)', () => {
 
     it('returns 400 when phone is missing', async () => {
       const res = await request(app)
-        .get(`/api/public/appointments/${apptId}/status`)
+        .get(`/api/public/appointments/${apptOpaqueId}/status`)
         .set('X-Tenant-Slug', slug);
 
       expect(res.status).toBe(400);
@@ -180,7 +183,7 @@ describe('Payment confirmation UX (Feature C)', () => {
       }).catch(() => {});
 
       const res = await request(app)
-        .get(`/api/public/appointments/${apptId}/status`)
+        .get(`/api/public/appointments/${apptOpaqueId}/status`)
         .query({ customer_phone: customerPhone })
         .set('X-Tenant-Slug', otherSlug);
 
@@ -194,7 +197,7 @@ describe('Payment confirmation UX (Feature C)', () => {
       await db.update(appointments).set({ status: 'confirmed' }).where(eq(appointments.id, apptId)).run();
 
       const res = await request(app)
-        .get(`/api/public/appointments/${apptId}/status`)
+        .get(`/api/public/appointments/${apptOpaqueId}/status`)
         .query({ customer_phone: customerPhone })
         .set('X-Tenant-Slug', slug);
 
@@ -210,6 +213,7 @@ describe('Payment confirmation UX (Feature C)', () => {
     it('cancels pending appointment with past cancels_at', async () => {
       const past = Date.now() - 3600_000; // 1 hour ago
       const apptId = crypto.randomUUID();
+      const apptOpaqueId = crypto.randomBytes(16).toString('hex');
       const startTime = futureSlot(2, 14);
       const endTime = startTime + 45 * 60000;
 
@@ -218,6 +222,7 @@ describe('Payment confirmation UX (Feature C)', () => {
         customerPhone: '+251911111111', staffId, serviceId,
         startTime, endTime, status: 'pending',
         reminderSent: false, cancelsAt: past,
+        opaqueId: apptOpaqueId,
       });
 
       // Run the slot-cleanup logic (import runOnce from cron)
@@ -234,6 +239,7 @@ describe('Payment confirmation UX (Feature C)', () => {
       const future = Date.now() + 3600_000; // 1 hour from now
       const apptId = crypto.randomUUID();
       const startTime = futureSlot(2, 15);
+      const apptOpaqueId = crypto.randomBytes(16).toString('hex');
       const endTime = startTime + 45 * 60000;
 
       await db.insert(appointments).values({
@@ -241,6 +247,7 @@ describe('Payment confirmation UX (Feature C)', () => {
         customerPhone: '+251911222222', staffId, serviceId,
         startTime, endTime, status: 'pending',
         reminderSent: false, cancelsAt: future,
+        opaqueId: apptOpaqueId,
       });
 
       const { runOnce } = await import('../cron/sendReminders');

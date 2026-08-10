@@ -117,8 +117,8 @@ describe('Booking CRUD (authenticated)', () => {
     appIdDay1 = crypto.randomUUID();
     appIdDay2 = crypto.randomUUID();
     await db.insert(appointments).values([
-      { id: appIdDay1, tenantId, customerName: 'Day1 Customer', customerPhone: '+251911000001', staffId, serviceId, startTime: ms1, endTime: ms1 + 1800000, status: 'pending' },
-      { id: appIdDay2, tenantId, customerName: 'Day2 Customer', customerPhone: '+251911000002', staffId, serviceId, startTime: ms2, endTime: ms2 + 1800000, status: 'pending' },
+      { id: appIdDay1, tenantId, customerName: 'Day1 Customer', customerPhone: '+251911000001', staffId, serviceId, startTime: ms1, endTime: ms1 + 1800000, status: 'pending', opaqueId: crypto.randomBytes(16).toString('hex') },
+      { id: appIdDay2, tenantId, customerName: 'Day2 Customer', customerPhone: '+251911000002', staffId, serviceId, startTime: ms2, endTime: ms2 + 1800000, status: 'pending', opaqueId: crypto.randomBytes(16).toString('hex') },
     ]);
   });
 

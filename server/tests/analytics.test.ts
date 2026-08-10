@@ -68,24 +68,25 @@ describe('Revenue analytics (WP3.1)', () => {
     await db.delete(tenants).where(eq(tenants.id, tenantId)).catch(() => {});
   });
 
-  function seedAppt(daysAgo: number, h: number, status: string, phone: string, svc: string): string {
+  async function seedAppt(daysAgo: number, h: number, status: string, phone: string, svc: string): Promise<string> {
     const now = Date.now();
     const utcNow = new Date(now);
     const utcTodayStart = Date.UTC(utcNow.getUTCFullYear(), utcNow.getUTCMonth(), utcNow.getUTCDate());
     const start = utcTodayStart - daysAgo * 86400000 + h * 3600000;
     const end = start + 3600000;
     const id = crypto.randomUUID();
-    db.insert(appointments).values({
+    await db.insert(appointments).values({
       id, tenantId, customerName: `C-${id.slice(0,4)}`,
       customerPhone: phone, customerEmail: null,
       staffId, serviceId: svc,
       startTime: start, endTime: end, status, reminderSent: false,
+      opaqueId: crypto.randomBytes(16).toString('hex'),
     }).run();
     return id;
   }
 
-  function pay(apptId: string, amount: number) {
-    db.insert(payments).values({
+  async function pay(apptId: string, amount: number) {
+    await db.insert(payments).values({
       id: crypto.randomUUID(), tenantId, appointmentId: apptId,
       amount, gateway: 'chapa', status: 'completed',
     }).run();
@@ -93,22 +94,22 @@ describe('Revenue analytics (WP3.1)', () => {
 
   it('returns 7-day analytics with no PII', async () => {
     // Day -3: phone A twice (repeat) across svcA and svcB
-    const a0 = seedAppt(3, 9, 'completed', '+251911111111', svcA);
-    const a1 = seedAppt(3, 11, 'completed', '+251911111111', svcB);
+    const a0 = await await seedAppt(3, 9, 'completed', '+251911111111', svcA);
+    const a1 = await await seedAppt(3, 11, 'completed', '+251911111111', svcB);
     pay(a0, 5000); pay(a1, 3000);
 
     // Day -2: phone B once
-    const a2 = seedAppt(2, 9, 'completed', '+251922222222', svcA);
+    const a2 = await await seedAppt(2, 9, 'completed', '+251922222222', svcA);
     pay(a2, 5000);
 
     // Day -1: phone C once, phone D once (D has email=PII probe)
-    const a3 = seedAppt(1, 9, 'completed', '+251933333333', svcB);
-    const a4 = seedAppt(1, 11, 'completed', '+251944444444', svcA);
+    const a3 = await await seedAppt(1, 9, 'completed', '+251933333333', svcB);
+    const a4 = await await seedAppt(1, 11, 'completed', '+251944444444', svcA);
     pay(a3, 4000); pay(a4, 3000);
 
     // Day 0 (today): 1 confirmed + 1 pending
-    seedAppt(0, 9, 'confirmed', '+25190000001', svcA);
-    seedAppt(0, 11, 'pending', '+25190000002', svcA);
+    await await seedAppt(0, 9, 'confirmed', '+25190000001', svcA);
+    await await seedAppt(0, 11, 'pending', '+25190000002', svcA);
 
     const res = await request(app)
       .get('/api/tenant/analytics')
