@@ -1680,6 +1680,36 @@ button:hover .num-roller {
   }
 }
 
+/* ═════════════════════════════════════════════════════════════════════
+   ADAPT · mobile landing.
+   The landing reads as one long receipt even on a phone; these rules
+   keep the receipt topology at small widths without re-architecting it.
+   ──────────────────────────────────────────────────────────────────── */
+
+/* Tariff rows: on narrow screens the fixed 7.5rem price well and the
+   1.25rem gutters starve the service name. Compact the row so the name
+   keeps one line; the ink-pen mirror never binds on touch pointers so
+   desyncing its grid here is harmless. */
+@media (max-width: 480px) {
+  .tariff-hover-row {
+    gap: 0.75rem !important;
+  }
+  .tariff-price-wrap {
+    min-width: 0;
+  }
+}
+
+/* Category chips: 44px+ tap targets on touch-first phones; keep the
+   tighter desktop chip. */
+.search-chip {
+  padding: 7px 13px;
+}
+@media (pointer: coarse), (max-width: 480px) {
+  .search-chip {
+    padding: 13px 15px;
+  }
+}
+
 :root {
   color-scheme: light;
 }
