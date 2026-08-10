@@ -372,6 +372,7 @@ walkInRouter.post('/walk-in', async (req, res) => {
           throw new Error('CONFLICT');
         }
 
+        const opaqueId = crypto.randomBytes(16).toString('hex');
         await tx.insert(appointments).values({
           id: appId,
           tenantId,
@@ -384,6 +385,7 @@ walkInRouter.post('/walk-in', async (req, res) => {
           endTime: endTimeMs,
           status: 'confirmed',
           reminderSent: false,
+          opaqueId,
         });
       }, { behavior: 'immediate' });
     } catch (err: any) {

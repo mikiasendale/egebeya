@@ -217,6 +217,7 @@ router.post('/bookings', requireApiKey('write:bookings'), async (req, res) => {
           throw new Error('CONFLICT');
         }
 
+        const opaqueId = crypto.randomBytes(16).toString('hex');
         await tx.insert(appointments).values({
           id: appId,
           tenantId: tenant.id,
@@ -230,6 +231,7 @@ router.post('/bookings', requireApiKey('write:bookings'), async (req, res) => {
           status: initialStatus,
           reminderSent: false,
           cancelsAt: null,
+          opaqueId,
         });
 
         await tx.insert(appointmentServices).values(
