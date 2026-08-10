@@ -4,11 +4,11 @@ import { Eye, EyeOff } from 'lucide-react';
 
 /* ─────────────────────────────────────────────────────────────────────
  * AuthShell — shared layout for Register / Login / ForgotPassword /
- * ResetPassword in the Modernized Kebele Office Form world.
- * Two-column office layout: a graphite "back-of-the-form" issue panel
+ * ResetPassword in the Egebeya receipt-form world.
+ * Two-column office layout: an espresso "back-of-the-form" issue panel
  * (carrying the masthead, the form's issue header, the lede) and a
- * Ledger Paper "front-of-the-form" panel where the fields are filled in.
- * Below 900px the graphite panel collapses into a header strip.
+ * paper "front-of-the-form" panel where the fields are filled in.
+ * Below 900px the espresso panel collapses into a header strip.
  * ──────────────────────────────────────────────────────────────────── */
 export function AuthShell({
   formCode,
@@ -40,7 +40,7 @@ export function AuthShell({
               fontFamily: 'var(--font-serif-ethiopic)',
               fontWeight: 700,
               fontSize: '1.5rem',
-              color: 'var(--color-paper)',
+              color: 'var(--color-surface-raised)',
               lineHeight: 1,
             }}
           >
@@ -69,7 +69,7 @@ export function AuthShell({
               fontWeight: 600,
               fontSize: 'clamp(1.75rem, 3vw, 2.25rem)',
               letterSpacing: '-0.02em',
-              color: 'var(--color-paper)',
+              color: 'var(--color-surface-raised)',
               lineHeight: 1.1,
             }}
           >
@@ -95,7 +95,7 @@ export function AuthShell({
       </aside>
 
       {/* Form panel (ledger paper) — right on desktop, below on mobile */}
-      <main className="flex-1 bg-[var(--color-paper)] px-6 sm:px-10 lg:px-14 flex items-center justify-center">
+      <main className="flex-1 bg-[var(--color-surface)] px-6 sm:px-10 lg:px-14 flex items-center justify-center">
         <div className="w-full max-w-lg py-10 lg:py-16">{children}</div>
       </main>
     </div>
@@ -103,8 +103,8 @@ export function AuthShell({
 }
 
 /* ────────────────────────────────────────────────────────────────────
- * Field — single form row (label-above + squared input). The squared
- * inputlists on Ledger Paper, and adopts the active-row tint on focus.
+ * Field — single form row (label-above + receipt-underline input). The
+ * underline inputs sit on the paper panel and adopt the active-row tint.
  * ──────────────────────────────────────────────────────────────── */
 export function Field({
   index,
@@ -131,7 +131,7 @@ export function Field({
           fontFamily: 'var(--font-mono)',
           fontWeight: 600,
           fontSize: '0.95rem',
-          color: 'var(--color-ink-stamp)',
+          color: 'var(--color-ink-soft)',
           textAlign: 'center',
           minWidth: '1.5rem',
         }}
@@ -164,7 +164,7 @@ export function Field({
             style={{
               fontFamily: 'var(--font-mono)',
               fontSize: '0.7rem',
-              color: 'var(--color-ink-stamp)',
+              color: 'var(--color-ink-soft)',
               letterSpacing: '0.04em',
             }}
           >
@@ -178,7 +178,7 @@ export function Field({
             style={{
               fontFamily: 'var(--font-mono)',
               fontSize: '0.75rem',
-              color: 'var(--color-signal)',
+              color: 'var(--color-accent)',
               letterSpacing: '0.03em',
             }}
             role="alert"
@@ -191,8 +191,8 @@ export function Field({
   );
 }
 
-/* Input — shared squared input with focus/blur style management and
-   optional error state. Eliminates the per-field style/onFocus/onBlur
+/* Input — shared receipt-underline input with focus/blur style management
+   and optional error state. Eliminates the per-field style/onFocus/onBlur
    boilerplate that was repeated across Register, Login, ResetPassword,
    and ForgotPassword. */
 export function Input({
@@ -204,9 +204,9 @@ export function Input({
   onBlur,
   ...props
 }: React.InputHTMLAttributes<HTMLInputElement> & { error?: boolean }) {
-  const baseStyle = hasError ? inkStyles.squaredInputError : inkStyles.squaredInput;
+  const baseStyle = hasError ? inkStyles.receiptInputError : inkStyles.receiptInput;
   const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
-    Object.assign(e.target.style, inkStyles.squaredInputFocus);
+    Object.assign(e.target.style, inkStyles.receiptInputFocus);
     onFocus?.(e);
   };
   const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
@@ -216,7 +216,7 @@ export function Input({
   return (
     <input
       id={id}
-      className={className}
+      className={className ? `auth-input ${className}` : 'auth-input'}
       style={{ ...baseStyle, ...style }}
       onFocus={handleFocus}
       onBlur={handleBlur}
@@ -267,37 +267,47 @@ export function PasswordInput({
   );
 }
 
-/* Submit — the indigo Primary button at full width */
+/* Submit — the telebirr Primary button at full width. A stamp: it presses
+   on click, prints its ink while `loading`, and slams settled when the
+   caller marks the flow complete (`stamping`). */
 export function Submit({
   children,
   loading,
   disabled,
+  stamping,
   onClick,
   type,
 }: {
   children: React.ReactNode;
   loading?: boolean;
   disabled?: boolean;
+  stamping?: boolean;
   onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
   type?: 'submit' | 'button';
 }) {
+  const faded = !loading && !stamping && Boolean(disabled);
   return (
     <button
       type={type || 'submit'}
       onClick={onClick}
-      disabled={loading || disabled}
-      className="w-full inline-flex items-center justify-center px-6 py-4 no-underline font-semibold"
+      disabled={loading || disabled || stamping}
+      className={[
+        'btn-submit w-full inline-flex items-center justify-center px-6 py-4 no-underline font-semibold',
+        faded
+          ? 'bg-ink-rule text-ink-soft'
+          : 'bg-primary hover:bg-primary-deep text-surface-raised',
+        loading ? 'is-printing' : '',
+        stamping ? 'is-stamping' : '',
+      ].join(' ')}
       style={{
-        backgroundColor: disabled ? 'var(--color-ink-stamp)' : 'var(--color-ink)',
-        color: 'var(--color-paper)',
         fontFamily: 'var(--font-display)',
-        borderRadius: 'var(--rd-card)',
+        borderRadius: 'var(--radius-card)',
         letterSpacing: '0.01em',
-        cursor: disabled ? 'wait' : 'pointer',
-        transition: 'background-color 140ms ease-out',
+        cursor: loading ? 'wait' : disabled ? 'not-allowed' : 'pointer',
+        transition: 'background-color 140ms ease-out, transform 120ms ease-out',
       }}
     >
-      {children}
+      <span className="stamp-submit__label">{children}</span>
     </button>
   );
 }
@@ -309,17 +319,17 @@ export function Flash({ kind, children }: { kind: 'error' | 'success'; children:
       role={kind === 'error' ? 'alert' : 'status'}
       className="mb-4 flex items-start gap-3 px-4 py-3"
       style={{
-        backgroundColor: kind === 'error' ? 'var(--color-paper)' : 'var(--color-paper)',
-        border: `1px solid ${kind === 'error' ? 'var(--color-signal)' : 'var(--color-telebirr)'}`,
-        borderLeft: kind === 'error' ? '4px solid var(--color-signal)' : '4px solid var(--color-telebirr)',
-        borderRadius: 'var(--rd-card)',
+        backgroundColor: 'var(--color-surface-raised)',
+        border: `1px solid ${kind === 'error' ? 'var(--color-accent)' : 'var(--color-primary)'}`,
+        borderLeft: kind === 'error' ? '4px solid var(--color-accent)' : '4px solid var(--color-primary)',
+        borderRadius: 'var(--radius-card)',
       }}
     >
       <span
         className="stamp"
         style={{
-          color: kind === 'error' ? 'var(--color-signal)' : 'var(--color-telebirr)',
-          borderColor: kind === 'error' ? 'var(--color-signal)' : 'var(--color-telebirr)',
+          color: kind === 'error' ? 'var(--color-accent)' : 'var(--color-primary)',
+          borderColor: kind === 'error' ? 'var(--color-accent)' : 'var(--color-primary)',
         }}
       >
         {kind === 'error' ? '✗' : '✓'}
@@ -327,7 +337,7 @@ export function Flash({ kind, children }: { kind: 'error' | 'success'; children:
       <p
         className="m-0 text-sm"
         style={{
-          color: kind === 'error' ? 'var(--color-signal)' : 'var(--color-ink)',
+          color: kind === 'error' ? 'var(--color-accent)' : 'var(--color-ink)',
           fontFamily: 'var(--font-body)',
           paddingTop: 2,
         }}
@@ -338,32 +348,30 @@ export function Flash({ kind, children }: { kind: 'error' | 'success'; children:
   );
 }
 
-/* A shared squared input — used inside <Field> */
+/* A shared receipt-underline input — used inside <Field> */
 export const inkStyles = {
-  squaredInput: {
-    border: '1px solid var(--color-ink-rule)',
-    borderRadius: 'var(--rd-card)',
-    background: 'var(--color-paper)',
-    padding: '0.7rem 0.85rem',
+  receiptInput: {
+    border: 'none' as const,
+    borderBottom: '1px dashed var(--color-ink-rule-dashed)',
+    background: 'transparent' as const,
+    padding: '0.625rem 0.125rem',
     fontFamily: 'var(--font-body)' as const,
     color: 'var(--color-ink)',
     width: '100%' as const,
-    outline: 'none' as const,
-    transition: 'border-color 120ms ease-out, background-color 120ms ease-out',
+    transition: 'border-color 120ms ease-out',
   },
-  squaredInputFocus: {
-    border: '1px solid var(--color-ink)',
-    background: 'var(--color-paper-raised)',
+  receiptInputFocus: {
+    border: 'none' as const,
+    borderBottom: '2px solid var(--color-primary)',
   },
-  squaredInputError: {
-    border: '1px solid var(--color-signal)',
-    borderRadius: 'var(--rd-card)',
-    background: 'var(--color-paper)',
-    padding: '0.7rem 0.85rem',
+  receiptInputError: {
+    border: 'none' as const,
+    borderBottom: '1px solid var(--color-accent)',
+    background: 'transparent' as const,
+    padding: '0.625rem 0.125rem',
     fontFamily: 'var(--font-body)' as const,
     color: 'var(--color-ink)',
     width: '100%' as const,
-    outline: 'none' as const,
-    transition: 'border-color 120ms ease-out, background-color 120ms ease-out',
+    transition: 'border-color 120ms ease-out',
   },
 };
