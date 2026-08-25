@@ -733,6 +733,9 @@ router.post('/bookings', bookingWriteLimiter, async (req, res) => {
     const effectiveAmount = Math.max(0, totalPriceCents - promoDiscount);
 
     const appId = crypto.randomUUID();
+    // Public-facing booking ID (short, unguessable) returned to the customer
+    // and used by cancel/reschedule/status endpoints — never the internal UUID.
+    let opaqueId: string | null = null;
     let paymentId: string | null = null;
     let txRef: string | null = null;
 
@@ -752,8 +755,21 @@ router.post('/bookings', bookingWriteLimiter, async (req, res) => {
           throw new Error('CONFLICT');
         }
 
-         const opaqueId = crypto.randomBytes(16).toString('hex');
-         await tx.insert(appointments).values({
+        // Promo maxUses must be enforced INSIDE the write transaction: the
+        // pre-transaction read above is stale under concurrency, so N
+        // simultaneous bookings could each pass "usedCount < maxUses" and
+        // overshoot the cap. BEGIN IMMEDIATE serializes writers, so this
+        // re-check is authoritative.
+        if (promoCodeId) {
+          const freshPromo = await tx.select({ usedCount: promoCodes.usedCount, maxUses: promoCodes.maxUses })
+            .from(promoCodes).where(eq(promoCodes.id, promoCodeId)).get();
+          if (!freshPromo || freshPromo.usedCount >= freshPromo.maxUses) {
+            throw new Error('PROMO_EXHAUSTED');
+          }
+        }
+
+        opaqueId = crypto.randomBytes(16).toString('hex');
+        await tx.insert(appointments).values({
           id: appId,
           tenantId: tenant.id,
           staffId: data.staff_id,
@@ -805,6 +821,9 @@ router.post('/bookings', bookingWriteLimiter, async (req, res) => {
     } catch (err: any) {
       if (err.message === 'CONFLICT') {
         return res.status(409).json({ error: 'Time slot is no longer available' });
+      }
+      if (err.message === 'PROMO_EXHAUSTED') {
+        return res.status(422).json({ error: 'Promo code has reached its maximum uses', code: 'PROMO_EXHAUSTED' });
       }
       throw err;
     }
@@ -889,7 +908,7 @@ router.post('/bookings', bookingWriteLimiter, async (req, res) => {
       }
     }
 
-    const result = { id: appId, status: finalStatus, paymentStatus, data };
+    const result = { id: opaqueId, status: finalStatus, paymentStatus, data };
     const serviceNames = bookedServices.map((s) => s.name).join(', ');
     const ethiopianDateStr = formatEthiopianDateTime(startTimeMs);
     if (result.data.customer_email) {
@@ -944,6 +963,11 @@ router.post('/bookings', bookingWriteLimiter, async (req, res) => {
 });
 
 // Public booking ownership lookup: id + customer phone are both required.
+// The id is the public opaqueId (as returned by booking creation and used
+// by the status endpoint). Internal UUIDs are also accepted as a
+// backward-compat fallback for references issued before opaqueId was
+// surfaced — the query is still tenant-scoped, so a stranger's UUID
+// resolves to nothing.
 async function resolveOwnedBooking(req: any, res: any): Promise<any | null> {
   const tenant = (req as any).tenant;
   const { id } = req.params;
@@ -953,7 +977,10 @@ async function resolveOwnedBooking(req: any, res: any): Promise<any | null> {
     return null;
   }
   const appt = await db.select().from(appointments)
-    .where(and(eq(appointments.id, id), eq(appointments.tenantId, tenant.id))).get();
+    .where(and(
+      eq(appointments.tenantId, tenant.id),
+      or(eq(appointments.opaqueId, id), eq(appointments.id, id)),
+    )).get();
   if (!appt) {
     res.status(404).json({ error: 'Booking not found' });
     return null;
@@ -1010,12 +1037,35 @@ router.post('/bookings/:id/reschedule', bookingWriteLimiter, async (req, res) =>
       return res.status(422).json({ error: 'Invalid start_time. Expected an ISO 8601 timestamp.' });
     }
 
-    const service = await db.select().from(services)
-      .where(and(eq(services.id, appt.serviceId), eq(services.tenantId, tenant.id))).get();
-    if (!service) {
-      return res.status(404).json({ error: 'Service not found' });
+    // Duration must cover ALL booked services. Multi-service bookings store
+    // one row per service in appointment_services; using only appt.serviceId
+    // (the first service) produced a too-short endTime that let a rescheduled
+    // appointment overlap the tail of its own original block and other
+    // bookings. Fall back to the primary service when no breakdown exists
+    // (legacy single-service rows).
+    const svcRows = await db.select({ serviceId: appointmentServices.serviceId })
+      .from(appointmentServices)
+      .where(eq(appointmentServices.appointmentId, appt.id))
+      .all();
+    let totalDurationMinutes: number;
+    if (svcRows.length > 0) {
+      const svcDetail = await db.select({ id: services.id, durationMinutes: services.durationMinutes })
+        .from(services)
+        .where(and(inArray(services.id, svcRows.map((r) => r.serviceId)), eq(services.tenantId, tenant.id)))
+        .all();
+      if (svcDetail.length !== svcRows.length) {
+        return res.status(404).json({ error: 'One or more services for this booking no longer exist' });
+      }
+      totalDurationMinutes = svcDetail.reduce((sum, s) => sum + s.durationMinutes, 0);
+    } else {
+      const service = await db.select().from(services)
+        .where(and(eq(services.id, appt.serviceId), eq(services.tenantId, tenant.id))).get();
+      if (!service) {
+        return res.status(404).json({ error: 'Service not found' });
+      }
+      totalDurationMinutes = service.durationMinutes;
     }
-    const endTimeMs = startTimeMs + service.durationMinutes * 60000;
+    const endTimeMs = startTimeMs + totalDurationMinutes * 60000;
 
     const slotError = await assertSlotAllowed(tenant, startTimeMs, appt.staffId);
     if (slotError) return res.status(422).json(slotError);

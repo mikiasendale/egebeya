@@ -2,7 +2,7 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { db } from '../db';
-import { users, tenants, passwordResets, plans, tenantSubscriptions, refreshTokenFamilies } from '../db/schema';
+import { users, tenants, passwordResets, tenantSubscriptions, refreshTokenFamilies } from '../db/schema';
 import { eq, sql, and } from 'drizzle-orm';
 import crypto from 'crypto';
 import { sendMail } from '../../server/lib/mailer';
@@ -13,6 +13,7 @@ import { authLimiter, otpLimiter } from '../../server/middleware/rateLimiter';
 import { logSecurityEvent, ipFromRequest } from '../../server/lib/securityLog';
 import { normalizePhone } from '../lib/phone';
 import { generateOtp, verifyOtp } from '../../server/lib/otp';
+import { getOrCreateFreePlan } from '../../server/lib/plans';
 
 const router = Router();
 
@@ -74,13 +75,6 @@ router.post('/check-slug', async (req, res) => {
 });
 
 // Find (or create) the canonical 'free' plan row.
-async function getOrCreateFreePlan() {
-  const existing = await db.select().from(plans).where(eq(plans.name, 'free')).get();
-  if (existing) return existing;
-  const row = { id: crypto.randomUUID(), name: 'free', price: 0, maxStaff: 2, customDomainAllowed: false };
-  await db.insert(plans).values(row);
-  return row;
-}
 
 router.post('/register', authLimiter, async (req, res) => {
   try {

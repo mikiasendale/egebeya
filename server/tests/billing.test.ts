@@ -134,6 +134,25 @@ describe('Pro-subscription billing (checkout / webhook / grace / downgrade)', ()
     expect((payment?.meta as any)?.purpose).toBe('pro_subscription');
   });
 
+  it('self-heals a missing pro plan row: checkout 200 instead of 500', async () => {
+    // Drop the canonical pro row as if a fresh DB never seeded it. Re-point
+    // any subscriptions first to avoid the FK constraint, then delete.
+    await db.update(tenantSubscriptions).set({ planId: freePlanId }).where(eq(tenantSubscriptions.planId, proPlanId));
+    await db.delete(plans).where(eq(plans.name, 'pro')).run();
+    expect(await db.select().from(plans).where(eq(plans.name, 'pro')).get()).toBeUndefined();
+
+    const res = await request(app)
+      .post('/api/tenant/subscription/checkout')
+      .set('Authorization', `Bearer ${token}`)
+      .send({});
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(typeof res.body.checkoutUrl).toBe('string');
+
+    // The helper and boot-time normalizePlanRows recreate the canonical row.
+    proPlanId = (await db.select().from(plans).where(eq(plans.name, 'pro')).get())!.id;
+  });
+
   it('a completed webhook activates the Pro subscription (+30 days)', async () => {
     // Start a checkout so a matching pending payment row exists.
     const checkout = await request(app)

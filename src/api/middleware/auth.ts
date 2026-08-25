@@ -119,7 +119,11 @@ export function requireAuth(options: AuthOptions = {}) {
       return res.status(401).json({ error: 'Session has been revoked, please sign in again' });
     }
 
-    if (options.roles && options.roles.length > 0 && !options.roles.includes(payload.role)) {
+    // Role is checked against the FRESH DB row, not the JWT claim: an owner
+    // demoted to staff mid-token-lifetime must lose owner endpoints
+    // immediately, and a forged/upgraded `role` claim in a stolen token must
+    // never grant privileges the DB does not confirm.
+    if (options.roles && options.roles.length > 0 && !options.roles.includes((user as any).role)) {
       return res.status(403).json({ error: 'Forbidden' });
     }
 

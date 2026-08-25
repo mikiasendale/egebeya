@@ -32,6 +32,7 @@ import path from 'path';
 import { requirePlanLimit, requireActiveSubscription } from '../../server/middleware/planLimits';
 import { createCheckout, generateTxRef } from '../../server/lib/chapa';
 import { PRO_PLAN_PRICE_BIRR, GRACE_PERIOD_MS, billingStateFor } from '../../server/lib/billing';
+import { getOrCreateProPlan } from '../../server/lib/plans';
 import { resolveMediaUrl } from '../../server/lib/mediaUrls';
 import { requireAuth } from './middleware/auth';
 import tenantDashboardRoutes from '../../server/api/tenantRoute';
@@ -569,10 +570,9 @@ router.get('/subscription', async (req, res) => {
 router.post('/subscription/checkout', async (req, res) => {
   const { tenantId } = (req as any).user;
   try {
-    const proPlan = await db.select().from(plans).where(eq(plans.name, 'pro')).get();
-    if (!proPlan) {
-      return res.status(500).json({ error: 'Pro plan is not configured on this platform.' });
-    }
+    // Self-healing: create the canonical 'pro' row if a fresh DB never seeded
+    // it (previously a missing row returned 500 "Pro plan is not configured").
+    const proPlan = await getOrCreateProPlan();
 
     const owner = await db.select().from(users)
       .where(and(eq(users.tenantId, tenantId), eq(users.role, 'owner')))
@@ -1549,10 +1549,17 @@ router.get('/export/csv', async (req, res) => {
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${tenantId}-${type}-${Date.now()}.csv"`);
 
-    // Helper to escape CSV fields
+    // Helper to escape CSV fields. Besides quoting separators, a leading
+    // = + - or @ is prefixed with a single quote so Excel/LibreOffice/Sheets
+    // cannot interpret attacker-controlled text (customer_name comes from
+    // the public booking form!) as a formula — the classic CSV injection
+    // vector (=HYPERLINK(...), =cmd|'/c calc'!A0, @SUM(...), ...).
     const escapeCsv = (field: any): string => {
       if (field === null || field === undefined) return '';
-      const str = String(field);
+      let str = String(field);
+      if (/^[=+\-@\t\r]/.test(str)) {
+        str = "'" + str;
+      }
       if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
         return '"' + str.replace(/"/g, '""') + '"';
       }

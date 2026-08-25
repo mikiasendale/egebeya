@@ -83,6 +83,14 @@ router.put('/:id/status', async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
 
+  // Whitelist the allowed lifecycle states — an unvalidated string used to be
+  // written straight to the row, letting any staff token set arbitrary junk
+  // values ("", "hacked", objects) and corrupt dashboards/exports downstream.
+  const ALLOWED_STATUSES = ['pending', 'confirmed', 'completed', 'cancelled', 'no_show'];
+  if (typeof status !== 'string' || !ALLOWED_STATUSES.includes(status)) {
+    return res.status(400).json({ error: `status must be one of: ${ALLOWED_STATUSES.join(', ')}` });
+  }
+
   try {
     const appointment = await db.select().from(appointments).where(and(eq(appointments.id, id), eq(appointments.tenantId, tenantId))).get();
 

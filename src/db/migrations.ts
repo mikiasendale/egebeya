@@ -19,6 +19,7 @@
 import { db } from './index';
 import { plans, tenantSubscriptions } from './schema';
 import { eq } from 'drizzle-orm';
+import { getOrCreatePlan } from '../../server/lib/plans';
 
 type TableInfo = { name: string; cid: number; type: string; notnull: 0 | 1; pk: number };
 
@@ -717,7 +718,9 @@ async function backfillOnboardingCompletedFlag(): Promise<void> {
  * Canonicalise plan rows. Older seeds created 'Basic'/'Pro' (title-case)
  * alongside the canonical 'free'/'pro' — duplicate rows break the Pro gate
  * and the upgrade flow. This:
- *   1. ensures exactly one 'free' and one 'pro' row exist,
+ *   1. ensures exactly one 'free' and one 'pro' row exist (creating the
+ *      canonical row first when a fresh DB never seeded one, which fixes the
+ *      "Pro plan is not configured" 500 on subscription checkout),
  *   2. re-points subscriptions off legacy 'Basic'/'Pro' rows to canonical,
  *   3. deletes the legacy rows.
  * Idempotent — safe on every boot.
@@ -739,6 +742,9 @@ async function normalizePlanRows(): Promise<void> {
       await db.update(tenantSubscriptions).set({ planId: canonicalPro.id }).where(eq(tenantSubscriptions.planId, legacyPro.id));
       await db.delete(plans).where(eq(plans.id, legacyPro.id)).catch(() => {});
     }
+
+    if (!canonicalFree) await getOrCreatePlan('free');
+    if (!canonicalPro) await getOrCreatePlan('pro');
   } catch (err) {
     console.warn('[migrations] normalizePlanRows skipped:', (err as Error)?.message);
   }

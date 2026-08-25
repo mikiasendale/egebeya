@@ -329,7 +329,15 @@ describe('Plan-gate enforcement & tenant isolation', () => {
         });
       expect(res.status).toBe(201);
       expect(res.body.appointment?.id).toBeDefined();
-      bookingId = res.body.appointment.id;
+      // The public booking response exposes the opaqueId, not the internal
+      // UUID. The authenticated /api/bookings endpoints use the internal ID,
+      // so resolve it from the row we just created.
+      const row = await db.select({ id: appointments.id })
+        .from(appointments)
+        .where(eq(appointments.opaqueId, res.body.appointment.id))
+        .get();
+      expect(row).toBeTruthy();
+      bookingId = row!.id;
     });
 
     it('GET /api/bookings lists the booking for the authenticated tenant', async () => {

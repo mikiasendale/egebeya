@@ -10,7 +10,7 @@ import cron from 'node-cron';
 import { createServer as createViteServer } from 'vite';
 import apiRoutes from './src/api';
 import { ensureSchemaMigrations } from './src/db/migrations';
-import { cspNonceMiddleware, nonceCsp } from './server/middleware/nonceCsp';
+import { cspNonceMiddleware, nonceCsp, injectCspNonce } from './server/middleware/nonceCsp';
 import { validateProductionEnv } from './src/lib/envGuards';
 import { jwtSecret, refreshSecret } from './src/api/middleware/auth';
 import { isDbUnavailableError } from './src/db/health';
@@ -214,27 +214,23 @@ async function startServer() {
     app.use('/uploads', express.static(path.join(distPath, 'uploads')));
     // Only public assets live under dist (the server bundle is built to
     // dist-server/ so dist/server.cjs is never downloadable).
+    //
+    // The SPA shell (/, /dashboard, /:slug … all client routes served by
+    // index.html) never sent a CSP before — only the API routers did, so the
+    // page that hosts the whole app had no script constraints at all. Apply
+    // the bounded nonce policy here (cspNonceMiddleware already ran globally
+    // and populated res.locals.cspNonce). Static assets passing through this
+    // middleware get the same header, which is harmless.
+    app.use(nonceCsp);
     app.use(express.static(distPath));
     app.get('*splat', (req, res) => {
-      // Inject CSP nonce into the HTML for the SPA
+      const indexPath = path.join(distPath, 'index.html');
+      let html = fs.readFileSync(indexPath, 'utf8');
       const nonce = res.locals.cspNonce;
       if (nonce) {
-        const indexPath = path.join(distPath, 'index.html');
-        let html = fs.readFileSync(indexPath, 'utf8');
-        // Add nonce to script and style tags
-        html = html.replace(
-          '<script type="module" src="/src/main.tsx"></script>',
-          `<script type="module" nonce="${nonce}" src="/src/main.tsx"></script>`
-        );
-        // Also add meta tag with nonce for dynamic script creation
-        html = html.replace(
-          '</head>',
-          `<meta name="csp-nonce" content="${nonce}" /></head>`
-        );
-        res.send(html);
-      } else {
-        res.sendFile(path.join(distPath, 'index.html'));
+        html = injectCspNonce(html, nonce);
       }
+      res.type('html').send(html);
     });
   }
 

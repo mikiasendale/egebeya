@@ -1,11 +1,12 @@
 import { db } from '../../src/db';
-import { tenantSubscriptions, plans } from '../../src/db/schema';
+import { tenantSubscriptions } from '../../src/db/schema';
 import { eq } from 'drizzle-orm';
 import crypto from 'crypto';
+import { getOrCreateProPlan } from './plans';
 
 export async function grantProTrial(tenantId: string, now = Date.now()): Promise<{ granted: boolean; trialEndsAt: number }> {
-  const proPlan = await db.select().from(plans).where(eq(plans.name, 'pro')).get();
-  if (!proPlan) throw new Error('Pro plan is not configured');
+  // Self-healing: create the canonical 'pro' row if it never got seeded.
+  const proPlan = await getOrCreateProPlan();
 
   const existing = await db.select().from(tenantSubscriptions)
     .where(eq(tenantSubscriptions.tenantId, tenantId)).get();
