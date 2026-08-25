@@ -212,7 +212,7 @@
     "turnstileHelp": "Completing the check enables the confirm button below.",
     "confirm": "Take my number — confirm",
     "confirming": "Confirming…",
-    "depositNotice": "Telebirp deposit Br {price} confirms your slot.",
+    "depositNotice": "Telebirr deposit Br {price} confirms your slot.",
     "noDepositNotice": "You are confirmed immediately — no deposit required.",
     "todayQueue": "Today's queue",
     "queueSubtitle": "Addis time",

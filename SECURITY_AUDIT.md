@@ -27,7 +27,7 @@ Plus a cluster of MEDIUM/LOW findings: CSV formula injection in booking export, 
 |---|---|---|
 | `.env` in git | Clean (gitignored) | `git check-ignore .env` |
 | `.env.example` | Present, documents APP_URL/ALLOWED_ORIGINS, test placeholders | ok |
-| **Real `CHAPA_WEBHOOK_SECRET` leaked into git history** | ❌ **CRITICAL-ish** | Value `CyNDCzoXF7JsaPig6GErkdT0` matches `.env`; present in `.github/workflows/test.yml` and git history commits `28b13b5..f14d0ef` (via `_secrets_audit.mjs`). → Rotate now + purge history (BFG/filter-repo). |
+| **Real `CHAPA_WEBHOOK_SECRET` leaked into git history** | ❌ **CRITICAL-ish** | Value redacted from this document during the 2026-08-24 re-audit (was reproduced verbatim here, keeping the secret spreadable in plain text); matches `.env`; present in `.github/workflows/test.yml` and git history commits `28b13b5..f14d0ef` (via `_secrets_audit.mjs`). → Rotate now + purge history (BFG/filter-repo). `src/lib/envGuards.ts` refuses this value at production boot as a stopgap. |
 | Test workflow secrets | Test-only JWT/REFRESH placeholders; webhook secret is the LIVE one | Rotation + remove from workflow; inject via GH Secrets |
 | `.env` served over HTTP | Blocked | `/.env` → 403 |
 | Secrets in source | `supersecret_fallback` in test files only | Low (tests), no prod path |

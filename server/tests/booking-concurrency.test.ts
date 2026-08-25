@@ -177,7 +177,7 @@ describe('Booking concurrency / double-booking protection', () => {
 
     // And exactly one appointment row should exist for this exact slot.
     const rows = await db
-      .select({ id: appointments.id })
+      .select({ id: appointments.opaqueId })
       .from(appointments)
       .where(eq(appointments.staffId, staffId))
       .all();

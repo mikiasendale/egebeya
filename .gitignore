@@ -6,6 +6,10 @@ coverage/
 *.log
 .env*
 !.env.example
+.vs/
+.idea/
+.freebuff/
+preview/
 .impeccable/live/sessions/
 dist-server/
 

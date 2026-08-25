@@ -23,11 +23,45 @@ const router = Router();
 // The v1 API resolves the target tenant via ?tenant_slug=... instead of
 // X-Tenant-Slug headers — a more natural RESTful pattern for third-party
 // integrators.
-async function resolveTenant(slug: string): Promise<any | null> {
+//
+// SECURITY: API keys are issued per-tenant (see src/api/api-keys.ts), so a
+// key may only ever touch its OWN tenant. Without this ownership check a
+// valid key for tenant A could read tenant B's bookings (or write into B's
+// calendar) simply by passing ?tenant_slug=B — a cross-tenant BOLA/IDOR.
+// The slug is kept as a convenience label; authorization is keyed on the
+// key's tenantId alone.
+async function resolveTenantOwned(
+  slug: string | undefined,
+  req: any,
+  res: any,
+): Promise<any | null> {
+  if (!slug) {
+    res.status(400).json({ error: 'tenant_slug is required' });
+    return null;
+  }
   const raw = String(slug).trim();
-  return db.select().from(tenants)
+  const tenant = await db.select().from(tenants)
     .where(or(eq(tenants.slug, raw), eq(tenants.slug, raw.toLowerCase())))
     .get();
+
+  if (!tenant) {
+    res.status(404).json({ error: 'Tenant not found' });
+    return null;
+  }
+
+  const keyTenantId = (req as any)?.apiKey?.tenantId;
+  if (!keyTenantId || tenant.id !== keyTenantId) {
+    logSecurityEvent({
+      type: 'cross_tenant_attempt',
+      tenantId: keyTenantId ?? null,
+      ip: ipFromRequest(req),
+      details: { surface: 'api_v1', requestedSlug: raw },
+    });
+    res.status(403).json({ error: 'API key is not authorized for this tenant', code: 'TENANT_MISMATCH' });
+    return null;
+  }
+
+  return tenant;
 }
 
 // ─── GET /api/v1/services ──────────────────────────────────────────
@@ -35,15 +69,8 @@ async function resolveTenant(slug: string): Promise<any | null> {
 // name, duration, price. No internal IDs beyond what's needed.
 router.get('/services', requireApiKey('read:services'), async (req, res) => {
   try {
-    const slug = req.query.tenant_slug as string | undefined;
-    if (!slug) {
-      return res.status(400).json({ error: 'tenant_slug is required' });
-    }
-
-    const tenant = await resolveTenant(slug);
-    if (!tenant) {
-      return res.status(404).json({ error: 'Tenant not found' });
-    }
+    const tenant = await resolveTenantOwned(req.query.tenant_slug as string | undefined, req, res);
+    if (!tenant) return;
 
     const rows = await db.select()
       .from(services)
@@ -70,15 +97,8 @@ router.get('/services', requireApiKey('read:services'), async (req, res) => {
 // Ethiopian dates. No customer PII beyond name.
 router.get('/bookings', requireApiKey('read:bookings'), async (req, res) => {
   try {
-    const slug = req.query.tenant_slug as string | undefined;
-    if (!slug) {
-      return res.status(400).json({ error: 'tenant_slug is required' });
-    }
-
-    const tenant = await resolveTenant(slug);
-    if (!tenant) {
-      return res.status(404).json({ error: 'Tenant not found' });
-    }
+    const tenant = await resolveTenantOwned(req.query.tenant_slug as string | undefined, req, res);
+    if (!tenant) return;
 
     const rows = await db.select({
       id: appointments.id,
@@ -137,15 +157,8 @@ const BookingSchema = z.object({
 
 router.post('/bookings', requireApiKey('write:bookings'), async (req, res) => {
   try {
-    const slug = req.query.tenant_slug as string | undefined;
-    if (!slug) {
-      return res.status(400).json({ error: 'tenant_slug is required' });
-    }
-
-    const tenant = await resolveTenant(slug);
-    if (!tenant) {
-      return res.status(404).json({ error: 'Tenant not found' });
-    }
+    const tenant = await resolveTenantOwned(req.query.tenant_slug as string | undefined, req, res);
+    if (!tenant) return;
 
     const data = BookingSchema.parse(req.body);
 
