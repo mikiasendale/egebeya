@@ -21,7 +21,18 @@ import { eq, and } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 
 import { runOnce } from '../cron/runWinbackAutomations';
-import type { SmsOptions } from '../lib/sms';
+import type { NotificationRequest, SendOutcome } from '../lib/notifications';
+
+// P3.1 seam: winback dispatches through the NotificationAdapter now. This
+// stub records every dispatch so tests can assert on channel + target.
+function notifyStub() {
+  const calls: Array<{ channel: string; phone?: string; text?: string }> = [];
+  const fn = async (req: NotificationRequest): Promise<SendOutcome> => {
+    calls.push({ channel: req.channel, phone: req.to.phone ?? undefined, text: req.text });
+    return { ok: true, status: 'sent', providerId: 'stub' };
+  };
+  return { calls, fn: fn as any };
+}
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const NOW = Date.UTC(2026, 0, 15, 9, 0, 0); // fixed clock for determinism
@@ -68,6 +79,8 @@ describe('runWinbackAutomations cron', () => {
         firstVisitAt: lastVisit,
         lastVisitAt: lastVisit,
         visitCount: 3,
+        // P3.1 consent gate: the inactive cohort opted in to marketing.
+        marketingOptIn: i < 40,
         createdAt: NOW,
       });
     }
@@ -82,22 +95,61 @@ describe('runWinbackAutomations cron', () => {
   });
 
   it('messages exactly the eligible customers (40) and no others', async () => {
-    const sentPhones: string[] = [];
-    const sendSmsFn = vi.fn(async (opts: SmsOptions) => {
-      sentPhones.push(opts.to);
-      return { success: true };
-    });
-
-    const count = await runOnce({ now: NOW, chunkSize: 50, throttleMs: 0, sendSmsFn });
+    const stub = notifyStub();
+    const count = await runOnce({ now: NOW, chunkSize: 50, throttleMs: 0, notifyFn: stub.fn });
 
     expect(count).toBe(40);
-    expect(sendSmsFn).toHaveBeenCalledTimes(40);
+    expect(stub.calls.length).toBe(40);
+    // Every dispatch rides the sms channel with a phone target.
+    for (const call of stub.calls) {
+      expect(call.channel).toBe('sms');
+      expect(call.phone).toMatch(/^\+251/);
+    }
 
-    // Every sent phone belongs to the inactive cohort (phone number encodes i<40).
-    for (const phone of sentPhones) {
-      const idx = Number(phone.replace('+2519', ''));
+    // Every sent phone belongs to the inactive cohort (phone encodes i<40).
+    for (const call of stub.calls) {
+      const idx = Number(call.phone!.replace('+2519', ''));
       expect(idx).toBeLessThan(40);
     }
+  });
+
+  it('CONSENT GATE: never messages opted-out customers even when inactive + Pro', async () => {
+    // Fresh tenant: identical shape to the eligible cohort, but every row has
+    // marketing_opt_in = 0 (the audit-P0.2 bypass this gate closes).
+    const tId = crypto.randomUUID();
+    await db.insert(tenants).values({
+      id: tId, name: 'Opted-out Salon', slug: `wb-optout-${Date.now()}-${crypto.randomUUID().slice(0, 6)}`,
+      settings: { automations_enabled: true }, createdAt: NOW,
+    });
+    await db.insert(tenantSubscriptions).values({
+      id: crypto.randomUUID(), tenantId: tId, planId: proPlanId, status: 'active', startsAt: NOW,
+    });
+    for (let i = 0; i < 10; i++) {
+      await db.insert(customerStats).values({
+        tenantId: tId,
+        customerPhone: `+2514${String(i).padStart(9, '0')}`,
+        customerName: `OptOut ${i}`,
+        lastVisitAt: NOW - 45 * DAY_MS,
+        visitCount: 2,
+        marketingOptIn: false,
+        createdAt: NOW,
+      });
+    }
+
+    const stub = notifyStub();
+    const count = await runOnce({ now: NOW, chunkSize: 50, throttleMs: 0, notifyFn: stub.fn });
+
+    expect(count).toBe(0);
+    expect(stub.calls.length).toBe(0);
+
+    // And their automation_state is untouched — still 'active'.
+    const rows = await db.select().from(customerStats)
+      .where(eq(customerStats.tenantId, tId)).all();
+    for (const r of rows) expect(r.automationState).toBe('active');
+
+    await db.delete(customerStats).where(eq(customerStats.tenantId, tId));
+    await db.delete(tenantSubscriptions).where(eq(tenantSubscriptions.tenantId, tId));
+    await db.delete(tenants).where(eq(tenants.id, tId));
   });
 
   it('flips each sent customer to winback_sent with a timestamp', async () => {
@@ -120,11 +172,11 @@ describe('runWinbackAutomations cron', () => {
   });
 
   it('is idempotent — a second run sends nothing', async () => {
-    const sendSmsFn = vi.fn(async () => ({ success: true }));
-    const count = await runOnce({ now: NOW, chunkSize: 50, throttleMs: 0, sendSmsFn });
+    const stub = notifyStub();
+    const count = await runOnce({ now: NOW, chunkSize: 50, throttleMs: 0, notifyFn: stub.fn });
 
     expect(count).toBe(0);
-    expect(sendSmsFn).not.toHaveBeenCalled();
+    expect(stub.calls.length).toBe(0);
   });
 
   it('carries a LIMIT in the candidate query (VPS chunking)', async () => {
@@ -147,16 +199,18 @@ describe('runWinbackAutomations cron', () => {
         customerName: `Limit ${i}`,
         lastVisitAt: NOW - 40 * DAY_MS,
         visitCount: 2,
+        // P3.1 consent gate: eligible rows opted in to marketing.
+        marketingOptIn: true,
         createdAt: NOW,
       });
     }
 
-    const sendSmsFn = vi.fn(async () => ({ success: true }));
-    const count = await runOnce({ now: NOW, chunkSize: 50, throttleMs: 0, sendSmsFn });
+    const stub = notifyStub();
+    const count = await runOnce({ now: NOW, chunkSize: 50, throttleMs: 0, notifyFn: stub.fn });
 
     // LIMIT 50 caps the chunk even though 60 are eligible.
     expect(count).toBe(50);
-    expect(sendSmsFn).toHaveBeenCalledTimes(50);
+    expect(stub.calls.length).toBe(50);
 
     await db.delete(promoCodes).where(eq(promoCodes.tenantId, t2Id));
     await db.delete(customerStats).where(eq(customerStats.tenantId, t2Id));
@@ -184,12 +238,12 @@ describe('runWinbackAutomations cron', () => {
       });
     }
 
-    const sendSmsFn = vi.fn(async () => ({ success: true }));
-    const count = await runOnce({ now: NOW, chunkSize: 50, throttleMs: 0, sendSmsFn });
+    const stub = notifyStub();
+    const count = await runOnce({ now: NOW, chunkSize: 50, throttleMs: 0, notifyFn: stub.fn });
 
     // Free-plan tenant's customers are never messaged.
     expect(count).toBe(0);
-    expect(sendSmsFn).not.toHaveBeenCalled();
+    expect(stub.calls.length).toBe(0);
 
     await db.delete(customerStats).where(eq(customerStats.tenantId, freeId));
     await db.delete(tenantSubscriptions).where(eq(tenantSubscriptions.tenantId, freeId));
@@ -219,12 +273,12 @@ describe('runWinbackAutomations cron', () => {
       });
     }
 
-    const sendSmsFn = vi.fn(async () => ({ success: true }));
-    const count = await runOnce({ now: NOW, chunkSize: 50, throttleMs: 0, sendSmsFn });
+    const stub = notifyStub();
+    const count = await runOnce({ now: NOW, chunkSize: 50, throttleMs: 0, notifyFn: stub.fn });
 
     // No messages sent...
     expect(count).toBe(0);
-    expect(sendSmsFn).not.toHaveBeenCalled();
+    expect(stub.calls.length).toBe(0);
 
     // ...and automation_state is untouched, so these customers stay eligible
     // for a later run if the owner flips the toggle back on.

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { sendMail } from '../../server/lib/mailer';
+import { notify } from '../../server/lib/notifications';
 import { requireAuth } from './middleware/auth';
 
 const router = Router();
@@ -13,12 +13,15 @@ router.post('/send-email', async (req, res) => {
   if (!to) return res.status(400).json({ error: 'Recipient email is required' });
 
   try {
-    const info = await sendMail({
-      to,
+    const outcome = await notify({
+      channel: 'email',
+      template: 'test',
+      to: { email: to },
       subject: 'Test Email from Lux Nails & Spa',
-      text: 'This is a test email to verify connectivity.'
+      text: 'This is a test email to verify connectivity.',
     });
-    res.json({ success: true, message: 'Test email sent successfully', info });
+    if (!outcome.ok) throw new Error(outcome.error || 'send failed');
+    res.json({ success: true, message: 'Test email sent successfully', info: { providerId: outcome.providerId } });
   } catch (error: any) {
     console.error('Error sending test email:', error);
     res.status(500).json({ error: 'Failed to send test email', details: error.message });

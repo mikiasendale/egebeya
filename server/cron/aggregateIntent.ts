@@ -21,7 +21,7 @@ import {
 } from '../../src/db/schema';
 import { eq, and, gte, sql, inArray } from 'drizzle-orm';
 import crypto from 'crypto';
-import { sendSms, type SmsOptions } from '../lib/sms';
+import { notify, type SendOutcome } from '../lib/notifications';
 
 /** Lookback window matches the cron cadence (2 hours). */
 const WINDOW_MS = 2 * 60 * 60 * 1000;
@@ -41,7 +41,8 @@ export interface AggregateDeps {
   now?: number;
   threshold?: number;
   throttleMs?: number;
-  sendSmsFn?: (opts: SmsOptions) => Promise<unknown>;
+  /** Adapter dispatch — injected for tests. Channel is always 'sms' here. */
+  notifyFn?: typeof notify;
 }
 
 /**
@@ -130,7 +131,7 @@ export async function runOnce(deps: AggregateDeps = {}): Promise<number> {
   const now = deps.now ?? Date.now();
   const threshold = deps.threshold ?? DEMAND_THRESHOLD;
   const throttleMs = deps.throttleMs ?? THROTTLE_MS;
-  const sender = deps.sendSmsFn ?? sendSms;
+  const dispatch = deps.notifyFn ?? notify;
 
   const pulses = await aggregatePulses(now, threshold);
   if (pulses.length === 0) {
@@ -163,7 +164,16 @@ export async function runOnce(deps: AggregateDeps = {}): Promise<number> {
 
       if (t.ownerPhone) {
         try {
-          await sender({ to: t.ownerPhone, text: message });
+          const outcome: SendOutcome = await dispatch({
+            channel: 'sms',
+            template: 'market_pulse',
+            to: { phone: t.ownerPhone },
+            text: message,
+            tenantId: t.tenantId,
+            refType: 'tenant',
+            refId: t.tenantId,
+          });
+          if (!outcome.ok) throw new Error(outcome.error || 'send failed');
         } catch (err) {
           console.error(`[aggregateIntent] SMS failed for tenant ${t.tenantId}; continuing.`, err);
         }

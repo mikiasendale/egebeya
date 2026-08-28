@@ -35,6 +35,7 @@ Guardrail: gross monthly logo churn ≤5%, measured from Month 4. Every council 
 
 **Engineering commits (90 days):**
 1. **Chapa recurring subscription billing GA by Day 21** — invoicing, idempotent webhooks (exist), dunning-lite, receipts clean enough for PLC books. Definition of done: *a stranger pays real money end-to-end with no founder touching a database.*
+   *Post-audit correction (Aug 2026): the end-to-end payment chain already works hands-off (checkout → webhook → activation). Day-21 scope is therefore HARDENING, not green-field build: make the webhook transactional (critical bug — crash mid-sequence permanently blocks Chapa retries), invoices + receipts, renewal reminder cron, prepay cycles, founding-rate pricing. Details in EXECUTION_PLAN.md "Audit Results".*
 2. Instant Empire backend: block JSON schema + validator, category-prefilled defaults, low-end-safe public renderer (Wks 2–5).
 3. `NotificationAdapter`: Telegram bot primary, in-app fallback, opt-in-rate + delivery-success instrumentation (Wks 5–6). SMS = vendor chosen **on paper Day 7**, integrated only if channel data demands it.
 4. Loyalty-lite punch-card endpoint: phone-keyed, no auth (Wks 6–8; launch gated per ruling above).
@@ -59,6 +60,8 @@ Ops floor folded in: off-host backups by Day 28. Puck version frozen; Day-60 rev
 **Standing kill criteria:**
 - Any consumer incentive pilot: budget-capped 20k ETB / 60 days; kill unless repeat-booking lift ≥15 pts over baseline.
 - Core business: <30 paying at M6 despite systematic effort, or churn >10%/mo for 3 consecutive months → stop building, 30-day diagnosis, reposition or wind down honestly. No zombie mode.
+
+**Gate-review ritual:** every gate review opens with exactly three numbers — north-star (weekly confirmed bookings per billing-active tenant), gross monthly churn, and collected-vs-invoiced MRR (Chapa settles T+2/T+3; tracked from P1.7). No other slides.
 
 ---
 
@@ -92,6 +95,7 @@ Founder ≈ 45 hrs/wk. House rule: nothing enters a sprint that doesn't touch **
 1. **PLC registration months 1–3** (~25k ETB capital requirement): unlocks company-name Chapa merchant account, bank account, grant eligibility. Do NOT add a casual second shareholder; use a small vested stake for a future co-founder. Keep control until traction prices it.
 2. Grants sequence: UNDP Youth Co:Lab (two application-days max) → IceAddis cohort (solo-founder penalty noted; apply post-G1 with traction) → Mastercard/UNDP partner programs (needs PLC + documentation + job-creation framing).
 3. Investor note (what will be TRUE in 90 days): *"Ninety days ago Egebeya had software and no way to charge anyone. Today recurring billing runs on Chapa in production; ten merchants across two Addis neighborhoods pay us monthly, activated at under 250 birr each, averaging ≥1 confirmed booking/week measured in-product. We are pre-scale, not pre-product."*
+4. **PDPL 1321/2024 readiness:** Ethiopia's data-proclamation makes phone-keyed consumer profiling + Telegram chat-linking a consent obligation. Consent records, deletion path, and refreshed Privacy/Terms gate any consumer-identity launch (blocks P3.4 go-live).
 
 ## 6. Risk Register (top of board)
 
@@ -101,6 +105,8 @@ Founder ≈ 45 hrs/wk. House rule: nothing enters a sprint that doesn't touch **
 4. Telebirr builds native booking/mini-app platform (Med×High) — speed to tenant lock-in via CRM depth; accept partnership over war.
 5. ETB devaluation vs USD infra costs (High×Med) — price in ETB, raise annually with inflation, minimize USD spend.
 6. Chapa dependency / fee changes (Med×Med-High) — abstract PSP layer; telebirr-direct fallback kept warm; never hold funds custody.
+7. Consumer-data protection non-compliance (Med×High) — PDPL consent/deletion duties attach once consumer identity + Telegram linking ship; mitigation = P3.7 before P3.4 go-live.
+8. Agent incentive gaming (Med×Med) — commissions on code-defined activation events can be farmed with fake bookings; day-30 repeat-booking anomaly flags on agent-attributed cohorts (P3.5 analytics).
 
 ## 7. Design System v1 — Cyber-Addis (locked Week 2)
 
@@ -126,3 +132,4 @@ Noto Sans Ethiopic (line-height ≥1.65) + Inter for Latin/digits; body-min 16px
 | Egebeya Learn | Post-Gate 3; booking core ports as-is |
 | Egebeya Dates | Post-Gate 3 + seat-inventory design accepted |
 | Micro-loan underwriting data play | 12 months of identified-consumer behavioral data + licensing counsel |
+| Diaspora demand wedge (family abroad books/pays for relatives via Chapa international cards) | Post-G2; verify Chapa cross-border card acceptance first |

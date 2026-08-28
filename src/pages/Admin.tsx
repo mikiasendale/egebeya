@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Loader2, ShieldCheck, Pause, Play, Globe } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { authFetch } from '../lib/api';
 import { showToast } from '../components/ui/toast-helper';
 import { Button } from '../components/ui/button';
@@ -101,6 +102,7 @@ export function Admin() {
     <Shell>
       <div className="space-y-6">
         <StatsBoard />
+        <FunnelBoard />
         <TenantsBoard />
       </div>
     </Shell>
@@ -126,6 +128,140 @@ function Shell({ children }: { children: React.ReactNode }) {
       </header>
       <main className="mx-auto max-w-6xl px-6 py-8">{children}</main>
     </div>
+  );
+}
+
+interface WeeklyFunnelRow {
+  weekStart: number;
+  stages: {
+    siteGenerated: number;
+    hoursConfirmed: number;
+    siteShared: number;
+    firstBooking: number;
+    firstInvoicePaid: number;
+  };
+  conversion: {
+    generatedToConfirmed: number | null;
+    confirmedToShared: number | null;
+    sharedToBooking: number | null;
+    bookingToPaid: number | null;
+  };
+}
+
+interface FunnelPayload {
+  weekly: WeeklyFunnelRow[];
+  northStar: Array<{
+    weekStart: number;
+    confirmedBookings: number;
+    billingActiveTenants: number;
+    value: number | null;
+  }>;
+  churn: { monthStart: number; activeAtStart: number; churned: number; churnRate: number | null };
+  quietHoursFillRate: Array<{ weekStart: number; inWindowBookings: number; inWindowSlots: number; rate: number | null }> | null;
+}
+
+function fmtWeek(ts: number): string {
+  const d = new Date(ts);
+  return `${String(d.getUTCMonth() + 1).padStart(2, '0')}/${String(d.getUTCDate()).padStart(2, '0')}`;
+}
+
+/**
+ * FunnelBoard (P3.5) — activation funnel + north-star + churn guardrail,
+ * rendered from /api/admin/funnel. All copy via i18n so the page passes the
+ * am/en parity test by construction.
+ */
+function FunnelBoard() {
+  const { t } = useTranslation();
+  const [data, setData] = useState<FunnelPayload | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    authFetch('/api/admin/funnel?weeks=8')
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error('failed'))))
+      .then((payload: FunnelPayload) => setData(payload))
+      .catch(() => setErr(t('dashboard.funnel.title') + ' · load failed'));
+  }, [t]);
+
+  if (err) {
+    return <div className="rounded-lg border border-signal/30 bg-red-50 p-4 text-sm text-signal">{err}</div>;
+  }
+  if (!data) {
+    return <div className="text-sm text-ink-soft">Loading funnel…</div>;
+  }
+
+  const latestNorthStar = data.northStar[data.northStar.length - 1];
+  const latestQuiet = data.quietHoursFillRate?.[data.quietHoursFillRate.length - 1] ?? null;
+  const pct = (v: number | null): string =>
+    v == null ? '—' : `${Math.round(v * 100)}%`;
+
+  return (
+    <section className="overflow-hidden rounded-xl border border-ink-rule bg-paper-bleached">
+      <header className="border-b border-ink-rule px-6 py-4">
+        <h2 className="text-base font-bold text-ink">{t('dashboard.funnel.title')}</h2>
+        <p className="text-xs text-ink-soft">{t('dashboard.funnel.subtitle')}</p>
+      </header>
+
+      <div className="grid grid-cols-1 gap-4 px-6 py-4 sm:grid-cols-2">
+        <div className="rounded-lg border border-primary/40 bg-primary/10 p-4">
+          <div className="text-xs font-medium text-ink-soft">{t('dashboard.funnel.northStar')}</div>
+          <div className="mt-1 text-3xl font-bold text-primary-deep" data-testid="north-star-value">
+            {latestNorthStar?.value != null ? latestNorthStar.value.toFixed(2) : '—'}
+          </div>
+          <div className="text-xs text-ink-soft">
+            {latestNorthStar?.confirmedBookings ?? 0} · {latestNorthStar?.billingActiveTenants ?? 0}
+          </div>
+        </div>
+        <div className="rounded-lg border border-accent-secondary/40 bg-accent-secondary/10 p-4">
+          <div className="text-xs font-medium text-ink-soft">{t('dashboard.funnel.churn')}</div>
+          <div className="mt-1 text-3xl font-bold text-accent-secondary-deep" data-testid="churn-value">
+            {data.churn.churnRate != null ? pct(data.churn.churnRate) : '—'}
+          </div>
+          <div className="text-xs text-ink-soft">
+            {data.churn.churned} / {data.churn.activeAtStart}
+          </div>
+        </div>
+        {/* P5.6 G3: quiet-hours fill-rate — null means nobody enabled it yet. */}
+        <div className="rounded-lg border border-ink-rule bg-paper-raised p-4" data-testid="quiet-fill-rate-card">
+          <div className="text-xs font-medium text-ink-soft">{t('dashboard.funnel.quietFillRate')}</div>
+          <div className="mt-1 text-3xl font-bold text-ink" data-testid="quiet-fill-rate-value">
+            {latestQuiet ? pct(latestQuiet.rate) : '—'}
+          </div>
+          <div className="text-xs text-ink-soft">
+            {latestQuiet ? `${latestQuiet.inWindowBookings} / ${latestQuiet.inWindowSlots} ${t('dashboard.funnel.slots')}` : t('dashboard.funnel.quietFillRateOff')}
+          </div>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-y border-ink-rule bg-paper-raised text-left text-xs text-ink-soft">
+              <th className="px-6 py-3 font-medium">{t('dashboard.funnel.week')}</th>
+              <th className="px-4 py-3 font-medium">{t('dashboard.funnel.generated')}</th>
+              <th className="px-4 py-3 font-medium">{t('dashboard.funnel.hoursConfirmed')}</th>
+              <th className="px-4 py-3 font-medium">{t('dashboard.funnel.shared')}</th>
+              <th className="px-4 py-3 font-medium">{t('dashboard.funnel.firstBooking')}</th>
+              <th className="px-6 py-3 font-medium">{t('dashboard.funnel.invoicePaid')}</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-ink-rule">
+            {data.weekly.length === 0 && (
+              <tr><td colSpan={6} className="px-6 py-6 text-center text-sm text-ink-soft">—</td></tr>
+            )}
+            {data.weekly.map((row) => (
+              <tr key={row.weekStart}>
+                <td className="px-6 py-3 font-mono text-xs text-ink">{fmtWeek(row.weekStart)}</td>
+                <td className="px-4 py-3">{row.stages.siteGenerated}</td>
+                <td className="px-4 py-3">{row.stages.hoursConfirmed}</td>
+                <td className="px-4 py-3">{row.stages.siteShared}</td>
+                <td className="px-4 py-3">{row.stages.firstBooking}</td>
+                <td className="px-6 py-3">{row.stages.firstInvoicePaid}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }
 

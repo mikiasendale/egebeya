@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
@@ -94,6 +95,84 @@ function playPrintTick(kind: 'tick' | 'stamp') {
   } catch {
     /* audio unavailable — stay silent */
   }
+}
+
+/* ── overdrive · The Slam — damped-spring stamp physics ────────────────
+   The settle stamp's keyframes are generated from a physically simulated
+   spring (mass 1, stiffness 170, damping 16) and driven through the Web
+   Animations API, so the slam's overshoot is real mass/tension/damping —
+   not an easing guess. Displacement starts above the paper with a hard
+   downward velocity; sampled per frame (~60/s) and played back linearly,
+   dense physics samples read as one continuous curve. Reduced motion
+   never calls this; the CSS stamp-press-in fallback stays for no-WAAPI. */
+function springSlamKeyframes(
+  u0: number,
+  v0: number,
+  stiffness = 170,
+  damping = 16,
+  dt = 1 / 60,
+): { transform: string }[] {
+  const frames: { transform: string }[] = [];
+  let u = u0;
+  let v = v0;
+  for (let i = 0; ; i++) {
+    frames.push({
+      transform: `rotate(${(-2 + u * 2.4).toFixed(3)}deg) scale(${(1 + u).toFixed(4)})`,
+    });
+    const a = -stiffness * u - damping * v;
+    v += a * dt;
+    u += v * dt;
+    if (i > 12 && Math.abs(u) < 0.0015 && Math.abs(v) < 0.02) break;
+    if (i > 90) break;
+  }
+  return frames;
+}
+
+/* Wet-ink pass: while the displacement scale decays to zero the stamp's
+   edges roughen through the feTurbulence chain, then settle crisp. */
+function runInkBleed(stampEl: Element, duration = 480): void {
+  if (typeof document === 'undefined') return;
+  const disp = document.getElementById('egb-ink-displace') as unknown as SVGFEDisplacementMapElement | null;
+  if (!disp || typeof stampEl.animate !== 'function') return;
+  stampEl.classList.add('slam-ink');
+  const t0 = performance.now();
+  const tick = (now: number) => {
+    const p = Math.min(1, (now - t0) / duration);
+    const eased = 1 - Math.pow(1 - p, 3);
+    disp.setAttribute('scale', ((1 - eased) * 9).toFixed(2));
+    if (p < 1) {
+      window.requestAnimationFrame(tick);
+    } else {
+      stampEl.classList.remove('slam-ink');
+    }
+  };
+  window.requestAnimationFrame(tick);
+}
+
+function prefersReducedMotion(): boolean {
+  return typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+/* Inline SVG defs for the ink-bleed filter chain. Rendered once on the
+   page; the deposit stamp references it via .slam-ink { filter: url(#) }. */
+function InkBleedDefs() {
+  return (
+    <svg aria-hidden focusable="false" width="0" height="0" style={{ position: 'absolute' }}>
+      <defs>
+        <filter id="egb-ink-bleed" x="-8%" y="-8%" width="116%" height="116%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.55" numOctaves="2" seed="7" result="grain" />
+          <feDisplacementMap
+            id="egb-ink-displace"
+            in="SourceGraphic"
+            in2="grain"
+            scale="0"
+            xChannelSelector="R"
+            yChannelSelector="G"
+          />
+        </filter>
+      </defs>
+    </svg>
+  );
 }
 
 /* ── overdrive · Addis clock ─────────────────────────────────────────────
@@ -208,6 +287,7 @@ export function Landing() {
       }}
     >
       <Navbar />
+      <InkBleedDefs />
       <PaperRail soundOn={soundOn} onToggleSound={toggleSound} />
       <Lead />
       <TrustBar />
@@ -314,11 +394,22 @@ function TypedLine({
     <span ref={ref}>
       {segments.map((seg, si) => (
         <span key={si} style={{ color: seg.color, fontFamily: seg.font, ...seg.style }}>
-          {Array.from(seg.text).map((ch, ci) => (
-            <span key={ci} className="tp-char">
-              {ch === ' ' ? '\u00A0' : ch}
-            </span>
-          ))}
+          {/* Words are nowrap groups so the line wraps at spaces, never
+              mid-word; the spaces between groups stay plain breaking
+              spaces (visible from the first frame, invisible as ink). */}
+          {seg.text.split(/(\s+)/).map((word, wi) =>
+            /^\s+$/.test(word) ? (
+              <span key={`s${wi}`}> </span>
+            ) : (
+              <span key={`w${wi}`} style={{ whiteSpace: 'nowrap' }}>
+                {Array.from(word).map((ch, ci) => (
+                  <span key={ci} className="tp-char">
+                    {ch}
+                  </span>
+                ))}
+              </span>
+            )
+          )}
         </span>
       ))}
       {cursor && <span aria-hidden className={`print-cursor${done ? ' is-done' : ''}`} />}
@@ -387,12 +478,12 @@ function TrustBar() {
       className="px-5 sm:px-8 lg:px-12 scroll-reveal"
     >
       <div className="mx-auto max-w-6xl">
+        <div className="print-rule" aria-hidden />
         <div
           className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6 py-4"
-          style={{ borderTop: '1px solid var(--color-ink-rule)' }}
         >
-          <span className="stamp positive self-start sm:self-auto">
-            {t('trustBar.ledger')} · {t('trustBar.ledgerAm')}
+          <span className="stamp positive print-stampin self-start sm:self-auto">
+            {t('trustBar.ledger')} · {t('trustBar.ledgerAm')}
           </span>
           <div
             className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs"
@@ -674,8 +765,16 @@ function ProofForm({ clock }: { clock: AddisClock }) {
   const [stampTime, setStampTime] = useState('--:--:--');
 
   /* Settle the pending charge: slip in → VERIFIED → slip out, rows reprint,
-     stamp slams, the ledger feed hears about it. Pure clockwork, no side
-     effects outside the component. */
+     stamp slams, the ledger feed hears about it.
+
+     The DOM commit is wrapped in document.startViewTransition where
+     supported (flushSync makes React's render synchronous inside the VT
+     callback, so the new snapshot is real). The old receipt slides up out
+     of the printer slot; the fresh one feeds up from below. The settle
+     event reaches the trust-bar ledger only after the swap lands, so the
+     feed row prints after its receipt exists. Reduced motion and browsers
+     without the API keep today's instant swap — already an authored
+     moment; the VT layer elevates it to a physical replacement. */
   const completeSettle = useCallback(() => {
     const next = TX_POOL[(slotRef.current.id + 1) % TX_POOL.length];
     const nextId = slotRef.current.id + 1;
@@ -683,20 +782,29 @@ function ProofForm({ clock }: { clock: AddisClock }) {
     refNoRef.current = nextRef;
     busyRef.current = false;
     const t0 = clockRef.current.hms;
-    setRefNo(nextRef);
-    setSlot({ ...next, id: nextId });
-    setPhase('settled');
-    setStampTime(t0);
-    playPrintTick('stamp');
-    window.dispatchEvent(
-      new CustomEvent('egebeya:settle', {
-        detail: {
-          ref: `EGB-2026-${nextRef}`,
-          price: `Br ${next.price}`,
-          when: `${t0} · ሐምሌ 27`,
-        },
-      })
-    );
+    const detail = {
+      ref: `EGB-2026-${nextRef}`,
+      price: `Br ${next.price}`,
+      when: `${t0} · ሐምሌ 27`,
+    };
+    const announce = () => {
+      playPrintTick('stamp');
+      window.dispatchEvent(new CustomEvent('egebeya:settle', { detail }));
+    };
+    const commit = () => {
+      flushSync(() => {
+        setRefNo(nextRef);
+        setSlot({ ...next, id: nextId });
+        setPhase('settled');
+        setStampTime(t0);
+      });
+    };
+    if (typeof document !== 'undefined' && 'startViewTransition' in document && !prefersReducedMotion()) {
+      document.startViewTransition(commit).finished.then(announce, announce);
+    } else {
+      commit();
+      announce();
+    }
   }, []);
 
   const settle = useCallback(() => {
@@ -754,6 +862,41 @@ function ProofForm({ clock }: { clock: AddisClock }) {
   const charging = phase === 'incoming' || phase === 'verifying';
   const settled = phase === 'settled';
 
+  /* The Slam — when the settled stamp mounts, run the damped-spring slam
+     (WAAPI keyframes from springSlamKeyframes), the wet-ink bleed decay,
+     and the paper's micro-shake, all as one coordinated impact. The CSS
+     stamp-press-in entrance stays underneath as the no-WAAPI fallback;
+     the WAAPI animation replaces it while running. */
+  const stampRef = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    if (!settled) return;
+    if (typeof window === 'undefined' || prefersReducedMotion()) return;
+    const stampEl = stampRef.current;
+    const card = cardRef.current;
+    if (!stampEl || typeof stampEl.animate !== 'function') return;
+
+    const frames = springSlamKeyframes(0.6, -5.5);
+    const anim = stampEl.animate(frames, {
+      duration: Math.round(frames.length * (1000 / 60)),
+      easing: 'linear',
+      fill: 'both',
+    });
+    anim.finished.catch(() => {});
+
+    runInkBleed(stampEl);
+
+    if (card) {
+      card.classList.add('is-slamming');
+      const drop = () => card.classList.remove('is-slamming');
+      card.addEventListener('animationend', drop, { once: true });
+      window.setTimeout(drop, 420);
+    }
+
+    return () => {
+      anim.cancel();
+    };
+  }, [settled]);
+
   return (
     <div
       ref={cardRef}
@@ -762,7 +905,8 @@ function ProofForm({ clock }: { clock: AddisClock }) {
         backgroundColor: '#FFFFFF',
         border: '1px solid var(--color-ink)',
         borderRadius: 'var(--rd-card)',
-      }}
+        viewTransitionName: 'receipt',
+      } as React.CSSProperties}
     >
       {/* SPECIMEN — the shared faint diagonal label; the one paper cue on this surface */}
       <Specimen />
@@ -843,7 +987,7 @@ function ProofForm({ clock }: { clock: AddisClock }) {
           style={{ all: 'unset', cursor: 'pointer' }}
         >
           {settled ? (
-            <span className="deposit-stamp stamp-press-in" aria-hidden>
+            <span ref={stampRef} className="deposit-stamp stamp-press-in" aria-hidden>
               <span className="deposit-stamp__ref">{refLabel}</span>
               <span className="deposit-stamp__glyph">ተከከለ</span>
               <span className="deposit-stamp__date">{stampTime} · ሐምሌ 27</span>
@@ -1052,7 +1196,7 @@ function TariffSection() {
         <header className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-3 mb-8">
           <div>
             <h2
-              className="m-0"
+              className="m-0 print-strike"
               style={{
                 fontFamily: 'var(--font-display)',
                 fontWeight: 600,
@@ -1075,7 +1219,7 @@ function TariffSection() {
             </p>
           </div>
           <div className="flex flex-col items-start sm:items-end gap-2">
-            <span className="stamp" aria-hidden>{t('tariffSection.location')} · {t('tariffSection.locationAm')}</span>
+            <span className="stamp print-stampin" aria-hidden>{t('tariffSection.location')} · {t('tariffSection.locationAm')}</span>
           </div>
         </header>
 
@@ -1300,7 +1444,7 @@ function QueueSection() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-16">
           <div className="lg:col-span-5">
             <h2
-              className="m-0"
+              className="m-0 print-strike"
               style={{
                 fontFamily: 'var(--font-display)',
                 fontWeight: 600,
@@ -1332,7 +1476,7 @@ function QueueSection() {
                 style={{ borderBottom: '1px solid var(--color-ink-rule)' }}
               >
                 <div>
-                  <div className="stamp" aria-hidden>{t('queueSection.todayQueue')} · {t('queueSection.day')}</div>
+                  <div className="stamp print-stampin" aria-hidden>{t('queueSection.todayQueue')} · {t('queueSection.day')}</div>
                   <div
                     className="mt-2"
                     style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: '1.2rem', letterSpacing: '-0.01em', color: 'var(--color-ink)' }}
@@ -1473,9 +1617,9 @@ function OperatorColumn() {
   const { t } = useTranslation();
   return (
     <div>
-      <div className="stamp on-canvas" aria-hidden>{t('counterClose.owner')} · {t('counterClose.ownerAm')}</div>
+      <div className="stamp on-canvas print-stampin" aria-hidden>{t('counterClose.owner')} · {t('counterClose.ownerAm')}</div>
       <h2
-        className="mt-3 m-0"
+        className="mt-3 m-0 print-strike"
         style={{
           fontFamily: 'var(--font-display)',
           fontWeight: 600,
@@ -1493,7 +1637,7 @@ function OperatorColumn() {
         <OperatorRow geo="፫" text={`${t('counterClose.ownerStep3')} · ${t('counterClose.ownerStep3Am')}`} />
         <OperatorRow geo="፬" text={`${t('counterClose.ownerStep4')} · ${t('counterClose.ownerStep4Am')}`} />
       </ol>
-      <div className="mt-8 flex flex-col sm:flex-row gap-3">
+      <div className="mt-8 flex flex-col sm:flex-row gap-3 print-card">
         <a
           href="/register"
           className="btn-telebirr inline-flex items-center justify-center px-6 py-4 text-center font-semibold no-underline"
@@ -1525,7 +1669,7 @@ function OperatorColumn() {
 
 function OperatorRow({ geo, text }: { geo: string; text: React.ReactNode }) {
   return (
-    <li className="flex items-baseline gap-3">
+    <li className="flex items-baseline gap-3 print-row">
       <span
         style={{
           fontFamily: 'var(--font-mono)',
@@ -1546,9 +1690,9 @@ function CustomerColumn() {
   const { t } = useTranslation();
   return (
     <div>
-      <div className="stamp on-canvas" aria-hidden>{t('counterClose.customer')} · {t('counterClose.customerAm')}</div>
+      <div className="stamp on-canvas print-stampin" aria-hidden>{t('counterClose.customer')} · {t('counterClose.customerAm')}</div>
       <h2
-        className="mt-3 m-0"
+        className="mt-3 m-0 print-strike"
         style={{
           fontFamily: 'var(--font-display)',
           fontWeight: 600,
@@ -1566,7 +1710,7 @@ function CustomerColumn() {
         <OperatorRow geo="፫" text={`${t('counterClose.customerStep3')} · ${t('counterClose.customerStep3Am')}`} />
         <OperatorRow geo="፬" text={`${t('counterClose.customerStep4')} · ${t('counterClose.customerStep4Am')}`} />
       </ol>
-      <div className="mt-8">
+      <div className="mt-8 print-card">
         <a
           href="/discover"
           className="btn-ghost-light inline-flex items-center justify-center px-6 py-4 text-center no-underline"
@@ -1636,7 +1780,7 @@ function SearchSection() {
     >
       <div className="mx-auto max-w-6xl">
         <h2
-          className="m-0"
+          className="m-0 print-strike"
           style={{
             fontFamily: 'var(--font-display)',
             fontWeight: 600,
@@ -1658,6 +1802,7 @@ function SearchSection() {
         <form
           action="/discover"
           method="get"
+          className="print-card"
           style={{
             display: 'flex',
             gap: 0,
@@ -1711,7 +1856,7 @@ function SearchSection() {
             <a
               key={cat}
               href="/discover"
-              className="search-chip"
+              className="search-chip print-row"
               style={{
                 color: 'var(--color-ink)',
                 textDecoration: 'none',

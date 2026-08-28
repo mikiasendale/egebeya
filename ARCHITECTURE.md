@@ -1,6 +1,7 @@
 # Architecture — Egebeya (እገበያ)
 
-> Documented from the actual codebase as of 2026-07-27.
+> Documented from the actual codebase as of 2026-07-27; corrected after the
+> P0 capability audits (Aug 2026) — see EXECUTION_PLAN.md "Audit Results".
 > Spot-check any claim against the referenced files; do not trust this document
 > if it contradicts the live code.
 
@@ -10,7 +11,7 @@
 |-------|-----------|
 | **Runtime** | Node.js 20+ (TypeScript via `tsx`) |
 | **Web framework** | Express 5 (fully async routes) |
-| **Database** | SQLite via `@libsql/client` + Drizzle ORM |
+| **Database** | Dual-environment Drizzle ORM over libSQL: local `file:sqlite.db` in dev, Turso (`DATABASE_URL`) in production |
 | **Frontend** | React 19 (SPA via Vite) |
 | **Styling** | Tailwind CSS V4 |
 | **Visual page builder** | `@measured/puck` (drag-and-drop editor) |
@@ -145,19 +146,25 @@ re-serialised `req.body`:
 - Rejection logs a `webhook_signature_rejected` event and returns 401.
 - Test mode (no `CHAPA_WEBHOOK_SECRET`) rejects startup unless `server/tests/_setup.ts` generates a runtime-random secret (committed secrets have been removed).
 
-### 2. Idempoency
+### 2. Idempotency
 
-All side effects (payment status update, appointment status flip, event audit log) run inside
-a single Drizzle `tx.transaction()`:
+Signature-verified webhooks re-verify with Chapa's API **outside** the transaction
+(network I/O must not hold the SQLite write lock), then run ALL side effects inside a
+single `db.transaction()` (P1.2 fix, Aug 2026):
 
-1. Insert into `processed_webhook_events` (provider=`chapa`, with event_id).
-2. If the insert throws SQLITE_CONSTRAINT_UNIQUE → the event was already processed; return `200 { duplicate: true }` without mutation.
-3. Look up the payment by `gateway_reference` (= `tx_ref`).
-4. If payment found: re-verify with Chapa's API (in production) or trust the cryptographically-verified payload status (test mode only).
-5. Update payment + appointment status.
-6. Record the event action as `'processed'`.
+1. Look up the payment by `gateway_reference` (= `tx_ref`).
+2. Re-verify with Chapa's API (in production) or trust the cryptographically-verified payload status (test mode only).
+3. Inside one `db.transaction()`: insert into `processed_webhook_events`
+   (provider=`chapa`, with event_id) → update payment status → flip appointment
+   status → activate the Pro subscription → create/mark-paid the invoice.
+4. If the marker insert throws SQLITE_CONSTRAINT_UNIQUE → the event was already
+   processed; the transaction aborts with no mutation and returns
+   `200 { duplicate: true }`.
 
-The entire sequence is transactional, so a crash mid-way requires Chapa's retry to finish.
+Because the idempotency marker commits atomically with every side effect, a crash
+mid-processing rolls back the marker as well — Chapa's redelivery re-processes
+cleanly instead of being blocked forever. (Historical note: before P1.2 these were
+sequential awaits; a crash after the marker insert permanently blocked retries.)
 
 ---
 
@@ -190,11 +197,36 @@ Plan gating
 
 The **staff cap gate** (`server/middleware/planLimits.ts`) counts current staff rows → checks against `plans.maxStaff` → 403 `Staff limit reached (max N)`.
 
-### Subscription upgrade
+### Subscription upgrade & collection
 
-`POST /api/tenant/subscription/upgrade` — flips the tenant's subscription row to `plan_id=pro, status=trial, trial_ends_at=now + 14 days`. Idempotent — re-clicking on an already-Pro tenant returns `{ unchanged: true }`.
+`POST /api/tenant/subscription/upgrade` — flips the tenant's subscription row to
+`plan_id=pro, status=trial, trial_ends_at=now + 14 days` (trial-grant path).
 
-**No payment collection** is wired yet; the `price` field on the Pro plan row is a placeholder.
+`POST /api/tenant/subscription/checkout` (`src/api/tenant.ts:570-617`) starts a Chapa
+hosted checkout for a 30-day Pro cycle (500 ETB, constant `PRO_PLAN_PRICE_BIRR` in
+`server/lib/billing.ts`). The webhook's `meta.purpose === 'pro_subscription'` branch
+calls `activateProSubscription`, which sets `status='active'`, `endsAt=now+30d`.
+Post-audit state (Aug 2026): collection works end-to-end hands-off, but is
+**manual-repurchase only** — no auto-renew, no dunning/retry, no invoices/receipts,
+no collected-vs-invoiced settlement tracking. Hardening tasks: P1.1–P1.5 in
+Pro price is unified at 1000 ETB (100000 cents): `PRO_PLAN_PRICE_BIRR` in
+`server/lib/billing.ts`, the seeded plans row, and checkout all derive from the
+same constant (P1.1 resolved Aug 2026).
+
+Billing hardening (P1.3–P1.7, Aug 2026):
+- **Cycles:** checkout accepts `cycle=30|90|365` — 90d = 5% off; annual is a
+  founding-cohort "10-for-12" that locks `founding_rate_locked_until` on payment.
+  Proration deliberately NOT implemented (`priceForCycle` in billing.ts).
+- **Founding ladder:** `resolvePriceForTenant()` grants/holds a 12-month lock for
+  the first 25 paying tenants; currently resolves to the same 1000 ETB list.
+- **Invoices:** created paid inside the webhook transaction;
+  `GET /api/tenant/invoices` + Amharic-first receipt HTML route.
+- **Settlement:** payments/invoices carry `settlement_status`/`settled_at`
+  (pending → settled|failed); stale >5-day pendings surface via
+  `npm run settlements:report`. Feeds collected-vs-invoiced MRR.
+- **Dunning-lite:** `server/cron/billingReminders.ts` (`npm run billing:reminders`)
+  sends T-3d / T-0d / T+2d / T+5d notices once per (tenant, stage, cycle) via
+  `billing_reminder_sends` markers.
 
 ---
 
@@ -202,13 +234,19 @@ The **staff cap gate** (`server/middleware/planLimits.ts`) counts current staff 
 
 | Router | Mount | Tenant-scoped? | Auth required? |
 |--------|-------|---------------|---------------|
-| Auth | `/api/auth` | No (registration deals with tenants) | No |
+| Auth | `/api/auth` | No (registration deals with tenants) | No (OTP routes rate-limited) |
 | Public | `/api/public` | Yes (TS resolution middleware) | No |
 | Tenant (owner routes) | `/api/tenant` | No (JWT sets tenant) | Yes (owner) |
 | Pro-site | `/api/tenant/pro-site` | No (JWT) | Yes (owner + Pro plan) |
 | Bookings | `/api/bookings` | No (JWT) | Yes (any role) |
 | Payments | `/api/payments` | No (webhook takes slug-based lookup) | No (HMAC signature) |
+| CRM / marketing | `/api/tenant/marketing`, customer health | Yes | Yes (owner) |
+| Intent | `/api/intent` | Aggregated, anonymized | Mixed (Pro alerts) |
+| AI chat / site generator | `/api/ai-chat`, generator routes | Yes | Yes |
 | Admin | `/api/admin` | No (platform-level) | Yes (superadmin) |
+
+*(Post-audit note: `src/api/auth_prefix.ts` duplicates auth routes with its own send
+sites — known debt, consolidate during P3.1.)*
 
 ---
 
@@ -220,16 +258,35 @@ The **staff cap gate** (`server/middleware/planLimits.ts`) counts current staff 
 | **XSS / clickjacking** | `helmet` (content-security-policy disabled for the Puck preview). |
 | **Tenant isolation** | Every DB query includes `tenant_id` in the WHERE clause via `tenantRepo.ts` helpers. No global query can cross tenant boundaries. |
 | **HMAC webhook verification** | Constant-time comparison (`crypto.timingSafeEqual`) ensures Chapa is the genuine sender. |
-| **Webhook idempotency** | Transactional `UNIQUE(provider, event_id)` insert makes duplicate delivery a clean `200 duplicate` — no side effects re-fire. |
-| **Password handling** | `bcrypt.js` (rounds=10), email-based reset, no SMS-only reset.
-| **Refresh tokens** | JWT signed with a separate `REFRESH_SECRET` (different from `JWT_SECRET`). |
+| **Webhook idempotency** | `UNIQUE(provider, event_id)` insert makes duplicate delivery a clean `200 duplicate` — but side effects are not yet wrapped in the same transaction (see Webhook flow note above); fix tracked as P1.2. |
+| **Password handling** | `bcrypt.js` (rounds=10); email reset + OTP phone flows (register-with-phone, verify-otp, reset-password-via-sms) — 6-digit codes, 10-min TTL, attempt lockout, send/verify rate limits. ⚠️ Audit found codes stored plaintext; hashing is task P0.5. |
+| **Refresh tokens** | JWT signed with a separate `REFRESH_SECRET`; rotation tracked via `refresh_token_families` + server-issued jti. |
 
 ---
 
-## Deployed layout (Plesk)
+## Deployed layout (Render.com + Turso)
 
-- **Runtime**: `dist/server.cjs` (Node.js bundled with esbuild)
-- **Layout**:
-  - Single Domain: `dist/`
-  - Wildcard subdomain → same `dist/` directory (tenant resolved by Host header)
-  - Cron: `npm run send-reminders` (every 15 min) for booking reminders
+- **Runtime**: `dist-server/server.cjs` (Node.js bundled with esbuild) — see
+  `render.yaml` and README "Production Deployment".
+- **Database**: Turso (libSQL) when `DATABASE_URL` is set; local SQLite file otherwise.
+- **Cron**: five in-process `node-cron` jobs scheduled at boot (`server.ts`, skipped
+  when `NODE_ENV=test`): SMS/email reminders (`*/15min`, also cancels stale
+  pending-payment slots), win-back automations (23:00 UTC), recurring expansion
+  (03:00 UTC), downgrade expired (03:05 UTC), intent aggregation (`0 */2 * * *`).
+  Each also runnable once via its `npm run` script.
+- The older Plesk/MariaDB deployment notes are superseded.
+
+---
+
+## Schema addendum (post-audit, Aug 2026)
+
+Tables beyond the ER diagram above, all defined in `src/db/schema.ts` +
+`src/db/migrations.ts`: `customer_stats` (CRM: visits, spend, health_tag,
+no_show_count, marketing_opt_in, automation_state), `promo_codes`
+(⚠️ missing `UNIQUE(tenant_id, code)` — P0.5), `otp_codes` (⚠️ plaintext codes — P0.5),
+`inventory_items` (missing `reserved_quantity`/`version` CAS columns for future
+stock-holding), `search_intent` + `pro_alerts` (anonymized demand signals),
+`site_config`, `api_keys`, `refresh_token_families`, `recurring_series`,
+`appointment_services`. Conventions: uuid text PKs, UTC-ms integer timestamps,
+ETB-cents money, `{mode:'json'}` text columns, additive-only migrations shaped
+`{table, column, sql}`.

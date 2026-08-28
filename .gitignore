@@ -16,3 +16,10 @@ dist-server/
 # Local dev database (sqlite/libsql) — runtime data, not source
 sqlite.db
 sqlite.db-*
+
+# graphify knowledge-graph output (regenerable)
+graphify-out/
+# impeccable review screenshots (regenerable)
+.impeccable/
+# scratch test artifact
+_test_pixel.png

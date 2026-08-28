@@ -5,7 +5,7 @@ import '@testing-library/jest-dom/vitest';
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string) => {
+    t: (key: string, params?: Record<string, unknown>) => {
       const map: Record<string, string> = {
         'booking.takeNumber': 'Take a Number',
         'booking.takeNumberAm': 'ቁ ያግባ',
@@ -35,6 +35,8 @@ vi.mock('react-i18next', () => ({
         'booking.when': 'WHEN',
         'booking.at': 'at',
         'booking.addis': 'Addis Time',
+        'quietHoursBadge.label': 'Quiet −{percent}%',
+        'quietHoursBadge.tooltip': '{percent}% off during quiet hours',
         'booking.tariff': 'TARIFF',
         'booking.fullName': 'FULL NAME',
         'booking.phone': 'PHONE',
@@ -45,6 +47,7 @@ vi.mock('react-i18next', () => ({
         'booking.turnstileHelp': 'Complete the checkbox above',
         'booking.confirm': 'Confirm Booking',
         'booking.confirming': 'Confirming...',
+
         'booking.depositNotice': 'Deposit of Br {price} required via Telebirr',
         'booking.noDepositNotice': 'No deposit required',
         'booking.todayQueue': "TODAY'S QUEUE",
@@ -69,7 +72,13 @@ vi.mock('react-i18next', () => ({
         'booking.successConfirmed': 'Your appointment is confirmed. See you there!',
         'booking.successPending': 'Your appointment is pending confirmation.',
       };
-      return map[key] || key;
+      let out = map[key] || key;
+      if (params) {
+        for (const [k, v] of Object.entries(params)) {
+          out = out.replace(new RegExp(`{${k}}`, 'g'), String(v));
+        }
+      }
+      return out;
     },
   }),
 }));
@@ -464,5 +473,67 @@ describe('PublicBooking – Payment Resilience', () => {
     expect(bookingResolvers.length).toBe(1);
 
     bookingResolvers[0]({ ok: true, json: () => Promise.resolve({ appointment: { id: 'x', status: 'confirmed' } }) });
+  });
+});
+
+
+// ── P5.6 G2: quiet-hours badge renders through i18n, not a literal ─────────
+describe('PublicBooking – quiet-hours badge (P5.6)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    global.fetch = vi.fn((url: string) => {
+      if (typeof url === 'string' && url.includes('/api/public/services')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(mockServices) });
+      }
+      if (typeof url === 'string' && url.includes('/api/public/staff')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve([{ id: 'st1', name: 'Sara', title: 'Stylist' }]) });
+      }
+      if (typeof url === 'string' && url.includes('/api/public/availability')) {
+        // 14:00 is inside the 13:00–15:00 window → quiet slot.
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(['14:00']) });
+      }
+      if (typeof url === 'string' && url.includes('/api/public/appointments')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+      }
+      if (typeof url === 'string' && url.includes('/api/public/turnstile-config')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ siteKey: null }) });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+    }) as any;
+  });
+
+  it('renders the KEYED quiet badge, never the hardcoded literal', async () => {
+    render(
+      <PublicBooking
+        tenant={{
+          name: 'Quiet Salon',
+          calendar_display: 'gregorian',
+          require_payment_upfront: false,
+          quiet_hours_discount: { start_minute: 780, end_minute: 900, percent: 20 },
+        }}
+        subdomain="quiet-salon"
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getAllByRole('button').filter(
+        (b) => b.getAttribute('aria-pressed') !== null,
+      ).length).toBeGreaterThan(0);
+    });
+    const serviceCard = screen.getAllByRole('button').find(
+      (b) => b.getAttribute('aria-pressed') !== null,
+    )!;
+    fireEvent.click(serviceCard);
+    fireEvent.click(screen.getByText('Book Now'));
+
+    // Step 2 staff → pick Sara → step 3 slots.
+    await waitFor(() => expect(screen.getByText('Sara')).toBeTruthy());
+    fireEvent.click(screen.getByText('Sara'));
+
+    await waitFor(() => expect(screen.getByText('AVAILABLE TIMES')).toBeTruthy());
+    const slot = screen.getByTestId('slot-quiet-14:00');
+    expect(slot.textContent).toContain('Quiet −20%'); // the i18n-mapped key
+    // The hardcoded literal never appears.
+    expect(slot.textContent).not.toContain('ዝቅተኛ −');
   });
 });

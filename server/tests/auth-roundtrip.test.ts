@@ -56,6 +56,8 @@ describe('Auth roundtrip + protected-route middleware', () => {
 
   let tenantId: string;
   let userId: string;
+  let staffUserId: string;
+  const staffPhone = `+251${String(Math.floor(Math.random() * 1e9)).padStart(9, '0')}`;
   let resetToken: string;
 
   beforeAll(async () => {
@@ -79,6 +81,19 @@ describe('Auth roundtrip + protected-route middleware', () => {
       role: 'owner',
       createdAt: Date.now(),
     });
+    // A real staff DB row: requireAuth checks role against the FRESH DB row
+    // (anti-forgery), so the staff-JWT tests need an actual staff user.
+    staffUserId = crypto.randomUUID();
+    await db.insert(users).values({
+      id: staffUserId,
+      tenantId,
+      name: 'Roundtrip Staff',
+      phone: staffPhone,
+      email: `auth-rt-staff-${Date.now()}@egebeya.test`,
+      passwordHash: await bcrypt.hash(newPassword, 10),
+      role: 'staff',
+      createdAt: Date.now(),
+    });
 
     const freePlan = await db.select().from(plans).where(eq(plans.name, 'free')).get();
     await db.insert(tenantSubscriptions).values({
@@ -100,8 +115,8 @@ describe('Auth roundtrip + protected-route middleware', () => {
 
   // The user's current token_version (bumped by every password reset) — a
   // valid access token must be minted against the live value.
-  async function currentVersion(): Promise<number> {
-    const u = await db.select().from(users).where(eq(users.id, userId)).get();
+  async function currentVersion(uid: string = userId): Promise<number> {
+    const u = await db.select().from(users).where(eq(users.id, uid)).get();
     return (u as any)?.tokenVersion ?? 0;
   }
 
@@ -213,7 +228,7 @@ describe('Auth roundtrip + protected-route middleware', () => {
   it('owner-only /api/tenant/* rejects a non-owner (staff) JWT with 403', async () => {
     const jwt = require('jsonwebtoken');
     const staffToken = jwt.sign(
-      { userId, tenantId, role: 'staff', tokenVersion: await currentVersion() },
+      { userId: staffUserId, tenantId, role: 'staff', tokenVersion: await currentVersion(staffUserId) },
       JWT_SECRET,
       { expiresIn: '15m' },
     );
@@ -226,7 +241,7 @@ describe('Auth roundtrip + protected-route middleware', () => {
   it('owner-only /api/tenant/pro-site/files rejects a non-owner (staff) JWT with 403', async () => {
     const jwt = require('jsonwebtoken');
     const staffToken = jwt.sign(
-      { userId, tenantId, role: 'staff', tokenVersion: await currentVersion() },
+      { userId: staffUserId, tenantId, role: 'staff', tokenVersion: await currentVersion(staffUserId) },
       JWT_SECRET,
       { expiresIn: '15m' },
     );

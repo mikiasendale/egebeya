@@ -15,6 +15,9 @@ import crmRoutes from './crm';
 import intentRoutes from './intent';
 import apiKeysRoutes from './api-keys';
 import v1Routes from './v1';
+import telegramRoutes from './telegram';
+import consumerRoutes from './consumer';
+import queueRoutes, { queueOwnerRouter, queuePublicRouter } from './queue';
 import { apiKeyLimiter } from '../../server/middleware/rateLimiter';
 import { dbHealthMiddleware } from '../db/health';
 
@@ -29,6 +32,10 @@ router.use('/health', healthRoutes);
 router.use(dbHealthMiddleware);
 
 router.use('/auth', authRoutes);
+// F4: the queue console must be reachable by STAFF (the barber advances the
+// queue), so it mounts BEFORE the owner-gated tenant router. It carries its
+// own any-role requireAuth + per-tenant scoping.
+router.use('/tenant/queue', queueOwnerRouter);
 router.use('/tenant', tenantRoutes);
 router.use('/tenant', proSiteRoutes);
 router.use('/tenant', siteSettingsRoutes);
@@ -40,10 +47,17 @@ router.use('/tenant', intentRoutes);
 router.use('/tenant/api-keys', apiKeysRoutes);
 router.use('/tenant/bookings', walkInRouter);
 router.use('/bookings', bookingsRoutes);
+// Queue-Buster consumer board must sit BEFORE the gated public routes —
+// same pattern as /site-status: it serves pre-gate, opaque-token traffic.
+router.use('/public', queuePublicRouter);
 router.use('/public', publicRoutes);
 router.use('/v1', apiKeyLimiter, v1Routes);
 router.use('/payments', paymentRoutes);
 router.use('/admin', adminRoutes);
+// Telegram bot webhook (P3.2) — public, secret-token verified inside.
+router.use('/telegram', telegramRoutes);
+// Consumer identity-lite endpoints (P3.4) + data-deletion (P3.7).
+router.use('/consumer', consumerRoutes);
 
 // Test-only routes must NEVER ship to production. Mounted only when
 // explicitly enabled via ENABLE_TEST_ENDPOINTS=true.

@@ -5,7 +5,8 @@ import { db } from '../db';
 import { users, tenants, passwordResets, tenantSubscriptions, refreshTokenFamilies } from '../db/schema';
 import { eq, sql, and, desc } from 'drizzle-orm';
 import crypto from 'crypto';
-import { sendMail } from '../../server/lib/mailer';
+import { notify } from '../../server/lib/notifications';
+import { trackEvent } from '../../server/lib/analytics';
 import { applyTemplate } from '../../server/lib/mailTemplates';
 import { jwtSecret, refreshSecret, requireAuth } from './middleware/auth';
 import { csrfProtection } from './middleware/csrf';
@@ -137,7 +138,24 @@ router.post('/register', authLimiter, async (req, res) => {
   try {
     const { name, phone, password, businessName, slug, email, city, consent } = req.body;
 
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email).trim())) {
+    // P3.5 attribution: street-agent / campaign referral code carried by the
+    // signup link (?ref=CODE). Accepted from body (SPA forwards it) or query
+    // (direct hit). Sanitized to a conservative charset; unknown codes are
+    // still recorded — attribution review happens in analytics, not here.
+    const rawRef = (typeof req.body?.ref === 'string' && req.body.ref.trim())
+      || (typeof req.query?.ref === 'string' && req.query.ref.trim())
+      || '';
+    const refCode = String(rawRef).trim().slice(0, 40).replace(/[^A-Za-z0-9_-]/g, '') || null;
+
+    // P2.4 3-screen signup: email / name / slug become OPTIONAL and are
+    // auto-derived when absent — Screen 1 collects phone+password(+consent),
+    // Screen 2 the business name + category. The full-field contract above is
+    // unchanged for existing clients.
+    const derivedEmail = (typeof email === 'string' && email.trim())
+      ? String(email).trim().toLowerCase()
+      : `owner-${String(normalizePhone(phone) || Date.now()).replace(/\D/g, '').slice(-9)}@users.egebeya.app`;
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(derivedEmail)) {
       return res.status(400).json({ error: 'A valid email is required' });
     }
 
@@ -151,7 +169,14 @@ router.post('/register', authLimiter, async (req, res) => {
       return res.status(400).json({ error: 'Enter a valid Ethiopian phone number (+251XXXXXXXXX)' });
     }
 
-    const normalizedEmail = String(email).trim().toLowerCase();
+    const trimmedBusinessName = typeof businessName === 'string' && businessName.trim()
+      ? businessName.trim().slice(0, 120)
+      : '';
+    const ownerName = (typeof name === 'string' && name.trim())
+      ? name.trim().slice(0, 120)
+      : (trimmedBusinessName || 'Owner');
+
+    const normalizedEmail = derivedEmail;
     const existingEmail = await db.select().from(users).where(eq(users.email, normalizedEmail)).get();
     if (existingEmail) {
       return res.status(409).json({ error: 'Email already registered' });
@@ -162,20 +187,41 @@ router.post('/register', authLimiter, async (req, res) => {
       return res.status(400).json({ error: 'Phone number already registered' });
     }
 
-    const normalizedSlug = slug.toLowerCase().trim();
-    if (RESERVED_SLUGS.includes(normalizedSlug)) {
-      return res.status(400).json({ error: 'This business URL is reserved' });
-    }
-
-    const existingTenant = await db.select().from(tenants).where(eq(tenants.slug, normalizedSlug)).get();
-    if (existingTenant) {
-      return res.status(400).json({ error: 'Business URL already taken' });
+    // Slug: explicit wins; otherwise derive from business name + short random
+    // suffix so the 3-screen flow never blocks on a slug picker. Collision
+    // retry keeps auto-derivation race-safe.
+    let normalizedSlug: string;
+    if (typeof slug === 'string' && slug.trim()) {
+      normalizedSlug = slug.toLowerCase().trim();
+      if (RESERVED_SLUGS.includes(normalizedSlug)) {
+        return res.status(400).json({ error: 'This business URL is reserved' });
+      }
+      const existingTenantBySlug = await db.select().from(tenants).where(eq(tenants.slug, normalizedSlug)).get();
+      if (existingTenantBySlug) {
+        return res.status(400).json({ error: 'Business URL already taken' });
+      }
+    } else {
+      const base = (trimmedBusinessName || 'biz')
+        .toLowerCase()
+        .replace(/[^a-z0-9\u1200-\u137F]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 30) || 'biz';
+      normalizedSlug = '';
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const candidate = `${base}-${crypto.randomBytes(3).toString('hex')}`;
+        if (RESERVED_SLUGS.includes(candidate)) continue;
+        const clash = await db.select().from(tenants).where(eq(tenants.slug, candidate)).get();
+        if (clash) continue;
+        normalizedSlug = candidate;
+        break;
+      }
+      if (!normalizedSlug) normalizedSlug = `${base}-${crypto.randomBytes(4).toString('hex')}`;
     }
 
     // Validate password strength
     const passwordValidation = validatePassword(password);
     if (!passwordValidation.valid) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: passwordValidation.error || 'Password does not meet requirements',
         passwordFeedback: passwordValidation.feedback,
         passwordScore: passwordValidation.score,
@@ -184,6 +230,7 @@ router.post('/register', authLimiter, async (req, res) => {
 
     const tenantId = crypto.randomUUID();
     const userId = crypto.randomUUID();
+    const finalBusinessName = trimmedBusinessName || ownerName;
     const passwordHash = await bcrypt.hash(password, 10);
 
     const trimmedCity = typeof city === 'string' && city.trim() ? city.trim() : null;
@@ -192,20 +239,25 @@ router.post('/register', authLimiter, async (req, res) => {
     await db.transaction(async (tx) => {
       await tx.insert(tenants).values({
         id: tenantId,
-        name: businessName,
+        name: finalBusinessName,
         slug: normalizedSlug,
+        category: typeof req.body?.category === 'string' && req.body.category.trim()
+          ? req.body.category.trim()
+          : null,
         // New tenants are NOT listed on /discover until the owner completes
         // onboarding and opts in via the "List my business publicly" toggle
         // (which sets is_listed back to true).
         isListed: false,
         settings: { ...initialSettings, onboarding_completed: false },
+        // P3.5: street-agent / campaign attribution captured at the source.
+        acquiredViaCode: refCode,
         createdAt: Date.now()
       });
 
       await tx.insert(users).values({
         id: userId,
         tenantId: tenantId,
-        name,
+        name: ownerName,
         phone: normalizedPhone,
         email: normalizedEmail,
         passwordHash,
@@ -228,6 +280,13 @@ router.post('/register', authLimiter, async (req, res) => {
     const userRecord = await db.select({ tokenVersion: users.tokenVersion }).from(users).where(eq(users.id, userId)).get();
     const tokenVersion = userRecord?.tokenVersion ?? 0;
 
+    // P3.5: attribution event fires only when a code was actually carried.
+    // Agent commissions are paid against code-defined activation events
+    // downstream (first_invoice_paid), never against registration alone.
+    if (refCode) {
+      trackEvent(tenantId, 'agent_attributed', { code: refCode });
+    }
+
     // Mint a fresh refresh-token jti so old/stolen refresh tokens from any
     // previous session become unusable. This is rotated again on every
     // successful /auth/refresh call (see below) — replay-detection lives in
@@ -243,10 +302,10 @@ router.post('/register', authLimiter, async (req, res) => {
       message: 'Registration successful',
       role: 'owner',
       tenantId,
-      tenant: { id: tenantId, name: businessName, slug: normalizedSlug },
-      name,
+      tenant: { id: tenantId, name: finalBusinessName, slug: normalizedSlug },
+      name: ownerName,
       isSuperadmin: false,
-      user: { id: userId, role: 'owner', tenantId, tenantSlug: normalizedSlug, name, phone: normalizedPhone },
+      user: { id: userId, role: 'owner', tenantId, tenantSlug: normalizedSlug, name: ownerName, phone: normalizedPhone },
     });
   } catch (error) {
     console.error('Register error:', error);
@@ -405,10 +464,13 @@ router.post('/forgot-password', authLimiter, async (req, res) => {
   const locale: 'en' | 'am' = String(settings.defaultLocale || 'en').startsWith('am') ? 'am' : 'en';
   const { subject, text } = applyTemplate('passwordReset', locale, { link: resetLink });
 
-  await sendMail({
-    to: email,
+  await notify({
+    channel: 'email',
+    template: 'passwordReset',
+    to: { email },
     subject,
     text,
+    refType: 'user',
   });
 
     res.json({ success: true, message: 'If that email is registered, you will receive a reset link.' });

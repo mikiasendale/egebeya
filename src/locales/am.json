@@ -101,25 +101,25 @@
     "chairOpenAria": "Time the current chair has been in service"
   },
   "pricing": {
-    "eyebrow": "Pricing",
+    "eyebrow": "ዋጋዎች",
     "eyebrowAm": "ዋጋ",
-    "heading": "Rent a chair on the internet.",
+    "heading": "በኢንተርኔት ላይ ወንበር ይከራዩ።",
     "headingAm": "ዋጋ።",
-    "sub": "One floor price keeps things upright. Every plan runs on Telebirr deposit.",
-    "basicTag": "PLAN 01 · BASIC",
-    "proTag": "PLAN 02 · PRO",
-    "basicTitle": "Basic",
-    "proTitle": "The full counter",
-    "basicDesc": "A starting counter that takes bookings straight away.",
-    "proDesc": "The full counter for salons that want their own name and reach.",
-    "basicPrice": "Free",
+    "sub": "አንድ ቋሚ ዋጋ ነገሮችን ቀጥ ያደርጋል። ሁሉም ፕላን በቴሌብር ተቀማጭ ይሰራል።",
+    "basicTag": "ፕላን 01 · ቤዚክ",
+    "proTag": "ፕላን 02 · ፕሮ",
+    "basicTitle": "ቤዚክ",
+    "proTitle": "ሙሉ መደርደሪያ",
+    "basicDesc": "ቀጠሮዎችን ወዲያውኑ የሚቀበል መነሻ መደርደሪያ።",
+    "proDesc": "የራሳቸው ስም እና ተደራሽነት ለሚፈልጉ ሳሎኖች ሙሉ መደርደሪያ።",
+    "basicPrice": "ነጻ",
     "proPrice": "ETB 1,000",
-    "month": "/month",
-    "basicCta": "Start Free Trial",
-    "proCta": "Start Free Trial",
-    "mostPopular": "Most popular",
+    "month": "/ወር",
+    "basicCta": "ነጻ ሙከራ ይጀምሩ",
+    "proCta": "ነጻ ሙከራ ይጀምሩ",
+    "mostPopular": "በጣም ተወዳጅ",
     "mostPopularAm": "ተወዳጅ",
-    "seal": "APPROVED",
+    "seal": "ጸድቋል",
     "sealAm": "ጸድቋል",
     "basicFeatures": [
       "Website for your business",
@@ -178,9 +178,9 @@
     "noShowSolved": "no-show is no-answer solved"
   },
   "booking": {
-    "takeNumber": "Take a number.",
+    "takeNumber": "ቁጥር ይውሰዱ።",
     "takeNumberAm": "ቁጥር ይዘው።",
-    "step": "step",
+    "step": "ደረጃ",
     "of": "of",
     "bookingReceipt": "የቀጠሮ ደረሰኝ",
     "refPending": "ጠባቂ ማጣቀሻ",
@@ -236,7 +236,8 @@
     "reference": "ማጣቀሻ",
     "newDateTime": "አዲስ ቀን እና ሰዓት (አዲስ አበባ)",
     "reschedule": "መርሐግብር ቀይር",
-    "cancel": "ቦታ ማስያዣ ሰርዝ"
+    "cancel": "ቦታ ማስያዣ ሰርዝ",
+    "stampConfirmed": "ተመዝግቧል"
   },
   "publicTenant": {
     "loading": "LOADING",
@@ -257,27 +258,27 @@
     "am": "አማርኛ"
   },
   "register": {
-    "title": "Open your booking form.",
+    "title": "የቀጠሮ ቅጽዎን ይክፈቱ።",
     "amTitle": "የምርመራ ቅጹን ይሙሉ።",
     "fullNameAm": "ሙሉ ስም",
-    "fullNameHelper": "owner of the tenant record",
+    "fullNameHelper": "የንግድ ባለቤት መዝገብ",
     "phoneAm": "ስልክ",
-    "phoneHelper": "format: +251 followed by 9 digits",
+    "phoneHelper": "ቅርጸት፡ +251 ከዚያም 9 አሃዝ",
     "emailAm": "ኢሜይል",
-    "emailHelper": "used for password recovery",
+    "emailHelper": "ለይለፍ ቃል መልሶ ማግኛ ይጠቅማል",
     "businessNameAm": "የንግድ ስም",
-    "businessNameHelper": "shown to your customers",
+    "businessNameHelper": "ለደንበኞችዎ ይታያል",
     "slugAm": "ጎራ",
-    "slugHelper": "your tenant slug on egebeya.et",
+    "slugHelper": "የንግድዎ አድራሻ በ egebeya.et ላይ",
     "cityAm": "ከተማ",
-    "cityHelper": "shown on the public Discover directory",
+    "cityHelper": "በይፈታው Discover ላይ ይታያል",
     "passwordAm": "የይለፍ ቃል",
-    "passwordHelper": "≥ 6 characters",
+    "passwordHelper": "≥ 6 ቁምፊዎች",
     "consentAm": "ሁኔታዎች እና ገደብ",
-    "consentHelper": "required to create an account",
-    "consentDetail": "Your consent is recorded with a timestamp. You can request data export or deletion at any time from your account settings.",
-    "submitting": "Issuing tenant…",
-    "alreadyOnRolls": "Already on the rolls?",
+    "consentHelper": "መለያ ለመፍጠር ያስፈልጋል",
+    "consentDetail": "ፈቃድዎ ከጊዜ ማህተም ጋር ይመዘገባል። የመረጃ ወደ ውጭ መላክ መጠየቅ ይችላሉ።",
+    "submitting": "መለያ በመፍጠር ላይ…",
+    "alreadyOnRolls": "ቀድሞ ተመዝግበዋል?",
     "signIn": "ግባ",
     "fullName": "ሙሉ ስም",
     "businessName": "የንግድ ስም",
@@ -350,6 +351,224 @@
     "newBookingBannerAt": "በ",
     "noBookingsToday": "ዛሬ ገና ቀጠሮ የለም።",
     "shopServices": "አገልግሎቶች",
-    "shopStaff": "ሰራተኞች"
+    "shopStaff": "ሰራተኞች",
+    "billing": {
+      "title": "ክፍያ እና እቅድ",
+      "foundingLocked": "የመስራች ዋጋ ተይዟል",
+      "foundingLockedHint": "የመስራች ዋጋዎ ለ{{date}} ተይዟል",
+      "valueFrame": "በዚህ ወር {{count}} ቀጠሮዎች ተቀበሉ",
+      "valueFrameOne": "በዚህ ወር 1 ቀጠሮ ተቀበሉ",
+      "paymentPending": "ክፍያዎ ሳይጨረስ ቆይቷል — Chapa ክፍያውን ከጠናቀቀ ገጹ በራስ-ሰር ይታደሳል",
+      "upgrade": "Pro ይጀምሩ — {{price}} ETB/ወር",
+      "renew": "Pro እድሳት — {{price}} ETB",
+      "cycleMonthly": "ወርሃዊ",
+      "cycleQuarterly": "3 ወር (5% ቅናሽ)",
+      "cycleAnnual": "ዓመታዊ · 10 ለ 12",
+      "cycleNote": "በየጊዜው ወደ አስተማማኝ Chapa ክፍያ ይላካሉ። በማንኛውም ጊዜ ማቆም ይችላሉ።",
+      "totalToday": "ዛሬ ክፍል · Total today"
+    },
+    "funnel": {
+      "title": "የንቁትነት ላኩ (Funnel)",
+      "subtitle": "ሳምንታዊ የመቀየር መጠን + north-star",
+      "northStar": "North-star — በየሳምንቱ የተረጋገጡ ቀጠሮዎች በ billing-active ንግድ",
+      "churn": "ወርሃዊ logo churn (guardrail ≤5%)",
+      "week": "ሳምንት",
+      "generated": "የተፈጠሩ ጣቢያዎች",
+      "hoursConfirmed": "ሰዓት አረጋግጠ",
+      "shared": "አጋሯል",
+      "firstBooking": "የመጀመሪያ ቀጠሮ",
+      "invoicePaid": "የመጀመሪያ ክፍያ",
+      "quietFillRate": "የዝቅተኛ ሰዓት መሙላት መጠን",
+      "slots": "ቦታዎች",
+      "quietFillRateOff": "አልነቃም — ባለቤቱ ገና ዝቅተኛ ሰዓት አላወጣም"
+    }
+  },
+  "privacy": {
+    "back": "ወደ Egebeya ተመለስ",
+    "title": "የግላዊነት መመሪያ",
+    "updated": "የተዘመነው",
+    "law": "በ PDPL 1321/2024 መሠረት",
+    "sections": [
+      {
+        "heading": "1. የምንሰበስበው መረጃ",
+        "body": "መሸጫ ንግድ ሲከፍቱ ስም፣ የስልክ ቁጥር፣ ኢሜይል እና የንግድ መረጃዎን እንሰብሳባለን። ቀጠሮ ሲያደርጉ ደግሞ ስምዎን፣ የስልክ ቁጥርዎን (በ +2519xxxxxxxx ᆨፎርማት የተስተካከለ) እና ፈቃደኛ ከሆኑ ኢሜይልዎን እንቀበላለን። ደንበኛ መለያዎ በስልክ ቁጥርዎ ላይ የተመሠረተ ነው።"
+      },
+      {
+        "heading": "2. የ Telegram መልእክት ፈቃድ",
+        "body": "\"ማስታወሻ በ Telegram\" የሚለውን ቁልፍ በመንካት እና በቦቱ ውስጥ Start በመታ ትኩረትዎን ታሳያለህ — በዚያ ጊዜ ፈቃድዎ ተመዝግቧል (ቀን እና ሰዓት ይቀመጣል)። ከዚያ በኋላ የቀጠሮ ማረጋገጫ እና አስታዋሽ መልእክቶችን በ Telegram እንልካለን። ቦቱ በቅድሚያ መልእክት መጀመር አይችልም — ሁሉም ፍሰት ከእርስዎ ይጀመራል።"
+      },
+      {
+        "heading": "3. የገበያ መልእክቶች ፈቃድ",
+        "body": "በቀጠሮ ጊዜ ወይም በ CRM ውስጥ የገበያ መልእክት ፈቃድ ሲሰጡ ብቻ ነው ንግዶች ማስታወሻ ወይም ልዩ ቅናሽ መልእክት የሚልኩልዎት። ፈቃድ ሲሰጡ ቀን ይቀመጣል፤ ፈቃድ መሰረዝ በየትኛውም ማስታወሻ ላይ STOP በመላክ ወይም በንግዱ ዘንድ ይቻላል።"
+      },
+      {
+        "heading": "4. የ loyalty ፕሮግራም እና መረጃ አጠቃቀም",
+        "body": "የተጠቀሙት አገልግሎት ብዛት ለ punch-card ሽልማት በስልክ ቁጥርዎ ተቀምጧል። መረጃዎ ደህንነቱ በተጠበቀ ሁኔታ ይቀመጣል፤ ለማንኛውም የገበያ ሽያጭ አይሸጥም።"
+      },
+      {
+        "heading": "5. የመረጃ ማጥፋት መብት",
+        "body": "መረጃዎ እንዲሰረዝ መጠየቅ ይችላሉ። POST /api/consumer/data-deletion በመጠቀም (ወይም support@egebeya.et በማግኘት) ጥያቄዎ ይመዘገባል፣ በ30 ቀናት ውስጥ ይሰራቃል እና ማረጋገጫ ይደርስዎታል።"
+      }
+    ],
+    "contactHeading": "6. ለማግኘት",
+    "contactBody": "ስለ ዚህ መመሪያ ጥያቄ ካለዎት ወደ"
+  },
+  "terms": {
+    "back": "ወደ Egebeya ተመለስ",
+    "title": "የአገልግሎት ውሎች",
+    "updated": "የተዘመነው",
+    "sections": [
+      {
+        "heading": "1. ውሎችን መቀበል",
+        "body": "Egebeya ለመጠቀም በመመዝገብዎ ዚህን የአገልግሎት ውል ትቀበላለህ። የሚስማሙ ከሌለ አገልግሎቱን መጠቀም አይቻልም።"
+      },
+      {
+        "heading": "2. የአገልግሎቱ መግለጫ",
+        "body": "Egebeya ደንበኞችን ከአገልግሎት ንግዶች ጋር የሚያገናኝ የመስመር ላይ የቀጠሮ መድረክ ነው። ቀጠሮና ክፍያ እናመቻቻለን፤ ግን በንግድ እና በደንበኛ መካከል ባለው የአገልግሎት ስምምነት ወገን አይደለንም።"
+      },
+      {
+        "heading": "3. የተጠቃሚ ግዴታዎች",
+        "body": "ትክክለኛ መረጃ መስጠት፣ የመለያዎን ሚስጥራነት መጠበቅ እና ህግን በሚከብር መልኩ አገልግሎቱን መጠቀም ትስማማለህ።"
+      },
+      {
+        "heading": "4. የደንበኛ መለያ እና Telegram",
+        "body": "የደንበኛ መለያዎ በስልክ ቁጥርዎ ይሰራል። የ6-አሃዝ ኮድ በ Telegram ይደርስዎታል። \"ማስታወሻ በ Telegram\" በመታ የመልእክት ፈቃድ ይሰጣሉ፤ በዚህ ውል መሰረዝ በማንኛውም ጊዜ ይቻላል።"
+      },
+      {
+        "heading": "5. የ loyalty ሽልማቶች",
+        "body": "Punch-card ሽልማቶች በሚሰጡ ንግዶች የሚለዩ ናቸው፤ ሽልማት = ቀጣይ ክፍያ ላይ ቅናሽ ነው፤ ጥሬ ገንዘብ አይሰጥም።"
+      },
+      {
+        "heading": "6. የተወሰነ ተጠያቂነት",
+        "body": "Egebeya ከአገልግሎቱ አጠቃቀም በተነሳ ቀጥተኛ ያልሆኑ ጉዳቶች ላይ ተጠያቂ አይሆንም።"
+      }
+    ],
+    "contactHeading": "7. ለማግኘት",
+    "contactBody": "ስለ ዚህ ውል ጥያቄ ካለዎት ወደ"
+  },
+  "settings": {
+    "siteLiveTitle": "ጣቢያዎ አሁን በይዘት ክፍት ነው",
+    "siteLiveBody": "ሰዓታትዎ ተረጋግጠዋል — ደንበኞች አሁን ቀጠሮ ማድረግ ይችላሉ።",
+    "retryTitle": "መሸጫዎን ማስፈጠር አልተቻለም",
+    "hoursPendingNote": "ሰዓታትዎን ከዚያ ከዳሽቦርዱ ያረጋግጡ",
+    "quietHours": {
+      "title": "ዝቅተኛ ሰዓቶች",
+      "subtitle": "በምሽት/በስራ የሌለበት ሰዓት ቅናሽ ያቅርቡ።",
+      "enableLabel": "ዝቅተኛ ሰዓት ቅናሽ አንቃ",
+      "start": "የሚጀምርበት",
+      "end": "የሚያልቅበት",
+      "percent": "ቅናሽ (%)",
+      "save": "አስቀምጥ",
+      "saving": "በማስቀመጥ ላይ…",
+      "savedOn": "ዝቅተኛ ሰዓት ቅናሽ ተነቅቷል",
+      "savedOff": "ዝቅተኛ ሰዓት ቅናሽ ጠፍቷል",
+      "savedOffBody": "ደንበኞች ሙሉ ዋጋ ይከፍላሉ።",
+      "saveFailed": "ቅናሹን ማስቀመጥ አልተቻለም",
+      "networkError": "ኢንተርኔት ችግር አለ — እንደገና ይሞክሩ።"
+    }
+  },
+  "common": {
+    "loading": "በመጫን ላይ"
+  },
+  "queue": {
+    "title": "የዛሬ ሰሌዳ",
+    "waitingLabel": "ይጠብቃሉ",
+    "minUnit": "ደቂቃ",
+    "serving": "በአገልግሎት ላይ",
+    "waiting": "ቆይታ",
+    "callBtn": "አሳውቅ · Next",
+    "doneBtn": "ጨርስ · Done",
+    "callAria": "ቀጣዩን ደንበኛ አሳውቅ",
+    "doneAria": "አገልግሎቱ ተጠናቋል",
+    "emptyTitle": "ሰሌዳው ባዶ ነው።",
+    "emptyBody": "walk-in ሲያስገቡ ወይም ቀጠሮ ሲገባ እዚህ ይታያል።",
+    "loadFailed": "ሰሌዳውን ማምጣት አልቻልንም።",
+    "retry": "እንደገና ይሞክሩ",
+    "advanceFailedTitle": "ለውጡ አልተቀመጠም",
+    "advanceFailedBody": "ኢንተርኔትዎን ያረጋግጡ እና እንደገና ይንኩ።",
+    "positionLabel": "ተራ {{position}}"
+  },
+  "queueStatus": {
+    "yourTicket": "የእርስዎ ቁጥር",
+    "yourTurn": "ተራዎ ደርሷል!",
+    "done": "ተጠናቋል",
+    "doneBody": "እናመሰግናለን — ሌላ ጊዜ እንገናኝ።",
+    "expired": "ተራዎ አልተገኘም",
+    "expiredBody": "ይህ ቲኬት ከቀጠሮዎ ጋር ተያይዟል። እባክዎ ከንግዱ ጋር ይግቡ።",
+    "almostThere": "በቅርቡ · almost there",
+    "inLine": "በመስመር ላይ",
+    "footer": "Egebeya · በአዲስ ሰዓት",
+    "trackLink": "ተራዎን ይከታተሉ",
+    "yourTurnEn": "It's your turn"
+  },
+  "consumerBookings": {
+    "title": "ቀጠሮዎችዎ",
+    "signInPrompt": "የደንበኛ መለያዎ የለም። በስልክ ቁጥርዎ ይግቡ።",
+    "signInLink": "ይግቡ · Sign in",
+    "punchCard": "የበጎ አድራጎት ካርድ",
+    "visits": "ጊዜያት",
+    "rewardReady": "ሽልማትዎ ዝግጁ ነው — ቀጣይ ቀጠሮዎ ላይ ይቀንሳል!",
+    "rewardHint": "ለሚቀጥለው ሽልማት {{remaining}} ጊዜ ይቀረዋል።"
+  },
+  "blockGallery": {
+    "title": "የገጽዎ ክፍሎች",
+    "add": "ጨምር",
+    "moveUp": "አስከተል",
+    "moveDown": "አስከተል በታች",
+    "remove": "አስወግድ",
+    "addSheetTitle": "ክፍል ይምረጡ",
+    "savedTitle": "ተቀምጧል",
+    "savedBody": "ገጽዎ በአዲሱ ቅደም ተከተል ታያለች።",
+    "invalidTitle": "መረጃው ተቀብሏል",
+    "invalidBody": "ይህ ማዘዝ ገጽዎን የሚያበላሽ ኾነ ተቀባይነት አላገኘም።",
+    "loadFailedTitle": "ገጹን ማምጣት አልቻልንም",
+    "loadFailedBody": "እባክዎ እንደገና ይሞክሩ።",
+    "saveFailedTitle": "ማስቀመጥ አልተቻለም",
+    "saveFailedBody": "ኢንተርኔትዎን ያረጋግጡ።"
+  },
+  "velvet": {
+    "sheetTitle": "የPro ጥቅሎች",
+    "valueScene": "በዚህ ወር {{count}} ቀጠሮዎች ተቀብለዋል",
+    "perkCustomDomain": "የራስዎ ነጻ ዶሜይን (yourshop.et)",
+    "perkCodeMode": "ኮድ ሞድ — ሙሉ የ HTML መቆጣጠሪያ",
+    "perkStaff": "ያልተወሰነ የሠራተኛ ብዛት",
+    "priceLabel": "የወር ክፍያ",
+    "priceValue": "1000 ETB",
+    "upgradeCta": "Pro ይግቡ · Upgrade"
+  },
+  "quietHoursBadge": {
+    "label": "ዝቅተኛ −{{percent}}%",
+    "tooltip": "በዝቅተኛ ሰዓት ቅናሽ {{percent}}% ይደረጋል — የተቀነሰ ዋጋ ይጠብቁ።"
+  },
+  "velvetMore": {
+    "title": "ሁሉም ባህሪያት",
+    "subtitle": "የPro ባህሪያት በጠቋሚ ተለይተዋል — የተደበቁ አይደሉም።",
+    "homeLink": "ሁሉም ባህሪያት · All features",
+    "included": "ተካትቷል",
+    "seeUpgrade": "የእሴት ዋጋ ይመልከቱ",
+    "footer": "የተዘጉ ባህሪያት የንግድዎን እድገት የሚያግዙ ናቸው — ሲፈቱ የበለጠ ያስተዳድራሉ።",
+    "aiAssistant": {
+      "name": "AI ረዳት",
+      "value": "የገጽዎን ይዘት በAI ይፍጠሩ እና ያሻሽሉ።"
+    },
+    "codeMode": {
+      "name": "ኮድ ሞድ",
+      "value": "ሙሉ የHTML መቆጣጠሪያ ለፕሮፌሽናል ድረገጾች።"
+    },
+    "automations": {
+      "name": "ራስ-ሰር ማስታወሻ",
+      "value": "ያልተነቃቁ ደንበኞችን በራስ ወደ ኋላ ይጠሩ።"
+    },
+    "customerHealth": {
+      "name": "የደንበኛ ጤና",
+      "value": "ከፍተኛ ተጠቃሚዎችን በአደጋ-ማስተካከያ ይለዩ።"
+    },
+    "customDomain": {
+      "name": "የራስ ዶሜይን",
+      "value": "yourshop.et የሚመስል የራስዎ አድራሻ።"
+    }
+  },
+  "receipt": {
+    "telegramCta": "ማስታወሻ በ Telegram · Remind me there"
   }
 }

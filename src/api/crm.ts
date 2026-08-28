@@ -10,7 +10,7 @@ import crypto from 'crypto';
 import { requireAuth } from './middleware/auth';
 import { csrfProtection } from './middleware/csrf';
 import { tenantWriteLimiter } from '../../server/middleware/rateLimiter';
-import { sendSms } from '../../server/lib/sms';
+import { notify } from '../../server/lib/notifications';
 import { computeHealthTag } from '../lib/customer-health';
 
 const router = Router();
@@ -211,10 +211,16 @@ router.post('/marketing/blast', async (req, res) => {
 
     for (const r of recipients) {
       try {
-        await sendSms({
-          to: r.phone,
+        const outcome = await notify({
+          channel: 'sms',
+          template: 'marketing_blast',
+          to: { phone: r.phone },
           text: fullText,
+          tenantId,
+          refType: 'customer',
+          refId: r.phone,
         });
+        if (!outcome.ok) throw new Error(outcome.error || 'send failed');
         sent += 1;
       } catch (err: any) {
         errors.push({ phone: r.phone.slice(0, 7) + '****', error: err.message || 'send failed' });
@@ -254,8 +260,15 @@ router.patch('/customers/:phone/marketing-opt-in', async (req, res) => {
       return res.status(404).json({ error: 'Customer not found' });
     }
 
+    // P3.7 red-flag fix: consent timestamps must be maintained wherever the
+    // flag is written — the migration declares marketing_opt_in_given_at as
+    // the record of explicit consent. Opting IN stamps it; opting OUT clears
+    // it so a later re-opt-in records a fresh consent moment.
     await db.update(customerStats)
-      .set({ marketingOptIn: marketing_opt_in })
+      .set({
+        marketingOptIn: marketing_opt_in,
+        marketingOptInGivenAt: marketing_opt_in ? Date.now() : null,
+      })
       .where(and(eq(customerStats.tenantId, tenantId), eq(customerStats.customerPhone, phone)));
 
     res.json({ success: true });

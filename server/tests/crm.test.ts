@@ -204,6 +204,23 @@ describe('CRM: Customers, Promo Codes, Marketing', () => {
       .where(eq(customerStats.customerPhone, optOutPhone))
       .get();
     expect(row?.marketingOptIn).toBe(true);
+
+    // P3.7 RED-FLAG: opting IN stamps the consent timestamp.
+    expect(typeof (row as any)?.marketingOptInGivenAt).toBe('number');
+    expect((row as any)!.marketingOptInGivenAt).toBeGreaterThan(0);
+
+    // Opting OUT clears the flag AND the consent timestamp (a later re-opt-in
+    // must record a fresh consent moment).
+    const off = await request(app)
+      .patch(`/api/tenant/customers/${optOutPhone}/marketing-opt-in`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ marketing_opt_in: false });
+    expect(off.status).toBe(200);
+    const rowOff = await db.select().from(customerStats)
+      .where(eq(customerStats.customerPhone, optOutPhone))
+      .get();
+    expect(rowOff?.marketingOptIn).toBe(false);
+    expect((rowOff as any)?.marketingOptInGivenAt).toBeNull();
   });
 
   it('PATCH /customers/:phone/marketing-opt-in 404s for unknown customer', async () => {

@@ -6,10 +6,10 @@ A multi-tenant SaaS platform for service-based businesses in Ethiopia to manage 
 
 - **Multi-tenant Architecture:** One platform, unlimited businesses with subdomains or custom domains.
 - **Visual Website Builder:** Uses Measured Puck for drag-and-drop landing pages, plus an AI Code Mode (Sandpack + OpenRouter) for full-code sites.
-- **Booking Management:** Real-time slot availability, staff assignment, SMS/Email reminders, no-show deposits, recurring series.
+- **Booking Management:** Real-time slot availability, staff assignment, reminders (email live; SMS channel stubbed pending provider choice), no-show deposits, recurring series, walk-in and group bookings.
 - **Ethiopian Calendar Support:** Native support for the Ethiopian calendar format (Sene 1 = Sept 8), Addis Ababa timezone.
-- **Payments:** Telebirr / Chapa integration for upfront deposits and payments.
-- **Customer Health & Win-Back CRM:** Per-customer health tags, risk scoring, automated win-back SMS sequences for Pro tenants.
+- **Payments:** Telebirr / Chapa integration for upfront deposits and Pro subscription checkout (30-day cycles, webhook-verified activation; renewal/dunning hardening in progress — see EXECUTION_PLAN.md).
+- **Customer Health & Win-Back CRM:** Per-customer health tags, risk scoring, automated win-back sequences for Pro tenants.
 - **Local Buying-Intent Engine:** Anonymized /discover signals aggregated into demand pulses; Pro tenants get proactive SMS alerts.
 
 ## Tech Stack
@@ -198,3 +198,18 @@ drizzle.config.ts          Drizzle Kit config (used for future SQL generation)
 - **Page renders but data calls fail with `no such table`** → the DB is empty; boot once so `migrations.ts` provisions the schema (see #6).
 - **Blank page, no errors in server logs** → check the browser console for `Unable to preload CSS` (see #7) or navigate a fresh browser window.
 - **"Business Not Found" on `/`** → main-domain check missing the hostname (see #8).
+
+---
+
+## Database Backup & Restore (P3.6)
+
+```bash
+npm run backup          # VACUUM INTO storage/backups/egebeya-<timestamp>.db
+```
+Set `OPS_BACKUP_UPLOAD_CMD="rclone copy {} remote:egebeya-backups"` to push each snapshot off-host.
+Restore: stop the app, replace the SQLite file named in `DATABASE_URL` with the
+snapshot (or point `DATABASE_URL=file:<snapshot>` at it), start the app —
+`migrations.ts` is idempotent and finishes any schema drift on boot.
+Verify first with `sqlite3 <snapshot> "PRAGMA integrity_check; SELECT count(*) FROM tenants;"`.
+Run `npm run ops:check` daily; it exits nonzero on disk/DB-size/BUSY/cron/budget breaches.
+```

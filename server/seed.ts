@@ -4,6 +4,8 @@ import { eq } from 'drizzle-orm';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { normalizePhone } from '../src/lib/phone';
+import { PRO_PLAN_PRICE_BIRR } from './lib/billing';
+import { buildTemplatePage, TEMPLATE_BUSINESS_HOURS, templateForCategory } from './lib/siteTemplates';
 
 // Canonical plan rows ('free' / 'pro', lowercase).
 async function ensurePlan(name: string, price: number, maxStaff: number, customDomainAllowed: boolean) {
@@ -26,7 +28,9 @@ async function seed() {
 
   console.log('Creating plans...');
   const freePlan = await ensurePlan('free', 0, 2, false);
-  await ensurePlan('pro', 100000, 10, true); // 1000 ETB
+  // Pro list price: 1000 ETB = 100000 cents — derived from PRO_PLAN_PRICE_BIRR
+  // in server/lib/billing.ts so seed, plans row, and checkout can never drift.
+  await ensurePlan('pro', Number(PRO_PLAN_PRICE_BIRR) * 100, 10, true);
 
   console.log('Creating tenant...');
   const existingLux = await db.select().from(tenants).where(eq(tenants.slug, 'luxnails')).get();
@@ -320,6 +324,100 @@ async function seed() {
       isListed: true,
       createdAt: Date.now(),
     });
+  }
+
+  // ====================================================================
+  // Demo seed tenant (P2.5) — the founder's in-shop closing artifact.
+  // Full template pack, plausible bookings, banner-free public site.
+  // EXCLUDED from /discover (public.ts discover filter) and from growth
+  // analytics — funnel/north-star/churn (admin.ts) and notification opt-in
+  // stats — via server/lib/demoTenant.ts, the single exclusion contract.
+  // ====================================================================
+  console.log('--- Seeding demo tenant ---');
+  const existingDemo = await db.select().from(tenants).where(eq(tenants.slug, 'demo')).get();
+  if (!existingDemo) {
+    const demoTenantId = crypto.randomUUID();
+    const demoStaffId = crypto.randomUUID();
+    await db.insert(tenants).values({
+      id: demoTenantId,
+      name: 'ብርሃን ሳሎን · Berhan Salon',
+      slug: 'demo',
+      category: 'Salon',
+      isListed: true,
+      settings: {
+        calendar_display: 'gregorian',
+        onboarding_completed: true,
+        onboarding: { generatedAt: Date.now(), confirmedHours: true },
+      },
+      createdAt: Date.now(),
+    });
+
+    // Template-pack page + services + staff + hours (the P2.3 pipeline output).
+    await db.insert(pages).values({
+      tenantId: demoTenantId,
+      content: buildTemplatePage('ብርሃን ሳሎን · Berhan Salon', 'Salon'),
+    });
+    const demoServiceIds: string[] = [];
+    for (const svc of templateForCategory('Salon').defaultServices) {
+      const id = crypto.randomUUID();
+      demoServiceIds.push(id);
+      await db.insert(services).values({
+        id,
+        tenantId: demoTenantId,
+        name: svc.name,
+        durationMinutes: svc.durationMinutes,
+        price: svc.price,
+        active: true,
+      });
+    }
+    await db.insert(staff).values({
+      id: demoStaffId,
+      tenantId: demoTenantId,
+      name: 'Selam T.',
+      title: 'Senior Stylist',
+      active: true,
+    });
+    await db.insert(staffAvailability).values(
+      [1, 2, 3, 4, 5, 6].map((day) => ({
+        id: crypto.randomUUID(),
+        staffId: demoStaffId,
+        dayOfWeek: day,
+        startTime: '09:00',
+        endTime: '18:00',
+      })),
+    );
+    await db.insert(tenantBusinessHours).values(
+      TEMPLATE_BUSINESS_HOURS.map((h) => ({
+        id: crypto.randomUUID(),
+        tenantId: demoTenantId,
+        dayOfWeek: h.dayOfWeek,
+        openTime: h.openTime,
+        closeTime: h.closeTime,
+        isClosed: h.isClosed,
+      })),
+    );
+
+    // Plausible upcoming bookings.
+    const nowMs = Date.now();
+    for (let i = 0; i < 2; i++) {
+      const start = nowMs + (i + 1) * 3 * 3600 * 1000;
+      await db.insert(appointments).values({
+        id: crypto.randomUUID(),
+        tenantId: demoTenantId,
+        customerName: ['Hanna G.', 'Meron A.'][i],
+        customerPhone: `+25191100010${i}`,
+        staffId: demoStaffId,
+        serviceId: demoServiceIds[i % demoServiceIds.length],
+        startTime: start,
+        endTime: start + 45 * 60000,
+        status: 'confirmed',
+        reminderSent: false,
+        opaqueId: crypto.randomBytes(16).toString('hex'),
+      });
+    }
+    console.log('  demo tenant created.');
+  } else {
+    console.log('  demo tenant already exists — skipped.');
   }
 
   console.log('Seed completed successfully!');

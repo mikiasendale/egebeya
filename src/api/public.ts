@@ -7,7 +7,6 @@ import crypto from 'crypto';
 import { searchIntent } from '../db/schema';
 import fs from 'fs';
 import path from 'path';
-import { sendMail } from '../../server/lib/mailer';
 import { applyTemplate } from '../../server/lib/mailTemplates';
 import { logSecurityEvent, ipFromRequest } from '../../server/lib/securityLog';
 import {
@@ -35,6 +34,12 @@ import {
   discoverLimiter,
 } from '../../server/middleware/rateLimiter';
 import { normalizePhone } from '../lib/phone';
+import { DEMO_TENANT_SLUG } from '../../server/lib/demoTenant';
+import { notify } from '../../server/lib/notifications';
+import { upsertConsumerByPhone } from '../../server/lib/consumers';
+import { trackEvent } from '../../server/lib/analytics';
+import { enrollAndListQueue, withBusyRetry } from '../../server/lib/queue';
+import { buildTelegramDeepLink } from '../../server/lib/telegram';
 import { strictCsp } from '../../server/middleware/csp';
 
 const router = Router();
@@ -58,6 +63,11 @@ router.get('/discover', discoverLimiter, async (req, res) => {
 
     // Build the WHERE clause dynamically
     const conditions: any[] = [eq(tenants.isListed, true)];
+    // The demo tenant is the founder's closing artifact (P2.5) — it must
+    // never surface as a real business in the directory. Slug lives in
+    // server/lib/demoTenant.ts (single source of truth, also used by the
+    // analytics exclusions).
+    conditions.push(sql`tenants.slug != ${DEMO_TENANT_SLUG}`);
 
     if (category && typeof category === 'string' && category.trim()) {
       conditions.push(eq(tenants.category, category.trim().toLowerCase()));
@@ -241,6 +251,16 @@ function publicTenantView(tenant: any): any {
     calendar_display: settings.calendar_display === 'gregorian' ? 'gregorian' : 'ethiopian',
     require_payment_upfront: settings.require_payment_upfront === true,
   };
+  // P5.6 quiet-hours: expose ONLY the display config when enabled — the
+  // booking flow re-derives the window server-side from settings.
+  const qh = settings.quiet_hours_discount;
+  if (qh?.enabled === true) {
+    view.quiet_hours_discount = {
+      start_minute: Number(qh.start_minute),
+      end_minute: Number(qh.end_minute),
+      percent: Number(qh.percent),
+    };
+  }
   for (const key of ['social_telegram', 'social_facebook', 'social_instagram', 'social_tiktok']) {
     if (typeof settings[key] === 'string' && settings[key].trim()) {
       view[key] = settings[key].trim();
@@ -248,6 +268,33 @@ function publicTenantView(tenant: any): any {
   }
   return view;
 }
+
+// P2.6 public probe — mounted BEFORE the tenant-resolution gate so it can
+// report on preparing (unconfirmed) sites that the gate would otherwise 404.
+// The SPA renders its Amharic soft-landing page from this response.
+router.get('/site-status', async (req, res) => {
+  let slug = (req.headers['x-tenant-slug'] as string)
+    || (req.query.slug as string)
+    || (req.headers.host || '').split(':')[0].split('.')[0];
+  slug = String(slug || '').trim();
+  if (!slug) return res.status(400).json({ error: 'Tenant slug not found' });
+
+  const tenant = await db.select().from(tenants)
+    .where(or(eq(tenants.slug, slug), eq(tenants.slug, slug.toLowerCase())))
+    .get();
+  if (!tenant) return res.status(404).json({ error: 'Tenant not found' });
+  if (tenant.isSuspended) return res.status(403).json({ error: 'This business has been suspended' });
+
+  const settingsAny = (tenant.settings as any) || {};
+  const preparing = !tenant.isListed
+    && settingsAny.onboarding?.confirmedHours !== true
+    && settingsAny.onboarding_completed !== true;
+  res.json({
+    status: preparing ? 'preparing' : 'live',
+    name: tenant.name,
+    category: tenant.category,
+  });
+});
 
 // Middleware to resolve tenant from X-Tenant-Slug header or Host. Slugs are
 // resolved case-insensitively; suspended tenants are rejected with 403
@@ -289,6 +336,24 @@ router.use(async (req, res, next) => {
       details: { path: req.path },
     });
     return res.status(403).json({ error: 'This business has been suspended', code: 'TENANT_SUSPENDED' });
+  }
+
+  // P2.3 hours-confirmation gate: a freshly-provisioned site stays DARK until
+  // the owner confirms its generated hours once (broken bookings poison a
+  // one-reputation market). Unconfirmed AND unlisted → the public content
+  // endpoints 404 with TENANT_PREPARING; the SPA renders an Amharic
+  // soft-landing page from GET /site-status instead of a raw error (P2.6).
+  // Legacy wizard graduates (onboarding_completed) already entered real
+  // hours through the wizard — they are confirmed by definition.
+  const settingsAny = (tenant.settings as any) || {};
+  const onboardingState = settingsAny.onboarding;
+  const hoursConfirmed =
+    onboardingState?.confirmedHours === true || settingsAny.onboarding_completed === true;
+  if (!tenant.isListed && !hoursConfirmed) {
+    return res.status(404).json({
+      error: 'This business is preparing its page',
+      code: 'TENANT_PREPARING',
+    });
   }
 
   (req as any).tenant = tenant;
@@ -507,6 +572,12 @@ const BookingSchema = z.object({
     .optional()
     .transform((v) => (v === '' || v === undefined ? undefined : v)),
   promo_code: z.string().optional(),
+  // P3.1 consent capture: the booking flow's explicit marketing-consent
+  // checkbox. Optional — absent means "no change" for existing customers
+  // (never silently downgraded); new customer_stats rows record exactly what
+  // was captured, defaulting to false WITH the caller's awareness (the UI
+  // must render the choice; see PublicBooking.tsx).
+  marketing_opt_in: z.boolean().optional(),
 }).refine((data) => data.service_ids || data.service_id, {
   message: 'Either service_id (deprecated) or service_ids is required',
   path: ['service_ids'],
@@ -619,6 +690,12 @@ async function findSlotConflict(tenantId: string, staffId: string, startMs: numb
   return db.select({ id: appointments.id }).from(appointments).where(where).get();
 }
 
+// F7: bookings run on the process's single libsql connection. Concurrent
+// BEGIN IMMEDIATE transactions (booking writes + queue advances) can hit
+// SQLITE_BUSY transiently; the write transaction below is wrapped in
+// withBusyRetry so a busy timeout retries with backoff instead of bubbling a
+// 500. No per-process mutex: retry + BEGIN IMMEDIATE is the correct SQLite
+// pattern (the earlier mutex was removed as the misdiagnosed "fix").
 router.post('/bookings', bookingWriteLimiter, async (req, res) => {
   const tenant = (req as any).tenant;
 
@@ -730,7 +807,46 @@ router.post('/bookings', bookingWriteLimiter, async (req, res) => {
       }
     }
 
-    const effectiveAmount = Math.max(0, totalPriceCents - promoDiscount);
+    // P5.6 quiet-hours: slots inside the merchant's day-part window book at
+    // a discounted deposit — boolean + badge, no pricing engine beyond this
+    // one multiplication. Window math runs on Addis minute-of-day.
+    let quietDiscount = 0;
+    let quietWindowApplied = false;
+    const qhCfg = ((tenant.settings as any)?.quiet_hours_discount);
+    if (qhCfg?.enabled === true) {
+      const addisStart = new Date(startTimeMs + 3 * 3600 * 1000);
+      const slotMinute = addisStart.getUTCHours() * 60 + addisStart.getUTCMinutes();
+      const { start_minute, end_minute, percent } = qhCfg;
+      const inWindow = start_minute <= end_minute
+        ? slotMinute >= start_minute && slotMinute < end_minute
+        : slotMinute >= start_minute || slotMinute < end_minute; // overnight wrap
+      if (inWindow) {
+        quietDiscount = Math.floor(totalPriceCents * percent / 100);
+        quietWindowApplied = true;
+      }
+    }
+
+    // P5.1 loyalty redemption: a matured punch card lowers THIS charge
+    // before Chapa initialize — merchant-funded discount, never money
+    // movement. Consumed only after the payment actually succeeds.
+    let loyaltyDiscount = 0;
+    try {
+      const { pendingRewardDiscount } = await import('../../server/lib/loyalty');
+      const reward = await pendingRewardDiscount(tenant.id, customerPhone, totalPriceCents - promoDiscount);
+      loyaltyDiscount = reward.discountEtbCents;
+    } catch (lErr) {
+      console.error('[loyalty] redemption preview failed (non-fatal):', lErr);
+    }
+    const effectiveAmount = Math.max(0, totalPriceCents - promoDiscount - loyaltyDiscount - quietDiscount);
+
+    // P3.4 consumer backfill: find-or-create the phone-keyed consumer profile
+    // BEFORE the write transaction (idempotent; a leftover profile from a
+    // failed booking is harmless — it is identity, not money).
+    const consumerId = await upsertConsumerByPhone({
+      phone: customerPhone,
+      name: data.customer_name,
+      basis: 'booking',
+    });
 
     const appId = crypto.randomUUID();
     // Public-facing booking ID (short, unguessable) returned to the customer
@@ -740,6 +856,11 @@ router.post('/bookings', bookingWriteLimiter, async (req, res) => {
     let txRef: string | null = null;
 
     try {
+      // F7: wrap the BEGIN IMMEDIATE write in withBusyRetry — a transient
+      // SQLITE_BUSY from a concurrent queue advance/booking retries with
+      // backoff instead of surfacing as a 500. Only BUSY codes retry;
+      // CONFLICT / PROMO_EXHAUSTED (plain Errors) propagate immediately.
+      await withBusyRetry(async () => {
       await db.transaction(async (tx) => {
         const conflicting = await tx.select().from(appointments).where(
           and(
@@ -783,6 +904,7 @@ router.post('/bookings', bookingWriteLimiter, async (req, res) => {
           reminderSent: false,
           cancelsAt: requiresPayment ? startTimeMs - 15 * 60 * 1000 : null,
           opaqueId,
+          consumerId,
         });
 
         // Persist the multi-service breakdown into appointment_services
@@ -808,6 +930,13 @@ router.post('/bookings', bookingWriteLimiter, async (req, res) => {
             method: 'telebirr',
             gatewayReference: txRef,
             status: 'pending',
+            // P5.1: loyalty-funded discount is part of the money record.
+            ...((loyaltyDiscount > 0 || quietDiscount > 0) ? {
+              meta: {
+                ...(loyaltyDiscount > 0 ? { loyaltyRedemption: { discountEtbCents: loyaltyDiscount } } : {}),
+                ...(quietDiscount > 0 ? { quietHoursDiscount: { discountEtbCents: quietDiscount } } : {}),
+              },
+            } : {}),
           });
         }
 
@@ -818,6 +947,7 @@ router.post('/bookings', bookingWriteLimiter, async (req, res) => {
             .where(eq(promoCodes.id, promoCodeId));
         }
       }, { behavior: 'immediate' });
+      }); // withBusyRetry
     } catch (err: any) {
       if (err.message === 'CONFLICT') {
         return res.status(409).json({ error: 'Time slot is no longer available' });
@@ -861,6 +991,21 @@ router.post('/bookings', bookingWriteLimiter, async (req, res) => {
           paymentStatus = 'completed';
           await db.update(payments).set({ status: 'completed' }).where(eq(payments.id, paymentId));
           await db.update(appointments).set({ status: 'confirmed' }).where(eq(appointments.id, appId));
+
+          // The discounted charge went through — consume the matured reward.
+          if (loyaltyDiscount > 0) {
+            try {
+              const { consumeReward } = await import('../../server/lib/loyalty');
+              await consumeReward({
+                tenantId: tenant.id,
+                consumerPhone: customerPhone,
+                refType: 'appointment',
+                refId: appId,
+              });
+            } catch (cErr) {
+              console.error('[loyalty] reward consumption failed (non-fatal):', cErr);
+            }
+          }
         } else {
           finalStatus = 'pending';
           paymentStatus = 'pending';
@@ -884,6 +1029,11 @@ router.post('/bookings', bookingWriteLimiter, async (req, res) => {
         .from(customerStats)
         .where(and(eq(customerStats.tenantId, tenant.id), eq(customerStats.customerPhone, customerPhone)))
         .get();
+      // P3.1 consent capture (closes the audit-P0.2 silent-default bug):
+      // `marketing_opt_in` from the booking request is recorded explicitly.
+      // Upgrade-only for existing rows — an absent field never downgrades a
+      // prior consent, and a fresh consent stamps marketing_opt_in_given_at.
+      const explicitOptIn = data.marketing_opt_in === true;
       if (existing) {
         await db.update(customerStats)
           .set({
@@ -891,6 +1041,9 @@ router.post('/bookings', bookingWriteLimiter, async (req, res) => {
             totalSpendEtbCents: existing.totalSpendEtbCents + effectiveAmount,
             lastVisitAt: endTimeMs,
             customerName: data.customer_name,
+            ...(explicitOptIn && !existing.marketingOptIn
+              ? { marketingOptIn: true, marketingOptInGivenAt: now }
+              : {}),
           })
           .where(and(eq(customerStats.tenantId, tenant.id), eq(customerStats.customerPhone, customerPhone)));
       } else {
@@ -903,16 +1056,74 @@ router.post('/bookings', bookingWriteLimiter, async (req, res) => {
           visitCount: 1,
           totalSpendEtbCents: effectiveAmount,
           lastCancelledAt: null,
+          marketingOptIn: explicitOptIn,
+          marketingOptInGivenAt: explicitOptIn ? now : null,
           createdAt: Date.now(),
         });
       }
     }
 
-    const result = { id: opaqueId, status: finalStatus, paymentStatus, data };
+    // P4.4: same-day bookings join the queue at creation — the stamped
+    // receipt prints its take-a-number position immediately.
+    let queueSnapshot: { position: number | null; etaMinutes: number } | null = null;
+    if (finalStatus === 'confirmed') {
+      // SINGLE attempt — a retry loop here can starve a concurrent booking's
+      // BEGIN IMMEDIATE waiter (libsql busy_timeout has no fairness). The
+      // console re-enrolls authoritatively on its next read anyway.
+      try {
+        const { entries } = await enrollAndListQueue(tenant.id);
+        const mine = entries.find((e) => e.id === appId);
+        if (mine) {
+          queueSnapshot = { position: mine.position, etaMinutes: mine.etaMinutes };
+        }
+      } catch (qErr) {
+        // Non-fatal BY DESIGN: the console re-enrolls on its next read.
+        console.error('Queue enroll on booking failed (non-fatal):', qErr);
+      }
+    }
+
+    // P3.2/P4.4: the single receipt CTA — "ማስታወሻ በ Telegram" deep link.
+    // Null when the bot is unconfigured; the UI hides the CTA then.
+    const telegramDeepLink = buildTelegramDeepLink(String(opaqueId ?? ''));
+
+    const result = {
+      id: opaqueId,
+      status: finalStatus,
+      paymentStatus,
+      data,
+      ...(queueSnapshot ? { queue: queueSnapshot } : {}),
+      ...(quietWindowApplied ? { quietHours: { discountEtbCents: quietDiscount, percent: Number(qhCfg.percent) } } : {}),
+      telegramDeepLink,
+    };
     const serviceNames = bookedServices.map((s) => s.name).join(', ');
     const ethiopianDateStr = formatEthiopianDateTime(startTimeMs);
+
+    // P3.5: first_booking activation event — fires once per tenant, on the
+    // first confirmed booking that reaches the stats-population stage.
+    if (finalStatus === 'confirmed') {
+      try {
+        const priorConfirmed = await db.select({ n: sql<number>`count(*)`.as('n') })
+          .from(appointments)
+          .where(and(
+            eq(appointments.tenantId, tenant.id),
+            sql`${appointments.status} IN ('confirmed','completed')`,
+            sql`${appointments.id} != ${appId}`,
+          ))
+          .get();
+        if (Number(priorConfirmed?.n ?? 0) === 0) {
+          trackEvent(tenant.id, 'first_booking', { appointmentId: appId });
+        }
+        if (qhCfg?.enabled === true) {
+          trackEvent(tenant.id, 'quiet_hours_booking', { appointmentId: appId, inWindow: quietWindowApplied });
+        }
+      } catch (evtErr) {
+        console.error('[analytics] first_booking check failed:', evtErr);
+      }
+    }
+
+    // ── Customer notification (email via adapter + Telegram when linked) ──
+    const customerLocale: 'en' | 'am' = String((tenant.settings as any)?.defaultLocale || 'en').startsWith('am') ? 'am' : 'en';
     if (result.data.customer_email) {
-      const customerLocale: 'en' | 'am' = String((tenant.settings as any)?.defaultLocale || 'en').startsWith('am') ? 'am' : 'en';
       const customerMail = applyTemplate('bookingCustomer', customerLocale, {
         name: result.data.customer_name,
         service: serviceNames,
@@ -921,12 +1132,31 @@ router.post('/bookings', bookingWriteLimiter, async (req, res) => {
         date: ethiopianDateStr,
       });
 
-      sendMail({
-        to: result.data.customer_email,
+      notify({
+        channel: 'email',
+        template: 'bookingCustomer',
+        to: { email: result.data.customer_email },
         subject: customerMail.subject,
         text: customerMail.text,
+        tenantId: tenant.id,
+        refType: 'appointment',
+        refId: appId,
       }).catch((err) => console.error('Failed to send customer booking email:', err));
     }
+
+    // Telegram confirmation (P3.2): dispatched for every booking; unlinked
+    // phones resolve to status 'unlinked' with NO provider call.
+    notify({
+      channel: 'telegram',
+      template: 'bookingCustomer',
+      to: { phone: customerPhone },
+      text: customerLocale === 'am'
+        ? `ቀጠሮዎ ተመዝግቧል። ${serviceNames} · ${ethiopianDateStr}`
+        : `Your booking is confirmed. ${serviceNames} · ${ethiopianDateStr}`,
+      tenantId: tenant.id,
+      refType: 'appointment',
+      refId: appId,
+    }).catch((err) => console.error('Failed to send telegram booking notice:', err));
 
     // Notify the tenant owner (filtered by role='owner' rather than the
     // naive "first user for tenant" the previous code used — staff invites
@@ -943,10 +1173,15 @@ router.post('/bookings', bookingWriteLimiter, async (req, res) => {
         date: ethiopianDateStr,
       });
 
-      sendMail({
-        to: owner.email,
+      notify({
+        channel: 'email',
+        template: 'bookingOwner',
+        to: { email: owner.email },
         subject: ownerMail.subject,
         text: ownerMail.text,
+        tenantId: tenant.id,
+        refType: 'appointment',
+        refId: appId,
       }).catch((err) => console.error('Failed to send owner booking email:', err));
     }
     res.status(201).json({ success: true, appointment: result });

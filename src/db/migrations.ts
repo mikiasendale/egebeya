@@ -54,12 +54,18 @@ async function addColumnIfMissing(
   sql: string,
 ): Promise<string | null> {
   const cols = await getColumns(table);
+  const isIndex = /^CREATE (UNIQUE )?INDEX/i.test(sql.trim());
+  // F3: CREATE INDEX rows use a synthetic column guard (they never match a
+  // real column), so the log must say what the SQL actually does — "Ensuring
+  // index", never the misleading "Adding column".
   console.log(`[migration] Checking ${table}.${column}, existing columns:`, Array.from(cols));
   if (cols.has(column)) {
     console.log(`[migration] Column ${table}.${column} already exists, skipping`);
     return null;
   }
-  console.log(`[migration] Adding column ${table}.${column} with SQL:`, sql);
+  console.log(isIndex
+    ? `[migration] Ensuring index ${table}.${column}`
+    : `[migration] Adding column ${table}.${column} with SQL: ${sql}`);
   const driver = (db as any).session?.client ?? (db as any).$client ?? (db as any).driver;
   const client = driver ?? db;
   if (client.execute) {
@@ -67,7 +73,9 @@ async function addColumnIfMissing(
   } else {
     await db.run((({ sql } as unknown) as any));
   }
-  console.log(`[migration] Successfully added ${table}.${column}`);
+  console.log(isIndex
+    ? `[migration] Index ${table}.${column} ensured`
+    : `[migration] Successfully added ${table}.${column}`);
   return column;
 }
 
@@ -647,6 +655,288 @@ export async function ensureSchemaMigrations(): Promise<Record<string, string[]>
       table: 'refresh_token_families',
       column: 'idx_user',
       sql: `CREATE INDEX IF NOT EXISTS refresh_token_families_user_id_idx ON refresh_token_families(user_id)`,
+    },
+    // P0.5(a): a merchant must not be able to define the same promo code
+    // twice — per-tenant lookup would otherwise resolve ambiguously.
+    {
+      table: 'promo_codes',
+      column: 'tenant_code_unique',
+      sql: `CREATE UNIQUE INDEX IF NOT EXISTS promo_codes_tenant_code_unique ON promo_codes(tenant_id, code)`,
+    },
+    // P1.1: founding-rate pricing ladder (ROADMAP §0) — first 25 paying
+    // tenants lock the founding price for 12 months; attribution code of the
+    // street agent / campaign that acquired them.
+    {
+      table: 'tenants',
+      column: 'founding_rate_locked_until',
+      sql: `ALTER TABLE tenants ADD COLUMN founding_rate_locked_until INTEGER`,
+    },
+    {
+      table: 'tenants',
+      column: 'acquired_via_code',
+      sql: `ALTER TABLE tenants ADD COLUMN acquired_via_code TEXT`,
+    },
+    // P1.2: subscription invoices/receipts. Mirrors schema.ts exactly.
+    {
+      table: 'invoices',
+      column: 'id',
+      sql: `CREATE TABLE IF NOT EXISTS invoices (
+        id TEXT PRIMARY KEY,
+        tenant_id TEXT REFERENCES tenants(id) NOT NULL,
+        number TEXT NOT NULL UNIQUE,
+        amount INTEGER NOT NULL,
+        currency TEXT NOT NULL DEFAULT 'ETB',
+        period_start INTEGER,
+        period_end INTEGER,
+        status TEXT NOT NULL DEFAULT 'draft',
+        chapa_tx_ref TEXT,
+        issued_at INTEGER NOT NULL,
+        paid_at INTEGER
+      )`,
+    },
+    {
+      table: 'invoices',
+      column: 'idx_tenant_issued',
+      sql: `CREATE INDEX IF NOT EXISTS invoices_tenant_issued_idx ON invoices(tenant_id, issued_at)`,
+    },
+    // P1.7 settlement reconciliation — invoiced ≠ collected until Chapa
+    // settles (T+2/T+3). NULL = legacy rows that predate tracking.
+    {
+      table: 'payments',
+      column: 'settled_at',
+      sql: `ALTER TABLE payments ADD COLUMN settled_at INTEGER`,
+    },
+    {
+      table: 'payments',
+      column: 'settlement_status',
+      sql: `ALTER TABLE payments ADD COLUMN settlement_status TEXT`,
+    },
+    {
+      table: 'payments',
+      column: 'created_at',
+      sql: `ALTER TABLE payments ADD COLUMN created_at INTEGER`,
+    },
+    {
+      table: 'invoices',
+      column: 'settled_at',
+      sql: `ALTER TABLE invoices ADD COLUMN settled_at INTEGER`,
+    },
+    {
+      table: 'invoices',
+      column: 'settlement_status',
+      sql: `ALTER TABLE invoices ADD COLUMN settlement_status TEXT`,
+    },
+    // P1.2 (A): payment-level "this charge already granted a Pro cycle" flag.
+    {
+      table: 'payments',
+      column: 'subscription_granted_at',
+      sql: `ALTER TABLE payments ADD COLUMN subscription_granted_at INTEGER`,
+    },
+    // P1.4 dunning-lite: idempotent per (tenant, stage, cycle) send markers.
+    {
+      table: 'billing_reminder_sends',
+      column: 'id',
+      sql: `CREATE TABLE IF NOT EXISTS billing_reminder_sends (
+        id TEXT PRIMARY KEY,
+        tenant_id TEXT REFERENCES tenants(id) NOT NULL,
+        stage TEXT NOT NULL,
+        cycle_start INTEGER NOT NULL,
+        channel TEXT,
+        sent_at INTEGER NOT NULL
+      )`,
+    },
+    {
+      table: 'billing_reminder_sends',
+      column: 'idx_tenant_stage_cycle',
+      sql: `CREATE UNIQUE INDEX IF NOT EXISTS billing_reminders_tenant_stage_cycle_unique ON billing_reminder_sends(tenant_id, stage, cycle_start)`,
+    },
+    // ── Phase 3 (P3.2–P3.5, P3.7) ────────────────────────────────────────
+    // P3.2 Telegram opt-in links. chat_id is the PK (one chat = one row);
+    // consent_given_at NOT NULL enforces the P3.7 rule at the storage layer.
+    {
+      table: 'telegram_links',
+      column: 'id',
+      sql: `CREATE TABLE IF NOT EXISTS telegram_links (
+        chat_id TEXT PRIMARY KEY,
+        phone TEXT NOT NULL,
+        tenant_id TEXT,
+        consent_given_at INTEGER NOT NULL,
+        linked_at INTEGER NOT NULL
+      )`,
+    },
+    {
+      table: 'telegram_links',
+      column: 'idx_phone',
+      sql: `CREATE INDEX IF NOT EXISTS telegram_links_phone_idx ON telegram_links(phone)`,
+    },
+    // P3.3 delivery ledger — written by the NotificationAdapter.
+    {
+      table: 'notification_log',
+      column: 'id',
+      sql: `CREATE TABLE IF NOT EXISTS notification_log (
+        id TEXT PRIMARY KEY,
+        tenant_id TEXT,
+        channel TEXT NOT NULL,
+        template TEXT NOT NULL,
+        ref_type TEXT,
+        ref_id TEXT,
+        status TEXT NOT NULL,
+        error TEXT,
+        created_at INTEGER NOT NULL
+      )`,
+    },
+    {
+      table: 'notification_log',
+      column: 'idx_channel_created',
+      sql: `CREATE INDEX IF NOT EXISTS notification_log_channel_created_idx ON notification_log(channel, created_at)`,
+    },
+    // P3.4 consumer identity-lite.
+    {
+      table: 'consumers',
+      column: 'id',
+      sql: `CREATE TABLE IF NOT EXISTS consumers (
+        id TEXT PRIMARY KEY,
+        phone TEXT NOT NULL UNIQUE,
+        name TEXT,
+        consent_given_at INTEGER NOT NULL,
+        created_at INTEGER NOT NULL
+      )`,
+    },
+    {
+      table: 'appointments',
+      column: 'consumer_id',
+      sql: `ALTER TABLE appointments ADD COLUMN consumer_id TEXT REFERENCES consumers(id)`,
+    },
+    // P3.7 deletion requests (manual fulfillment v1, logged + acked).
+    {
+      table: 'data_deletion_requests',
+      column: 'id',
+      sql: `CREATE TABLE IF NOT EXISTS data_deletion_requests (
+        id TEXT PRIMARY KEY,
+        phone TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'requested',
+        requested_at INTEGER NOT NULL,
+        fulfilled_at INTEGER,
+        note TEXT
+      )`,
+    },
+    {
+      table: 'data_deletion_requests',
+      column: 'idx_phone',
+      sql: `CREATE INDEX IF NOT EXISTS data_deletion_requests_phone_idx ON data_deletion_requests(phone)`,
+    },
+    // P3.5 activation funnel events (append-only).
+    {
+      table: 'activation_events',
+      column: 'id',
+      sql: `CREATE TABLE IF NOT EXISTS activation_events (
+        id TEXT PRIMARY KEY,
+        tenant_id TEXT,
+        event TEXT NOT NULL,
+        meta TEXT,
+        created_at INTEGER NOT NULL
+      )`,
+    },
+    {
+      table: 'activation_events',
+      column: 'idx_tenant_event',
+      sql: `CREATE INDEX IF NOT EXISTS activation_events_tenant_event_idx ON activation_events(tenant_id, event)`,
+    },
+    {
+      table: 'activation_events',
+      column: 'idx_created',
+      sql: `CREATE INDEX IF NOT EXISTS activation_events_created_idx ON activation_events(created_at)`,
+    },
+    // ── Phase 5 (P5.1 Loyalty-lite) ──────────────────────────────────────
+    {
+      table: 'loyalty_ledger',
+      column: 'id',
+      sql: `CREATE TABLE IF NOT EXISTS loyalty_ledger (
+        id TEXT PRIMARY KEY,
+        tenant_id TEXT REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
+        consumer_phone TEXT NOT NULL,
+        points_delta INTEGER NOT NULL,
+        reason TEXT NOT NULL,
+        ref_type TEXT,
+        ref_id TEXT,
+        created_at INTEGER NOT NULL
+      )`,
+    },
+    {
+      table: 'loyalty_ledger',
+      column: 'idx_tenant_phone',
+      sql: `CREATE INDEX IF NOT EXISTS loyalty_ledger_tenant_phone_idx ON loyalty_ledger(tenant_id, consumer_phone)`,
+    },
+    // Idempotency: one ledger row per (tenant, phone, reason, ref).
+    {
+      table: 'loyalty_ledger',
+      column: 'tenant_phone_ref_unique',
+      sql: `CREATE UNIQUE INDEX IF NOT EXISTS loyalty_ledger_tenant_phone_ref_unique ON loyalty_ledger(tenant_id, consumer_phone, reason, ref_id)`,
+    },
+    // P5.1 ACCEPTANCE (append-only): UPDATE and DELETE are rejected at the
+    // storage layer — the ledger is a trust surface, not a scratch table.
+    {
+      table: 'loyalty_ledger',
+      column: 'trg_no_update',
+      sql: `CREATE TRIGGER IF NOT EXISTS loyalty_ledger_no_update BEFORE UPDATE ON loyalty_ledger BEGIN SELECT RAISE(ABORT, 'loyalty_ledger is append-only'); END`,
+    },
+    {
+      table: 'loyalty_ledger',
+      column: 'trg_no_delete',
+      sql: `CREATE TRIGGER IF NOT EXISTS loyalty_ledger_no_delete BEFORE DELETE ON loyalty_ledger BEGIN SELECT RAISE(ABORT, 'loyalty_ledger is append-only'); END`,
+    },
+    {
+      table: 'punch_cards',
+      column: 'id',
+      sql: `CREATE TABLE IF NOT EXISTS punch_cards (
+        id TEXT PRIMARY KEY,
+        tenant_id TEXT REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
+        consumer_phone TEXT NOT NULL,
+        punches INTEGER NOT NULL DEFAULT 0,
+        target INTEGER NOT NULL DEFAULT 5,
+        reward_config TEXT,
+        created_at INTEGER NOT NULL
+      )`,
+    },
+    {
+      table: 'punch_cards',
+      column: 'tenant_phone_unique',
+      sql: `CREATE UNIQUE INDEX IF NOT EXISTS punch_cards_tenant_phone_unique ON punch_cards(tenant_id, consumer_phone)`,
+    },
+    // P3.7 marketing-consent timestamp on customer_stats (booking-time and
+    // CRM-toggle capture points write it alongside marketing_opt_in).
+    {
+      table: 'customer_stats',
+      column: 'marketing_opt_in_given_at',
+      sql: `ALTER TABLE customer_stats ADD COLUMN marketing_opt_in_given_at INTEGER`,
+    },
+    // ── Phase 4 (P4.1 Queue-Buster) ──────────────────────────────────────
+    // Audit P0.4 pre-decision: queue lives on appointment COLUMNS, never a
+    // second table. Same-day scope is enforced in queries (Addis day bounds).
+    {
+      table: 'appointments',
+      column: 'queue_position',
+      sql: `ALTER TABLE appointments ADD COLUMN queue_position INTEGER`,
+    },
+    {
+      table: 'appointments',
+      column: 'queue_state',
+      sql: `ALTER TABLE appointments ADD COLUMN queue_state TEXT`,
+    },
+    {
+      table: 'appointments',
+      column: 'checked_in_at',
+      sql: `ALTER TABLE appointments ADD COLUMN checked_in_at INTEGER`,
+    },
+    {
+      table: 'appointments',
+      column: 'booking_source',
+      sql: `ALTER TABLE appointments ADD COLUMN booking_source TEXT NOT NULL DEFAULT 'online'`,
+    },
+    {
+      table: 'appointments',
+      column: 'idx_tenant_start',
+      sql: `CREATE INDEX IF NOT EXISTS appointments_tenant_start_idx ON appointments(tenant_id, start_time)`,
     },
   ];
   for (const m of migrations) {

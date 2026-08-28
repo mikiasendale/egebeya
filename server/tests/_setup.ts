@@ -48,6 +48,18 @@ if (!process.env.CHAPA_SECRET_KEY) {
 if (!process.env.CHAPA_WEBHOOK_SECRET) {
   process.env.CHAPA_WEBHOOK_SECRET = crypto.randomBytes(24).toString('hex');
 }
+// P3.2 Telegram bot channel — runtime-generated test credentials so webhook
+// secret verification and channel sends are exercised in CI without real
+// Telegram infrastructure.
+if (!process.env.TELEGRAM_BOT_TOKEN) {
+  process.env.TELEGRAM_BOT_TOKEN = `test-bot-token-${crypto.randomBytes(8).toString('hex')}`;
+}
+if (!process.env.TELEGRAM_WEBHOOK_SECRET) {
+  process.env.TELEGRAM_WEBHOOK_SECRET = crypto.randomBytes(16).toString('hex');
+}
+if (!process.env.TELEGRAM_BOT_USERNAME) {
+  process.env.TELEGRAM_BOT_USERNAME = 'egebeya_test_bot';
+}
 
 // Now that the DB is available, make sure the schema is up-to-date. This
 // is the same call server.ts makes on boot — but we have to invoke it

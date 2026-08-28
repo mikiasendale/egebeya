@@ -12,8 +12,8 @@ import { db } from '../../src/db';
 import { otpCodes } from '../../src/db/schema';
 import { eq, and, sql, gt } from 'drizzle-orm';
 import crypto from 'crypto';
-import { sendSms } from './sms';
 import { normalizePhone } from '../../src/lib/phone';
+import { notify, type ChannelName } from './notifications';
 
 const OTP_LENGTH = 6;
 const OTP_TTL_MS = 10 * 60 * 1000; // 10 minutes
@@ -27,6 +27,15 @@ const MAX_SENDS_PER_HOUR = 3;
 /** Maximum verify attempts per phone per rolling window. */
 const MAX_VERIFY_ATTEMPTS = 10;
 const VERIFY_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+
+/**
+ * OTP codes are stored as SHA-256 hashes at rest (P0.5): a DB leak must not
+ * yield usable codes. The raw 6-digit code exists only in memory and in the
+ * SMS body. No backfill — pre-hash rows lapse within their 10-min TTL.
+ */
+function hashCode(code: string): string {
+  return crypto.createHash('sha256').update(code, 'utf8').digest('hex');
+}
 
 /**
  * Generate a cryptographically-random N-digit OTP code string.
@@ -103,11 +112,17 @@ async function cleanupOldCodes(phone: string): Promise<void> {
  * 1. Deletes any previous unused codes for this phone.
  * 2. Checks per-phone send rate limit (3/hour).
  * 3. Generates a new code and stores it with a 10-minute TTL.
- * 4. Sends the code via SMS.
+ * 4. Delivers via the NotificationAdapter (P3.1). Default channel is 'sms'
+ *    (owner register/reset flows unchanged); consumer login (P3.4) requests
+ *    the Telegram channel — unlinked phones surface as status 'unlinked'.
  *
- * Returns the messageId from the SMS send (for auditing).
+ * Returns the messageId from the delivery (for auditing).
  */
-export async function generateOtp(phone: string): Promise<{ messageId: string }> {
+export async function generateOtp(
+  phone: string,
+  opts: { channel?: ChannelName } = {},
+): Promise<{ messageId: string }> {
+  const channel: ChannelName = opts.channel ?? 'sms';
   const normalized = normalizePhone(phone);
   if (!normalized) {
     throw new Error('Invalid Ethiopian phone number');
@@ -147,18 +162,38 @@ export async function generateOtp(phone: string): Promise<{ messageId: string }>
   await db.insert(otpCodes).values({
     id: crypto.randomUUID(),
     phone: normalized,
-    code,
+    code: hashCode(code),
     expiresAt: now + OTP_TTL_MS,
     attempts: 0,
     used: false,
     createdAt: now,
   });
 
-  // Send via SMS
+  // Deliver via the NotificationAdapter. A rejected/unlinked delivery does
+  // NOT invalidate the code — the user may retry delivery within the TTL.
   const text = `Your Egebeya verification code is: ${code}. It expires in 10 minutes.`;
-  const result = await sendSms({ to: normalized, text });
+  const outcome = await notify({
+    channel,
+    template: 'otp',
+    to: { phone: normalized },
+    text,
+    refType: 'otp',
+    refId: normalized,
+  });
+  if (!outcome.ok && outcome.status !== 'disabled') {
+    // sms: gateway rejection is a hard error (existing semantics). telegram:
+    // unlinked phones tell the caller to fall back to the claim-code path.
+    const err: any = new Error(
+      outcome.status === 'unlinked'
+        ? 'NO_TELEGRAM_LINK'
+        : (outcome.error || 'OTP delivery failed'),
+    );
+    err.statusCode = outcome.status === 'unlinked' ? 409 : 502;
+    err.code = outcome.status === 'unlinked' ? 'NO_TELEGRAM_LINK' : 'OTP_DELIVERY_FAILED';
+    throw err;
+  }
 
-  return { messageId: result.messageId ?? 'unknown' };
+  return { messageId: outcome.providerId ?? outcome.status ?? 'unknown' };
 }
 
 /**
@@ -213,7 +248,7 @@ export async function verifyOtp(phone: string, code: string): Promise<string> {
     throw err;
   }
 
-  if (codeRecord.code !== code) {
+  if (codeRecord.code !== hashCode(code)) {
     // Increment attempts
     await db
       .update(otpCodes)
@@ -235,6 +270,9 @@ export async function verifyOtp(phone: string, code: string): Promise<string> {
  * Resend an OTP code. Rate-limited to 3 per hour per phone.
  * Invalidates any previous unused codes before generating a new one.
  */
-export async function resendOtp(phone: string): Promise<{ messageId: string }> {
-  return generateOtp(phone);
+export async function resendOtp(
+  phone: string,
+  opts: { channel?: ChannelName } = {},
+): Promise<{ messageId: string }> {
+  return generateOtp(phone, opts);
 }

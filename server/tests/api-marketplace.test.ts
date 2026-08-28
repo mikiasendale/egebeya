@@ -22,6 +22,27 @@ import jwt from 'jsonwebtoken';
 import { eq } from 'drizzle-orm';
 
 import apiRoutes from '../../src/api';
+
+/**
+ * Shared-DB hardening: the test DB is one file shared across ALL suites
+ * (fileParallelism:false). Another suite's fire-and-forget write (analytics
+ * events, notification_log, security_events) can land DURING this suite's
+ * setup and surface as SQLITE_BUSY on a plain insert. Retry transient BUSY
+ * exactly like the booking path does (F7 pattern).
+ */
+async function retryWrites<T>(fn: () => Promise<T>, attempts = 4, backoffMs = 40): Promise<T> {
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await fn();
+    } catch (err: any) {
+      const code = String(err?.code || err?.cause?.code || '');
+      if (!code.includes('BUSY')) throw err;
+      await new Promise((r) => setTimeout(r, backoffMs * (i + 1)));
+    }
+  }
+  throw new Error('persistent SQLITE_BUSY during test setup');
+}
+
 import { db } from '../../src/db';
 import {
   tenants,
@@ -61,13 +82,15 @@ describe('API Marketplace', () => {
     tenantId = crypto.randomUUID();
     userId = crypto.randomUUID();
 
-    await db.insert(tenants).values({
-      id: tenantId,
-      name: 'API Marketplace Test',
-      slug,
-      settings: { require_payment_upfront: false, calendar_display: 'ethiopian' },
-      createdAt: Date.now(),
-    });
+    await retryWrites(() =>
+      db.insert(tenants).values({
+        id: tenantId,
+        name: 'API Marketplace Test',
+        slug,
+        settings: { require_payment_upfront: false, calendar_display: 'ethiopian' },
+        createdAt: Date.now(),
+      }),
+    );
 
     const bcryptHash = await bcrypt.hash('TestPass1234', 10);
     await db.insert(users).values({
@@ -83,13 +106,15 @@ describe('API Marketplace', () => {
     });
 
     const freePlan = await db.select().from(plans).where(eq(plans.name, 'free')).get();
-    await db.insert(tenantSubscriptions).values({
-      id: crypto.randomUUID(),
-      tenantId,
-      planId: freePlan!.id,
-      status: 'active',
-      startsAt: Date.now(),
-    });
+    await retryWrites(() =>
+      db.insert(tenantSubscriptions).values({
+        id: crypto.randomUUID(),
+        tenantId,
+        planId: freePlan!.id,
+        status: 'active',
+        startsAt: Date.now(),
+      }),
+    );
 
     // Create service
     serviceId = crypto.randomUUID();

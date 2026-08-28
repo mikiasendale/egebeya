@@ -34,18 +34,19 @@ The only no-code website builder built with Ethiopia-default integrations pre-wi
 ## Capabilities and Constraints
 
 - **Confirmed features:**
-  - Owner auth (phone + JWT), tenant registration with unique slug (reserved words like "admin").
+  - Owner auth (phone + JWT, plus OTP phone flows for register/password-reset), tenant registration with unique slug (reserved words like "admin").
   - Services (name, duration, price in ETB cents, active flag), staff (name, title, image), staff↔service mapping, staff per-day-of-week availability, tenant business hours, closures.
   - Public availability endpoint with 30-min slot generation that respects closures, business hours, staff hours, and existing appointments; privacy-safe "today's queue" endpoint exposing only service name + time, never customer names (booking integration only).
-  - Booking creation with double-book conflict check; pending status when upfront payment required, confirmed otherwise; booking + payment inserted transactionally.
-  - Telebirr/Chapa direct charge + webhook; signature verification; rollback on charge failure.
-  - Puck visual website editor per tenant; saved Puck document is rendered on the public site (item shape `{ type, props, data: {} }`).
+  - Booking creation with double-book conflict check; pending status when upfront payment required, confirmed otherwise; booking + payment inserted transactionally. Walk-in bookings and group bookings supported; recurring series with cron expansion.
+  - Telebirr/Chapa direct charge + webhook; signature verification; rollback on charge failure. **Pro subscription collection is live** (`POST /api/tenant/subscription/checkout` → webhook → 30-day activation) but manual-repurchase only today: no auto-renew, dunning, invoices, or receipts yet (hardening tracked in EXECUTION_PLAN.md P1.x).
+  - Puck visual website editor per tenant; saved Puck document is rendered on the public site (item shape `{ type, props, data: {} }`). Sandpack code editor on Pro; both stores coexist without data loss on mode switches.
   - Setup wizard (business hours → first service → first staff with default availability → onboarding complete).
   - Owner-facing dashboard pages: bookings, services, staff, media upload (sharp-resized), website editor, settings.
+  - CRM & growth layer already in production: customer_stats health scoring, win-back automation cron, promo codes, /discover directory, anonymized search-intent aggregation into Pro demand-pulse alerts, marketing blasts (consent-gated), inventory items, API keys.
   - Plan-limit middleware enforcing `max_staff`; custom domain gated by Pro.
 - **Tech constraints:** Express + Drizzle over SQLite (dev) and MySQL/MariaDB (prod via Plesk); react-router on the frontend; Puck for visual editing; date-fns-tz + a custom Addis timezone helper for time math. Vite is used in middleware mode inside Express for HMR (dev) and for the production build.
 - **Terminology:** "Tenant" = one business; "slug" = its public identifier; "tx_ref" = the Chapa transaction reference; "gateway_reference" = stored Chapa tx_ref on payments; "integration" = a switch-on feature the builder exposes (e.g. booking, Telebirr deposit, Ethiopian-calendar display).
-- **Open decisions (not yet decided):** SMS gateway provider (a `SMS_API_KEY` env slot exists but the actual reminder cron uses email today); the depth and breadth of the no-code builder's component library beyond what Puck ships with; the full integration catalog that should ship pre-wired (calendar, Amharic copy, additional payment rails, etc.); if/when internationalization matters beyond the Addis/Ethiopian context.
+- **Open decisions (not yet decided):** SMS gateway provider (an `SMS_API_KEY` env slot exists but the integration is a stub — the key changes nothing today; reminders run on email, audit P0.2); Telegram bot channel (designed in EXECUTION_PLAN.md P3.2, not built); the depth and breadth of the no-code builder's component library beyond what Puck ships with; the full integration catalog that should ship pre-wired; if/when internationalization matters beyond the Addis/Ethiopian context. Strategy, phasing, and gate criteria now live in ROADMAP.md + EXECUTION_PLAN.md.
 
 ## Brand Commitments
 
@@ -58,7 +59,7 @@ The only no-code website builder built with Ethiopia-default integrations pre-wi
 - `server/seed.ts` — two real tenant fixtures: `luxnails` ("Lux Nails & Spa", salon, no upfront payment, Ethiopian calendar display) and `testpayment` ("Test Payment Barbershop", salon, requires Chapa upfront payment, Gregorian calendar). Both have seeded business hours, staff availability, and a Puck page template.
 - `qa_runner.ts` — passes the Chapa payment + booking + webhook + availability flow end-to-end.
 - Real working end-to-end flow verified on the running dev server: slot generation in Addis time, Addis-offset booking timestamps stored as correct UTC ms, plan-limit 403 on exceeding `max_staff`, webhook 403 on invalid signature and 200 on valid HMAC.
-- Known absences that future work must not fabricate: no real customer testimonials, no published pricing in the repo, no Ethiopian phone-format input masks, no Ethiopian-language full UI copy (only a brand glyph + a few labels today).
+- Known absences that future work must not fabricate: no real customer testimonials. *(Corrected Aug 2026: pricing now exists in code — Pro charged at 500 ETB via Chapa checkout, though seed data drifted to 1000 ETB (fix: P1.1); full Amharic UI copy ships in `src/locales/am.json` with en/am parity; OTP-based phone flows exist for owners, not yet consumers.)*
 - The live marketing page already in `index.html` (hero copy "Bookings confirmed by Telebirr"; meta description "The Telebirr-first booking site…") is **a candidate to be replaced** under the new positioning, not a binding claim. It belongs to the upcoming visual-world work, not to durable product truth.
 
 ## Product Principles

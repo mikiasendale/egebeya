@@ -1,21 +1,49 @@
 import { db } from '../../src/db';
 import { tenants, appointments } from '../../src/db/schema';
-import { eq, and, gt, lt, or, isNull } from 'drizzle-orm';
-import { sendMail } from '../lib/mailer';
+import { eq, and, gt, lt, or } from 'drizzle-orm';
 import { applyTemplate } from '../lib/mailTemplates';
-import { sendSms } from '../lib/sms';
 import { logSecurityEvent } from '../lib/securityLog';
 import { formatEthiopianDateTime } from '../lib/timezone';
+import { notify, type SendOutcome } from '../lib/notifications';
 
 /**
- * Cron job to send appointment reminders (email + SMS) and clean up stale
- * pending-payment slots.
+ * Cron job to send appointment reminders (email + SMS + Telegram) and clean
+ * up stale pending-payment slots.
+ *
+ * All channel dispatch goes through the NotificationAdapter (P3.1) — this
+ * file never imports nodemailer/sms providers directly. Outcomes land in
+ * notification_log (P3.3); unlinked Telegram customers are recorded as
+ * status='unlinked' with no provider call (the bot cannot initiate).
  *
  * Designed to run every 15 minutes from the production crontab:
  *   -/15 * * * * cd /path/to/egebeya && npm run send-reminders
  *
  * The --loop flag runs continuously with 5-minute sleep (dev convenience).
  */
+
+/**
+ * Telegram reminder dispatch (P3.2). The adapter resolves the chat link by
+ * phone; unlinked customers yield status 'unlinked' with no provider call.
+ * Outcome is recorded in notification_log — never thrown.
+ */
+async function notifyTelegramReminder(
+  appt: { id: string; tenantId: string; customerName: string; customerPhone: string },
+  locale: 'en' | 'am',
+  ethiopianDateStr: string,
+): Promise<SendOutcome> {
+  const text = locale === 'am'
+    ? `ሰላም ${appt.customerName}፣ ቀጠሮዎ በ ${ethiopianDateStr} ነው። እንጠብቃለን!`
+    : `Hi ${appt.customerName}, a reminder that your appointment is at ${ethiopianDateStr}. See you soon!`;
+  return notify({
+    channel: 'telegram',
+    template: 'reminder',
+    to: { phone: appt.customerPhone },
+    text,
+    tenantId: appt.tenantId,
+    refType: 'appointment',
+    refId: appt.id,
+  });
+}
 
 export async function runOnce(tenantId?: string): Promise<number> {
   console.log('Starting sendReminders cron job...');
@@ -64,33 +92,41 @@ export async function runOnce(tenantId?: string): Promise<number> {
       const ethiopianDateStr = formatEthiopianDateTime(appt.startTime);
       let sentVia: string[] = [];
 
-      // ── Email reminder ────────────────────────────────────────────
+      // ── Email reminder (via adapter) ──────────────────────────────
       if (appt.customerEmail) {
-        try {
-          await sendMail({
-            ...applyTemplate('reminder', reminderLocale, {
-              name: appt.customerName,
-              date: ethiopianDateStr,
-            }),
-            to: appt.customerEmail,
-          });
-          sentVia.push('email');
-        } catch (err) {
-          console.error('Failed to send reminder email', err);
-        }
+        const mail = applyTemplate('reminder', reminderLocale, {
+          name: appt.customerName,
+          date: ethiopianDateStr,
+        });
+        const outcome = await notify({
+          channel: 'email',
+          template: 'reminder',
+          to: { email: appt.customerEmail },
+          subject: mail.subject,
+          text: mail.text,
+          tenantId: appt.tenantId,
+          refType: 'appointment',
+          refId: appt.id,
+        });
+        if (outcome.ok) sentVia.push('email');
+        else console.error('Failed to send reminder email:', outcome.error);
       }
 
-      // ── SMS reminder ──────────────────────────────────────────────
+      // ── SMS reminder (via adapter) ────────────────────────────────
       if (appt.customerPhone) {
-        try {
-          await sendSms({
-            to: appt.customerPhone,
-            text: reminderLocale === 'am'
-              ? `ሰላም ${appt.customerName}፣ ቀጠሮዎ በ ${ethiopianDateStr} ነው። እርስዎን በጉጉት እንጠብቃለን! መረጃዊ መረጃ ለመሰጥት መረጃ ይበልጡታል። Reply STOP ይሆን`
-              : `Hi ${appt.customerName}, your appointment is at ${ethiopianDateStr}. We look forward to seeing you! Reply STOP to opt out.`,
-          });
+        const smsOutcome = await notify({
+          channel: 'sms',
+          template: 'reminder',
+          to: { phone: appt.customerPhone },
+          text: reminderLocale === 'am'
+            ? `ሰላም ${appt.customerName}፣ ቀጠሮዎ በ ${ethiopianDateStr} ነው። እርስዎን በጉጉት እንጠብቃለን! መረጃዊ መረጃ ለመሰጥት መረጃ ይበልጡታል። Reply STOP ይሆን`
+            : `Hi ${appt.customerName}, your appointment is at ${ethiopianDateStr}. We look forward to seeing you! Reply STOP to opt out.`,
+          tenantId: appt.tenantId,
+          refType: 'appointment',
+          refId: appt.id,
+        });
+        if (smsOutcome.ok) {
           sentVia.push('sms');
-
           logSecurityEvent({
             type: 'reminder-sent-sms',
             tenantId: appt.tenantId,
@@ -99,10 +135,13 @@ export async function runOnce(tenantId?: string): Promise<number> {
               phonePrefix: appt.customerPhone.slice(0, 7) + '****',
             },
           });
-        } catch (err) {
-          console.error('Failed to send reminder SMS', err);
+        } else {
+          console.error('Failed to send reminder SMS:', smsOutcome.error);
         }
       }
+
+      // ── Telegram reminder (via adapter; unlinked = no-op outcome) ──
+      await notifyTelegramReminder(appt, reminderLocale, ethiopianDateStr);
 
       // Mark as sent with the channels used (so ops can audit).
       await db.update(appointments).set({
