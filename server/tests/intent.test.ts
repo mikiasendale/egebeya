@@ -22,7 +22,6 @@ import {
 } from '../../src/db/schema';
 
 import { runOnce as runAggregate } from '../cron/aggregateIntent';
-import type { SmsOptions } from '../lib/sms';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const NOW = Date.UTC(2026, 0, 15, 9, 0, 0);
@@ -160,16 +159,16 @@ describe('Local Buying Intent', () => {
     }
 
     const sent: string[] = [];
-    const sendSmsFn = vi.fn(async (opts: SmsOptions) => {
-      sent.push(opts.text);
-      return { success: true };
+    const notifyFn = vi.fn(async (req: any) => {
+      sent.push(req.text);
+      return { ok: true, status: 'sent' as const, providerId: 'stub' };
     });
 
     const alerted = await runAggregate({
       now: NOW,
       threshold: 5,
       throttleMs: 0,
-      sendSmsFn,
+      notifyFn,
     });
 
     // Only the salon-in-Bole pulse fires; it alerts our 1 Pro tenant.
@@ -212,8 +211,8 @@ describe('Local Buying Intent', () => {
       id: crypto.randomUUID(), tenantId: freeId, planId: freePlanId, status: 'active', startsAt: NOW,
     });
 
-    const sendSmsFn = vi.fn(async () => ({ success: true }));
-    const alerted = await runAggregate({ now: NOW, threshold: 5, throttleMs: 0, sendSmsFn });
+    const notifyFn = vi.fn(async (): Promise<any> => ({ ok: true, status: 'sent', providerId: 'stub' }));
+    const alerted = await runAggregate({ now: NOW, threshold: 5, throttleMs: 0, notifyFn });
 
     // The Pro tenant (tenantId, salon/Bole) IS alerted by this pulse...
     const proAlertRows = await db.select().from(proAlerts)

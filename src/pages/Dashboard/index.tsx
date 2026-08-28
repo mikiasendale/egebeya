@@ -27,6 +27,9 @@ import { StaffRedirect } from './StaffRedirect';
 import { BuilderModeProvider, useBuilderMode } from './BuilderModeContext';
 import { WalkInSheet } from './WalkInSheet';
 import { WinBackWidget } from '../../components/dashboard/WinBackWidget';
+import { EmpireChecklist } from '../../components/dashboard/EmpireChecklist';
+import { QueueConsole } from './QueueConsole';
+import { VelvetRopeMore } from './VelvetRopeMore';
 import { MarketingDeck } from './MarketingDeck';
 import { InventoryPage } from './InventoryPage';
 
@@ -135,12 +138,31 @@ function DashboardInner() {
   const lastIdsRef = useRef<Set<string>>(new Set());
   const firstPollRef = useRef(true);
 
-  // Self-serve onboarding: surface a dismissible "Finish setup" banner until
-  // the owner completes the /setup wizard (settings.onboarding_completed).
-  const [setupBannerDismissed, setSetupBannerDismissed] = useState(() =>
-    typeof window !== 'undefined' && localStorage.getItem('setup-banner-dismissed') === '1',
-  );
+  // Self-serve onboarding: P2.6 makes the banner PERSISTENT (no dismiss) —
+  // it stays until the owner confirms their generated hours once. Broken
+  // bookings poison a one-reputation market, so this cannot be X'd away.
+  const [hoursUnconfirmed, setHoursUnconfirmed] = useState(false);
   const [onboardingIncomplete, setOnboardingIncomplete] = useState(false);
+
+  // P2.6 reopen (B1): the DARK banner must drop the moment the owner saves
+  // hours in Settings — Settings dispatches 'egebeya:hours-confirmed' after
+  // confirm-hours succeeds, and we re-probe here instead of requiring a hard
+  // reload.
+  useEffect(() => {
+    const onHoursConfirmed = () => {
+      setHoursUnconfirmed(false);
+      authFetch('/api/tenant/provision/status')
+        .then((r) => (r.ok ? r.json() : null))
+        .then((status) => {
+          if (status) {
+            setHoursUnconfirmed(status.generatedAt != null && status.confirmedHours !== true);
+          }
+        })
+        .catch(() => {});
+    };
+    window.addEventListener('egebeya:hours-confirmed', onHoursConfirmed);
+    return () => window.removeEventListener('egebeya:hours-confirmed', onHoursConfirmed);
+  }, []);
 
   useEffect(() => {
     if (role === 'staff') return;
@@ -151,17 +173,19 @@ function DashboardInner() {
         if (!res.ok) return;
         const data = await res.json();
         if (!cancelled) setOnboardingIncomplete(data.onboarding_completed !== true);
+        // Hours-confirmation gate (P2.3/P2.6): provisioned sites stay dark
+        // until confirmedHours flips true.
+        const statusRes = await authFetch('/api/tenant/provision/status');
+        if (statusRes.ok && !cancelled) {
+          const status = await statusRes.json();
+          if (!cancelled) setHoursUnconfirmed(status.generatedAt != null && status.confirmedHours !== true);
+        }
       } catch {
         // settings is a nice-to-have for the banner — fail silently
       }
     })();
     return () => { cancelled = true; };
   }, [role]);
-
-  const dismissSetupBanner = () => {
-    setSetupBannerDismissed(true);
-    if (typeof window !== 'undefined') localStorage.setItem('setup-banner-dismissed', '1');
-  };
 
   const pollDashboard = useCallback(async () => {
     try {
@@ -291,33 +315,46 @@ function DashboardInner() {
           )}
         </header>
 
-        {onboardingIncomplete && !setupBannerDismissed && (
-          <div className="flex items-center justify-between gap-4 px-4 md:px-8 py-3 bg-telebirr/10 border-b border-telebirr/30" role="status">
+        {(onboardingIncomplete || hoursUnconfirmed) && (
+          <div
+            className="flex items-center justify-between gap-4 px-4 md:px-8 py-3 bg-telebirr/10 border-b border-telebirr/30"
+            role="status"
+            data-testid="setup-banner"
+          >
             <div className="flex items-center gap-3 min-w-0">
               <Clock className="h-5 w-5 text-telebirr-deep shrink-0" aria-hidden />
+              {/* Overdrive A: the gate state is a literal ink stamp — DARK
+                  until hours are confirmed. Slams once via .stamp-slam-in. */}
+              {hoursUnconfirmed && (
+                <span
+                  className="stamp stamp-slam-in shrink-0"
+                  style={{ color: 'var(--color-accent)', borderColor: 'var(--color-accent)' }}
+                  data-testid="dark-stamp"
+                >
+                  DARK · ደብቃል
+                </span>
+              )}
               <p className="text-sm font-medium text-ink truncate">
-                Finish setting up your business — publish your site to start taking bookings.
+                {hoursUnconfirmed
+                  ? 'ሰዓታትዎን ያረጋግጡ — ጣቢያዎ እስከሚረጋገጥ ደብቃል። Confirm your hours to go live.'
+                  : 'Finish setting up your business — publish your site to start taking bookings.'}
               </p>
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <Link
-                to="/setup"
+                to="/settings"
+                data-testid="setup-banner-action"
                 className="bg-ink text-paper px-4 py-1.5 rounded-md text-sm font-medium hover:opacity-90 transition-opacity whitespace-nowrap"
               >
-                Finish setup
+                {hoursUnconfirmed ? 'Confirm hours · አረጋግጥ' : 'Finish setup'}
               </Link>
-              <button
-                onClick={dismissSetupBanner}
-                aria-label="Dismiss setup banner"
-                className="p-1.5 rounded-md text-ink-soft hover:text-ink hover:bg-paper-raised transition-colors"
-              >
-                <span aria-hidden>✕</span>
-              </button>
             </div>
           </div>
         )}
 
         <div className="flex-1 p-4 md:p-8 overflow-y-auto pb-28 md:pb-8">
+          {/* P2.5 "Finish your empire" checklist — driven by provision flags. */}
+          {role !== 'staff' && <EmpireChecklist />}
           <DashboardDataContext.Provider value={dashboard}>
             <Routes>
               <Route path="/" element={<OverviewOrRedirect isMobile={isMobile} />} />
@@ -336,6 +373,8 @@ function DashboardInner() {
               <Route path="/automations" element={<Automations />} />
               <Route path="/billing" element={<Billing />} />
               <Route path="/settings" element={<SettingsComponent />} />
+              {/* P5.4 G5: gated-feature enumeration (locked-but-labeled). */}
+              <Route path="/more" element={<VelvetRopeMore />} />
               <Route path="*" element={<Navigate to="/dashboard/bookings" replace />} />
             </Routes>
           </DashboardDataContext.Provider>
@@ -400,6 +439,19 @@ function MobileHome({ dashboard }: { dashboard: DashboardData | null }) {
 
   return (
     <div className="space-y-4 max-w-lg mx-auto">
+      {/* P4.2: Merchant Home IS the queue — the top module, one tap per customer. */}
+      <QueueConsole />
+
+      {/* P5.4 G5: locked-but-labeled — one tap from Home to the enumeration. */}
+      <Link
+        to="/dashboard/more"
+        data-testid="velvet-more-link"
+        className="flex items-center justify-between rounded-xl border border-ink-rule bg-paper-bleached px-5 py-3"
+      >
+        <span className="text-sm font-medium text-ink">{t('velvetMore.homeLink')}</span>
+        <span className="font-receipt text-xs uppercase tracking-[0.08em] text-ink-soft">→</span>
+      </Link>
+
       <div className="bg-paper-bleached rounded-xl border border-ink-rule p-5">
         <div className="text-sm font-medium text-ink-soft mb-1">{t('dashboard.todayRevenue')}</div>
         <div className="text-3xl font-bold text-ink">
@@ -570,6 +622,8 @@ function Overview() {
             </div>
           </div>
         )}
+
+        <QueueConsole />
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-paper-bleached p-6 rounded-xl border border-ink-rule">

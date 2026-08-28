@@ -39,7 +39,14 @@ export type SecurityEventType =
   | 'plan_gate_denied'
   | 'webhook_idempotent_duplicate'
   | 'data_deletion_request'
-  | 'reminder-sent-sms';
+  | 'reminder-sent-sms'
+  | 'billing_reminder_sent'
+  | 'telegram_start_no_payload'
+  | 'telegram_link_unknown_ref'
+  | 'telegram_chat_linked'
+  | 'consumer_code_requested'
+  | 'consumer_verified'
+  | 'consumer_auth_rejected';
 
 export interface SecurityEventInput {
   type: SecurityEventType;

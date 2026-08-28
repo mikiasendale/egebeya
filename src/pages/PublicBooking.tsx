@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { DayPicker } from 'react-day-picker';
 import 'react-day-picker/dist/style.css';
 import { EthiopianDayPicker } from '../components/EthiopianDayPicker';
+import { ReceiptTicket } from '../components/ReceiptTicket';
 import { Loader2 } from 'lucide-react';
 import { PHONE_REGEX as _PHONE_REGEX } from './Register';
 import { showToast } from '../components/ui/toast-helper';
@@ -35,6 +36,16 @@ interface QueueItem {
  * is preserved verbatim from the prior implementation — the layer below is
  * purely the committed visual world.
  */
+/** P5.6: is an Addis 'HH:MM' slot inside the merchant's quiet window? */
+export function isQuietSlot(time: string, qh?: { start_minute: number; end_minute: number } | null): boolean {
+  if (!qh) return false;
+  const [h, m] = time.split(':').map(Number);
+  const slotMinute = h * 60 + m;
+  return qh.start_minute <= qh.end_minute
+    ? slotMinute >= qh.start_minute && slotMinute < qh.end_minute
+    : slotMinute >= qh.start_minute || slotMinute < qh.end_minute;
+}
+
 export function PublicBooking({ tenant, subdomain }: { tenant: any, subdomain: string }) {
   // ---- i18n ----
   const { t } = useTranslation();
@@ -54,6 +65,10 @@ export function PublicBooking({ tenant, subdomain }: { tenant: any, subdomain: s
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [bookingResult, setBookingResult] = useState<{ status?: string; paymentStatus?: string } | null>(null);
+  // P4.4: same-day bookings join the queue at creation; the receipt prints
+  // the take-a-number position + the single Telegram CTA deep link.
+  const [queueInfo, setQueueInfo] = useState<{ position: number | null; etaMinutes: number } | null>(null);
+  const [telegramDeepLink, setTelegramDeepLink] = useState<string | null>(null);
   // The customer name captured at submission time, threaded to the printed
   // receipt's success display. Set by handleSubmit.
   const [confirmedCustomerName, setConfirmedCustomerName] = useState('');
@@ -233,7 +248,11 @@ export function PublicBooking({ tenant, subdomain }: { tenant: any, subdomain: s
         setBookingResult({ status: resultData.appointment?.status, paymentStatus: resultData.appointment?.paymentStatus });
         setBookingId(resultData.appointment?.id || null);
         setManagePhone(data.customer_phone || '');
+        setQueueInfo(resultData.appointment?.queue ?? null);
+        setTelegramDeepLink(resultData.appointment?.telegramDeepLink ?? null);
         setSuccess(true);
+        // P4.4 haptic: the stamp "lands" in the hand where the API exists.
+        try { navigator.vibrate?.([18, 40, 26]); } catch { /* unsupported — silent */ }
       }
     } catch (err) {
       // Distinguish a genuine network failure (no data / dropped 3G) from an
@@ -329,7 +348,7 @@ export function PublicBooking({ tenant, subdomain }: { tenant: any, subdomain: s
     } as React.CSSProperties,
   };
 
-  // ---- Success state = the receipt, printed ----
+  // ---- Success state = the receipt, stamped (ReceiptTicket, P4.4) ----
   if (success) {
     const confirmed = bookingResult?.status === 'confirmed';
     const heading = confirmed ? t('booking.successHeading') : t('booking.successHeadingPending');
@@ -340,7 +359,7 @@ export function PublicBooking({ tenant, subdomain }: { tenant: any, subdomain: s
     // one place so the on-screen receipt and the notification text match.
     const priceBirr = ((selectedService?.price ?? 0) / 100).toLocaleString();
     const receiptText =
-      `✅ Booking Confirmed!\n` +
+      `\u2705 ${t('booking.stampConfirmed')}\n` +
       `Business: ${tenant?.name || '--'}\n` +
       `Service: ${selectedService?.name || '--'}\n` +
       `Date: ${selectedDate ? format(selectedDate, 'EEE d MMM yyyy') : '--'}\n` +
@@ -350,35 +369,19 @@ export function PublicBooking({ tenant, subdomain }: { tenant: any, subdomain: s
     return (
       <div style={page.bg} className="min-h-[80vh] px-5 sm:px-8 lg:px-12 py-12 sm:py-16">
         <div className="mx-auto max-w-xl">
-          <div className="receipt-rule-top" style={page.card}>
-            <div className="p-6 sm:p-8">
-              <div className="pt-2 pb-3 border-b border-[var(--color-ink-rule)]">
-                <div className="uppercase text-xs" style={{ ...page.monoSoft, color: 'var(--color-telebirr-deep)' }}>
-                  {t('booking.receipt')}
-                </div>
-                <div className="mt-2" style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '2rem', color: 'var(--color-ink)' }}>
-                  {heading}
-                </div>
-                <pre
-                  className="receipt-print-in mt-4 whitespace-pre-wrap"
-                  style={{ ...page.mono, margin: 0, fontFamily: 'var(--font-receipt)' }}
-                >
-                  {receiptText}
-                </pre>
-              </div>
-              <p className="mt-4 text-base" style={{ color: 'var(--color-ink-soft)' }}>
-                {sub}
-              </p>
-              {bookingResult?.paymentStatus && (
-                <div className="mt-3 text-xs" style={page.monoSoft}>
-                  {t('booking.payment')}: <span style={{ color: 'var(--color-ink)' }}>{bookingResult.paymentStatus}</span>
-                </div>
-              )}
-              <button onClick={() => (window.location.href = '/')} className="mt-6 inline-flex items-center justify-center px-6 py-3" style={page.btnOutline}>
-                {t('booking.backToDirectory')}
-              </button>
-            </div>
-          </div>
+          <ReceiptTicket
+            confirmed={confirmed}
+            heading={heading}
+            sub={sub}
+            bookingDate={selectedDate}
+            timeLabel={selectedTime}
+            addisLabel={t('booking.addis')}
+            receiptText={receiptText}
+            paymentStatus={bookingResult?.paymentStatus}
+            queueInfo={queueInfo}
+            telegramDeepLink={telegramDeepLink}
+            bookingId={bookingId}
+          />
 
           {/* Manage booking — cancel or reschedule using the reference + phone */}
           {bookingId && (
@@ -608,24 +611,48 @@ export function PublicBooking({ tenant, subdomain }: { tenant: any, subdomain: s
                         </div>
                       ) : slots.length > 0 ? (
                         <div className="grid grid-cols-2 gap-2">
-                          {slots.map((time) => (
-                            <button
-                              key={time}
-                              type="button"
-                              onClick={() => { setSelectedTime(time); setStep(4); }}
-                              className="w-full text-center hover:bg-[var(--color-telebirr)] hover:text-[var(--color-paper-bleached)]"
-                              style={{
-                                border: '1px solid var(--color-ink-rule)',
-                                padding: '0.625rem 0',
-                                fontFamily: 'var(--font-receipt)',
-                                fontWeight: 500,
-                                color: 'var(--color-ink)',
-                                borderRadius: 'var(--rd-card)',
-                              }}
-                            >
-                              {time}
-                            </button>
-                          ))}
+                          {slots.map((time) => {
+                            const qh = (tenant?.quiet_hours_discount ?? null) as { start_minute: number; end_minute: number; percent: number } | null;
+                            const quiet = isQuietSlot(time, qh);
+                            return (
+                              <button
+                                key={time}
+                                type="button"
+                                onClick={() => { setSelectedTime(time); setStep(4); }}
+                                data-testid={`slot-${quiet ? 'quiet' : 'full'}-${time}`}
+                                className="relative w-full text-center hover:bg-[var(--color-telebirr)] hover:text-[var(--color-paper-bleached)] transition-colors duration-200"
+                                style={{
+                                  border: quiet ? '1px solid var(--color-accent-secondary)' : '1px solid var(--color-ink-rule)',
+                                  padding: '0.625rem 0',
+                                  fontFamily: 'var(--font-receipt)',
+                                  fontWeight: 500,
+                                  color: 'var(--color-ink)',
+                                  borderRadius: 'var(--rd-card)',
+                                }}
+                              >
+                                {quiet && (
+                                  <span
+                                    className="absolute -top-2 right-1 font-receipt text-[0.55rem] uppercase tracking-[0.08em] px-1 rounded-[2px]"
+                                    style={{ backgroundColor: 'var(--color-accent-secondary)', color: 'var(--color-paper-bleached)' }}
+                                    data-testid="quiet-badge"
+                                  >
+                                    {t('quietHoursBadge.label', { percent: qh!.percent })}
+                                  </span>
+                                )}
+                                {quiet ? (
+                                  <>
+                                    <span
+                                      className="line-through text-ink-stamp mr-1"
+                                      title={t('quietHoursBadge.tooltip', { percent: qh!.percent })}
+                                    >
+                                      {(Number(selectedService?.price ?? 0) / 100).toLocaleString()}
+                                    </span>
+                                    {(((selectedService?.price ?? 0) * (100 - qh!.percent)) / 100 / 100).toLocaleString()}
+                                  </>
+                                ) : time}
+                              </button>
+                            );
+                          })}
                         </div>
                       ) : (
                         <p style={page.monoSoft}>{t('booking.noAvailability')}</p>

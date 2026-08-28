@@ -14,7 +14,7 @@ import {
   verifyPayment,
   generateTxRef,
 } from '../../server/lib/chapa';
-import { sendMail } from '../../server/lib/mailer';
+import { notify } from '../../server/lib/notifications';
 import { applyTemplate } from '../../server/lib/mailTemplates';
 
 const router = Router();
@@ -275,8 +275,16 @@ router.post('/bookings', requireApiKey('write:bookings'), async (req, res) => {
         business: tenant.name,
         date: ethiopianDateStr,
       });
-      sendMail({ to: customerEmail, subject: mail.subject, text: mail.text })
-        .catch((err) => console.error('[v1] Failed to send customer email:', err));
+      notify({
+        channel: 'email',
+        template: 'bookingCustomer',
+        to: { email: customerEmail },
+        subject: mail.subject,
+        text: mail.text,
+        tenantId: tenant.id,
+        refType: 'appointment',
+        refId: appId,
+      }).catch((err) => console.error('[v1] Failed to send customer email:', err));
     }
 
     res.status(201).json({

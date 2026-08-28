@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { CreditCard, Shield, Clock, Loader2, Zap } from 'lucide-react';
 import { authFetch } from '../../lib/api';
 import { showToast } from '../../components/ui/toast-helper';
@@ -94,6 +95,8 @@ export function Settings() {
       });
   }, []);
 
+  const { t } = useTranslation();
+
   const updateSettings = async (newSettings: any) => {
     setSaving(true);
     try {
@@ -140,6 +143,27 @@ export function Settings() {
       });
       if (res.ok) {
         showToast('Business hours updated', 'Your weekly availability has been saved.');
+        // P2.6 reopen (B1): the gate is defined as "confirm/EDIT hours once" —
+        // a successful save IS the confirmation act, so completing the edit
+        // here closes the loop the DARK banner opened. The endpoint is
+        // idempotent (safe on every repeat save); legacy-wizard graduates are
+        // exempted server-side.
+        try {
+          const confirmRes = await authFetch('/api/tenant/provision/confirm-hours', { method: 'POST' });
+          if (confirmRes.ok) {
+            showToast(
+              t('settings.siteLiveTitle'),
+              t('settings.siteLiveBody'),
+            );
+            // The dashboard shell polls provision/status on mount only —
+            // tell it the gate flipped so the DARK banner drops without a
+            // hard reload.
+            window.dispatchEvent(new CustomEvent('egebeya:hours-confirmed'));
+          }
+        } catch {
+          // Confirmation is best-effort on save; the banner path still lets
+          // the owner retry from a fresh settings visit.
+        }
         // Refresh from server to pick up the canonical IDs.
         try {
           const fresh = await authFetch('/api/tenant/business-hours');
@@ -159,6 +183,74 @@ export function Settings() {
       showToast('Failed to save', 'Network error.', 'destructive');
     } finally {
       setHoursSaving(false);
+    }
+  };
+
+  // ── P5.6 quiet-hours discount state ──
+  const [quietEnabled, setQuietEnabled] = useState(false);
+  const [quietStart, setQuietStart] = useState('13:00');
+  const [quietEnd, setQuietEnd] = useState('15:00');
+  const [quietPercent, setQuietPercent] = useState(20);
+  const [quietError, setQuietError] = useState('');
+  const [quietSaving, setQuietSaving] = useState(false);
+
+  // Pre-populate from current settings JSON once.
+  useEffect(() => {
+    const qh = (settings as any)?.quiet_hours_discount;
+    if (qh) {
+      if (qh.enabled === true) setQuietEnabled(true);
+      if (Number.isFinite(Number(qh.start_minute))) {
+        const h = Math.floor(Number(qh.start_minute) / 60);
+        const m = Number(qh.start_minute) % 60;
+        setQuietStart(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+      }
+      if (Number.isFinite(Number(qh.end_minute))) {
+        const h = Math.floor(Number(qh.end_minute) / 60);
+        const m = Number(qh.end_minute) % 60;
+        setQuietEnd(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+      }
+      if (Number.isFinite(Number(qh.percent))) setQuietPercent(Number(qh.percent));
+    }
+  }, [settings]);
+
+  const toMinute = (hhmm: string) => {
+    const [h, m] = hhmm.split(':').map(Number);
+    return h * 60 + m;
+  };
+
+  const saveQuietHours = async () => {
+    setQuietError('');
+    const startMinute = toMinute(quietStart);
+    const endMinute = toMinute(quietEnd);
+    const percent = Number(quietPercent);
+    setQuietSaving(true);
+    try {
+      const res = await authFetch('/api/tenant/quiet-hours', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          enabled: quietEnabled,
+          startMinute,
+          endMinute,
+          percent: quietEnabled ? percent : 0,
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        // Inline the SERVER's validation message (the acceptance contract).
+        setQuietError(body?.error || t('settings.quietHours.saveFailed'));
+        return;
+      }
+      showToast(
+        quietEnabled ? t('settings.quietHours.savedOn') : t('settings.quietHours.savedOff'),
+        quietEnabled
+          ? `${quietStart} – ${quietEnd} · −${percent}%`
+          : t('settings.quietHours.savedOffBody'),
+      );
+    } catch {
+      setQuietError(t('settings.quietHours.networkError'));
+    } finally {
+      setQuietSaving(false);
     }
   };
 
@@ -490,6 +582,88 @@ export function Settings() {
             >
               {hoursSaving && <Loader2 className="h-4 w-4 animate-spin" />}
               {hoursSaving ? 'Saving…' : 'Save Business Hours'}
+           </button>
+         </div>
+       </section>
+
+       {/* P5.6 quiet-hours discount — boolean + badge, no pricing engine */}
+       <section className="bg-paper-bleached p-6 rounded-lg shadow-sm">
+         <h2 className="text-xl font-bold mb-1 flex items-center">
+           <Clock className="mr-2" size={24} /> {t('settings.quietHours.title')}
+         </h2>
+         <p className="text-sm text-ink-soft mb-4">{t('settings.quietHours.subtitle')}</p>
+
+         <label className="flex items-center gap-3 cursor-pointer mb-4">
+           <input
+             type="checkbox"
+             checked={quietEnabled}
+             onChange={(e) => setQuietEnabled(e.target.checked)}
+             className="h-5 w-5"
+             style={{ accentColor: 'var(--color-primary)' }}
+             data-testid="quiet-enabled-toggle"
+           />
+           <span className="text-sm font-medium text-ink">{t('settings.quietHours.enableLabel')}</span>
+         </label>
+
+         {quietEnabled && (
+           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+             <div>
+               <label className="block text-xs uppercase text-ink-soft mb-1" style={{ fontFamily: 'var(--font-receipt)' }}>
+                 {t('settings.quietHours.start')}
+               </label>
+               <input
+                 type="time"
+                 value={quietStart}
+                 onChange={(e) => setQuietStart(e.target.value)}
+                 className="border-ink-rule rounded-md text-sm focus:border-ink focus:ring-ink w-full"
+                 data-testid="quiet-start"
+               />
+             </div>
+             <div>
+               <label className="block text-xs uppercase text-ink-soft mb-1" style={{ fontFamily: 'var(--font-receipt)' }}>
+                 {t('settings.quietHours.end')}
+               </label>
+               <input
+                 type="time"
+                 value={quietEnd}
+                 onChange={(e) => setQuietEnd(e.target.value)}
+                 className="border-ink-rule rounded-md text-sm focus:border-ink focus:ring-ink w-full"
+                 data-testid="quiet-end"
+               />
+             </div>
+             <div>
+               <label className="block text-xs uppercase text-ink-soft mb-1" style={{ fontFamily: 'var(--font-receipt)' }}>
+                 {t('settings.quietHours.percent')}
+               </label>
+               <input
+                 type="number"
+                 min={1}
+                 max={90}
+                 value={quietPercent}
+                 onChange={(e) => setQuietPercent(Number(e.target.value))}
+                 className="border-ink-rule rounded-md text-sm focus:border-ink focus:ring-ink w-full"
+                 data-testid="quiet-percent"
+               />
+             </div>
+           </div>
+         )}
+
+         {quietError && (
+           <p className="mt-3 text-sm" style={{ color: 'var(--color-accent)' }} role="alert" data-testid="quiet-error">
+             {quietError}
+           </p>
+         )}
+
+         <div className="mt-4 flex justify-end">
+           <button
+             type="button"
+             onClick={() => void saveQuietHours()}
+             disabled={quietSaving}
+             data-testid="quiet-save-btn"
+             className="bg-ink text-white px-4 py-2 rounded-md font-medium text-sm hover:opacity-90 disabled:opacity-50 inline-flex items-center gap-2"
+           >
+             {quietSaving && <Loader2 className="h-4 w-4 animate-spin" />}
+             {quietSaving ? t('settings.quietHours.saving') : t('settings.quietHours.save')}
            </button>
          </div>
        </section>

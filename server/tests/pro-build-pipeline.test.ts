@@ -20,6 +20,20 @@ import path from 'path';
 import { eq } from 'drizzle-orm';
 
 import apiRoutes from '../../src/api';
+
+/** Shared-DB busy-retry (same pattern as api-marketplace. F7). */
+async function retryWrites<T>(fn: () => Promise<T>): Promise<T> {
+  for (let i = 0; i < 4; i++) {
+    try { return await fn(); }
+    catch (err: any) {
+      const code = String(err?.code || err?.cause?.code || '');
+      if (!code.includes('BUSY')) throw err;
+      await new Promise((r) => setTimeout(r, 40 * (i + 1)));
+    }
+  }
+  throw new Error('persistent SQLITE_BUSY during test setup');
+}
+
 import { db } from '../../src/db';
 import {
   tenants,
@@ -49,24 +63,25 @@ describe('Pro build pipeline', () => {
     tenantId = crypto.randomUUID();
     userId = crypto.randomUUID();
 
-    await db.insert(tenants).values({
+    await retryWrites(() => db.insert(tenants).values({
       id: tenantId,
       name: 'Pro Build Test',
       slug,
       settings: { require_payment_upfront: false },
       createdAt: Date.now(),
-    });
+    }));
 
-    await db.insert(users).values({
+    const passwordHash = await bcrypt.hash('testPass123', 10);
+    await retryWrites(() => db.insert(users).values({
       id: userId,
       tenantId,
       name: 'Pro Build Owner',
       phone,
       email,
-      passwordHash: await bcrypt.hash('testPass123', 10),
+      passwordHash,
       role: 'owner',
       createdAt: Date.now(),
-    });
+    }));
 
     // Upgrade to Pro with a trial
     const proPlan = await db.select().from(plans).where(eq(plans.name, 'pro')).get();

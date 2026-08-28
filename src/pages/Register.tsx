@@ -1,256 +1,487 @@
+/**
+ * /register — the 3-screen Instant Empire signup (P2.4).
+ *
+ *   Screen 1 — phone + password (show-password DEFAULT-ON) + one consent line
+ *   Screen 2 — business name + four ≥72px category cards
+ *   Screen 3 — honest staged generation (provision/status), Instant Empire
+ *              animation only as skippable garnish, ending on the Share Hero.
+ *
+ * Tap budget: 6 interactions to reach the Share Hero (≤8 enforced by test):
+ * type phone, type password, tap consent, tap Continue, type name, tap category.
+ *
+ * The old 8-field form is gone; email/name/slug are auto-derived server-side
+ * (auth.ts register fallbacks). Auth token mechanics unchanged (cookies).
+ */
 import React, { useEffect, useRef, useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { Check } from 'lucide-react';
-import { AuthShell, Field, Submit, Flash, Input, PasswordInput } from '../components/AuthShell';
-import zxcvbn from 'zxcvbn';
+import { Link } from 'react-router-dom';
+import { Check, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { AuthShell, Field, Flash, Input } from '../components/AuthShell';
+import { FirstShareHero } from '../components/FirstShareHero';
+import { InstantEmpireAnimation } from '../components/InstantEmpireAnimation';
+import { authFetch } from '../lib/api';
 
 export const PHONE_REGEX = /^\+251\d{9}$/;
 export const PHONE_ERROR_MESSAGE = 'Enter a valid Ethiopian phone number (+251XXXXXXXXX)';
 
 const STRENGTH_LABELS = ['WEAK', 'FAIR', 'GOOD', 'STRONG', 'STRONG'];
 
+/** Four categories, ≥72px touch targets, Amharic-first labels. */
+const CATEGORIES = [
+  { value: 'Salon', am: 'ሳሎን', en: 'Salon & Spa' },
+  { value: 'Clinic', am: 'ክሊኒክ', en: 'Clinic' },
+  { value: 'Pharmacy', am: 'ፋርማሲ', en: 'Pharmacy' },
+  { value: 'Other', am: 'ሌላ', en: 'Other business' },
+];
+
+type Screen = 'account' | 'business' | 'share';
+
+interface ProvisionStatus {
+  steps: Array<{ step: string; done: boolean }>;
+  generationComplete?: boolean;
+  confirmedHours?: boolean;
+}
+
+/** Generation steps only — hoursConfirmed is deliberately NOT a gate here. */
+const GENERATION_STEPS = ['page', 'services', 'staff', 'hours'];
+
 export function Register() {
-  const navigate = useNavigate();
-  const [formData, setFormData] = useState({
-    name: '', email: '', phone: '', password: '',
-    businessName: '', slug: '', city: '', consent: false,
-  });
-  const [error, setError] = useState('');
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  const [slugStatus, setSlugStatus] = useState<'idle' | 'checking' | 'available' | 'unavailable'>('idle');
-  const [loading, setLoading] = useState(false);
+  // ── Screen 1 state ──
+  const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(true); // default-ON per P2.4
+  const [consent, setConsent] = useState(false);
+  const [phoneError, setPhoneError] = useState('');
   const [passwordStrength, setPasswordStrength] = useState<{ score: number; feedback: string[] } | null>(null);
-  const [settled, setSettled] = useState(false);
-  const navTimer = useRef<number | null>(null);
 
-  useEffect(() => () => { if (navTimer.current) window.clearTimeout(navTimer.current); }, []);
+  // ── Screen 2 state ──
+  const [businessName, setBusinessName] = useState('');
+  const [category, setCategory] = useState<string | null>(null);
 
-  const validate = () => {
-    const errors: Record<string, string> = {};
-    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      errors.email = 'Please enter a valid email address';
-    }
-    if (formData.phone && !PHONE_REGEX.test(formData.phone.trim())) {
-      errors.phone = PHONE_ERROR_MESSAGE;
-    }
-    if (slugStatus === 'unavailable') {
-      errors.slug = 'This URL is not available';
-    }
-    // Validate password strength
-    if (formData.password) {
-      const result = zxcvbn(formData.password);
-      setPasswordStrength({ score: result.score, feedback: [...result.feedback.suggestions, ...(result.feedback.warning ? [result.feedback.warning] : [])] });
-      if (result.score < 2) {
-        errors.password = 'Password is too weak. Please use a stronger password.';
-      }
+  // ── Flow state ──
+  const [screen, setScreen] = useState<Screen>('account');
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [slug, setSlug] = useState<string>('');
+  const [provisionSteps, setProvisionSteps] = useState<ProvisionStatus['steps']>([]);
+  const [provisionFailed, setProvisionFailed] = useState(false);
+  const [garnishDone, setGarnishDone] = useState(false);
+  const zxcvbnRef = useRef<typeof import('zxcvbn') | null>(null);
+
+  /**
+   * Overdrive A: screens MORPH via the View Transitions API — the old view
+   * fades up and out while the new one settles in. Feature-detected with an
+   * instant-swap fallback (jsdom, old browsers); reduced-motion users get
+   * neither animation (the CSS layer also guards).
+   */
+  function goTo(next: Screen) {
+    const reduce = typeof window !== 'undefined'
+      && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    const doc = document as Document & { startViewTransition?: (cb: () => void) => void };
+    if (!reduce && typeof doc.startViewTransition === 'function') {
+      doc.startViewTransition(() => setScreen(next));
     } else {
-      setPasswordStrength(null);
+      setScreen(next);
     }
-    setFieldErrors(errors);
-    setError('');
-    return Object.keys(errors).length === 0;
-  };
+  }
 
-  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const password = e.target.value;
-    setFormData((prev) => ({ ...prev, password }));
-    if (!password) {
+  useEffect(() => {
+    // Lazy-load zxcvbn so Screen 1 paints fast on 3G phones.
+    import('zxcvbn').then((mod) => { zxcvbnRef.current = mod.default; }).catch(() => {});
+    return () => { /* no timers held */ };
+  }, []);
+
+  function handlePhoneChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const value = e.target.value;
+    setPhone(value);
+    if (value && !PHONE_REGEX.test(value.trim())) {
+      setPhoneError(PHONE_ERROR_MESSAGE);
+    } else {
+      setPhoneError('');
+    }
+  }
+
+  function handlePasswordChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const value = e.target.value;
+    setPassword(value);
+    if (!value || !zxcvbnRef.current) {
       setPasswordStrength(null);
       return;
     }
-    const result = zxcvbn(password);
+    const result = zxcvbnRef.current(value);
     setPasswordStrength({
       score: result.score,
       feedback: [...result.feedback.suggestions, ...(result.feedback.warning ? [result.feedback.warning] : [])],
     });
-  };
+  }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  function handleAccountNext(e: React.FormEvent) {
     e.preventDefault();
-    if (!validate()) return;
-    if (!formData.consent) { setError('You must agree to the Privacy Policy and Terms of Service to register.'); return; }
-    setLoading(true);
-    try {
-      const res = await fetch('/api/auth/register', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formData)
-      });
-      const data = await res.json();
-      if (res.ok) {
-        if (data.tenantId) localStorage.setItem('tenantId', data.tenantId);
-        if (data.tenant?.slug) localStorage.setItem('tenantSlug', data.tenant.slug);
-        if (data.role) localStorage.setItem('role', data.role);
-        localStorage.setItem('isSuperadmin', data.isSuperadmin ? 'true' : 'false');
-        setSettled(true);
-        navTimer.current = window.setTimeout(() => navigate('/setup'), 560);
-      } else { setError(data.error || 'Failed to register'); }
-    } catch { setError('Network error'); }
-    finally { setLoading(false); }
-  };
-
-  const handleSlugCheck = async (slug: string) => {
-    if (!slug) {
-      setSlugStatus('idle');
-      setFieldErrors((prev) => ({ ...prev, slug: '' }));
+    setError('');
+    if (!PHONE_REGEX.test(phone.trim())) {
+      setPhoneError(PHONE_ERROR_MESSAGE);
       return;
     }
-    setSlugStatus('checking');
-    try {
-      const res = await fetch('/api/auth/check-slug', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ slug }) });
-      const data = await res.json();
-      if (!data.available) {
-        setSlugStatus('unavailable');
-        setFieldErrors((prev) => ({ ...prev, slug: data.error || 'This URL is not available' }));
-      } else {
-        setSlugStatus('available');
-        setFieldErrors((prev) => ({ ...prev, slug: '' }));
-      }
-    } catch (err) {
-      setSlugStatus('idle');
-      console.error(err);
+    if (!consent) {
+      setError('You must agree to the Privacy Policy and Terms of Service.');
+      return;
     }
-  };
+    goTo('business');
+  }
 
-  const set = (key: keyof typeof formData) => (e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, [key]: e.target.value });
+  async function handleCategoryPick(value: string) {
+    if (submitting) return;
+    setCategory(value);
+    await submitRegistration(value);
+  }
+
+  /**
+   * Provision (idempotent — safe to retry) then fetch status. A failure
+   * lands in an honest error state with a Retry action; it never leaves the
+   * owner staring at fake progress rows.
+   */
+  async function runProvision(chosenCategory: string, tenantName?: string) {
+    setError('');
+    setProvisionFailed(false);
+    try {
+      await authFetch('/api/tenant/provision', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ businessName: tenantName, category: chosenCategory }),
+      });
+      const status = await authFetch('/api/tenant/provision/status');
+      if (!status.ok) throw new Error('status failed');
+      const body: ProvisionStatus = await status.json();
+      setProvisionSteps(body.steps ?? []);
+      if (!body.generationComplete && (body.steps ?? []).length === 0) {
+        // Endpoint reachable but reported nothing — treat as failure so the
+        // owner gets a Retry instead of a frozen spinner list.
+        setProvisionFailed(true);
+      }
+    } catch {
+      setProvisionSteps([]);
+      setProvisionFailed(true);
+    }
+  }
+
+  async function submitRegistration(chosenCategory: string) {
+    setError('');
+    setSubmitting(true);
+    try {
+      // Minimal payload — the server derives email/name/slug (P2.4 contract).
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: phone.trim(),
+          password,
+          consent: true,
+          businessName: businessName.trim(),
+          category: chosenCategory,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'Failed to register');
+        setSubmitting(false);
+        setCategory(null);
+        return;
+      }
+
+      if (data.tenantId) localStorage.setItem('tenantId', data.tenantId);
+      if (data.tenant?.slug) localStorage.setItem('tenantSlug', data.tenant.slug);
+      if (data.role) localStorage.setItem('role', data.role);
+      localStorage.setItem('isSuperadmin', data.isSuperadmin ? 'true' : 'false');
+      setSlug(data.tenant?.slug ?? '');
+
+      // Provision immediately — generation runs while Screen 3 shows progress.
+      goTo('share'); // honest staged view first
+      await runProvision(chosenCategory, data.tenant?.name);
+      setSubmitting(false);
+    } catch {
+      setError('Network error. Please try again.');
+      setSubmitting(false);
+      setCategory(null);
+    }
+  }
+
+  // ── Screen 3: staged generation + share hero ──
+  if (screen === 'share') {
+    // P2.4 reopen (A1): the Share Hero gate is GENERATION completion only.
+    // `hoursConfirmed` stays false at this point by design (P2.6 mandatory
+    // gate) and must never block reaching the Share Hero. Server-side
+    // generationComplete is authoritative; the step-list derivation is a
+    // compat fallback for older payloads.
+    const generationDone = provisionSteps.length > 0 && (
+      provisionSteps
+        .filter((s) => GENERATION_STEPS.includes(s.step))
+        .every((s) => s.done)
+    );
+    const allDone = generationDone;
+    return (
+      <>
+        {/* Garnish only: skippable after 800ms, unmounts itself when done. */}
+        {!garnishDone && (
+          <InstantEmpireAnimation
+            businessName={businessName}
+            onComplete={() => setGarnishDone(true)}
+          />
+        )}
+        <AuthShell
+          formCode="FORM EGB-01 · YOUR SITE"
+          title="Your site is being built"
+          amTitle="ጣቢያዎ እየተሠራ ነው"
+          lede={<p>Honest progress — nothing here is fake.</p>}
+        >
+          {provisionFailed ? (
+            /* A3: honest dead-end replacement — retry, no fake progress. */
+            <div data-testid="provision-error" role="alert">
+              <p className="text-sm text-ink mb-1">
+                ጣቢያዎን ማስፈጠር አልተቻለም። · We couldn't finish building your site.
+              </p>
+              <p className="text-sm text-ink-soft mb-4">
+                እባክዎ እንደገና ይሞክሩ — Your work so far is safe.
+              </p>
+              <button
+                type="button"
+                data-testid="provision-retry"
+                onClick={() => { setSubmitting(true); void runProvision(category ?? 'Other'); }}
+                disabled={submitting}
+                className="w-full rounded-md bg-[var(--color-primary)] px-4 py-3 font-semibold text-white transition-opacity duration-200 hover:opacity-90 disabled:opacity-60"
+              >
+                እንደገና ይሞክሩ · Retry
+              </button>
+            </div>
+          ) : !allDone ? (
+            <div>
+              {/* Truthful counter — waiting becomes information, not cinema. */}
+              <p
+                className="mb-3"
+                style={{ fontFamily: 'var(--font-mono)', fontSize: '0.72rem', letterSpacing: '0.05em', color: 'var(--color-ink-soft)' }}
+                data-testid="generation-counter"
+              >
+                {provisionSteps.filter((s) => GENERATION_STEPS.includes(s.step) && s.done).length}/4 READY
+              </p>
+              <ul className="space-y-2 py-2" aria-live="polite" data-testid="generation-steps">
+                {(provisionSteps.length > 0
+                  ? provisionSteps.filter((s) => GENERATION_STEPS.includes(s.step))
+                  : [
+                      { step: 'page', done: false },
+                      { step: 'services', done: false },
+                      { step: 'staff', done: false },
+                      { step: 'hours', done: false },
+                    ]
+                ).map((s) => (
+                  <li key={s.step} className="flex items-center gap-3 text-sm">
+                    {s.done
+                      ? <Check className="h-4 w-4 text-primary-deep" />
+                      : <Loader2 className="h-4 w-4 animate-spin text-ink-soft" />}
+                    <span className={s.done ? 'text-ink' : 'text-ink-soft'}>
+                      {{
+                        page: 'ገጽዎ ተፈጥሯል · Site generated',
+                        services: 'አገልግሎቶች ታክለዋል · Services added',
+                        staff: 'ሠራተኛ ተዘጋጅቷል · Staff ready',
+                        hours: 'ሰዓታት ተዘጋጅተዋል · Hours drafted',
+                        hoursConfirmed: 'ሰዓታት ተረጋግጠዋል · Hours confirmed',
+                      }[s.step] ?? s.step}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              {/* Hours confirmation is intentionally NOT on this list's gate:
+                  it happens once, from the dashboard, before the site goes
+                  live (P2.6). Shown here so the pending state isn't a lie. */}
+              <p className="pt-2 text-xs text-ink-soft" data-testid="hours-pending-note">
+                ሰዓታትዎን ከዚያ ከዳሽቦርዱ ያረጋግጡ · You'll confirm your hours next, from your dashboard.
+              </p>
+            </div>
+          ) : (
+            <FirstShareHero businessName={businessName} slug={slug} />
+          )}
+        </AuthShell>
+      </>
+    );
+  }
 
   return (
     <AuthShell
       formCode="FORM EGB-01 · OWNER REGISTRATION"
-      title="Create your Egebeya account"
-      amTitle="መለያ ይፍጠሩ"
+      title={screen === 'account' ? 'Create your Egebeya account' : 'Tell us about your business'}
+      amTitle={screen === 'account' ? 'መለያ ይፍጠሩ' : 'ስለ ንግድዎ ይንገሩን'}
       lede={
-        <>
-          <p>Set up your business website in minutes. Fill in the details below to get your booking form live.</p>
-          <p className="mt-4">Already registered? <Link to="/login" style={{ color: 'var(--color-primary)', textDecoration: 'underline', textUnderlineOffset: 2 }}>Sign in</Link></p>
-        </>
+        screen === 'account' ? (
+          <>
+            <p>Your website in minutes — three short screens.</p>
+            <p className="mt-4">Already registered? <Link to="/login" style={{ color: 'var(--color-primary)', textDecoration: 'underline', textUnderlineOffset: 2 }}>Sign in</Link></p>
+          </>
+        ) : (
+          <p>Pick what your business does — we build the site for you.</p>
+        )
       }
     >
       {error && <Flash kind="error">{error}</Flash>}
-      <form onSubmit={handleSubmit} style={{ fontFamily: 'var(--font-body)' }}>
-        <Field index="፩" id="name" labelText="Full Name" amHint="ሙሉ ስም">
-          <Input id="name" type="text" required value={formData.name} onChange={set('name')}
-            placeholder="e.g. Abebe Kebede" autoComplete="name" />
-        </Field>
-        <Field index="፪" id="phone" labelText="Phone Number" amHint="ስልክ" helper="Format: +251 followed by 9 digits" error={fieldErrors.phone}>
-          <Input id="phone" type="tel" required value={formData.phone} onChange={set('phone')}
-            placeholder="+251911234567" autoComplete="tel" error={!!fieldErrors.phone}
-            onBlur={() => { validate(); }} />
-        </Field>
-        <Field index="፫" id="email" labelText="Email" amHint="ኢሜይል" helper="Used for password recovery" error={fieldErrors.email}>
-          <Input id="email" type="email" required value={formData.email} onChange={set('email')}
-            placeholder="you@example.com" autoComplete="email" error={!!fieldErrors.email}
-            onBlur={() => { validate(); }} />
-        </Field>
-        <Field index="፬" id="businessName" labelText="Business Name" amHint="የንግድ ስም">
-          <Input id="businessName" type="text" required value={formData.businessName} onChange={set('businessName')}
-            placeholder="e.g. Lux Nails & Spa" autoComplete="organization" />
-        </Field>
-        <Field index="፭" id="slug" labelText="Website URL (Subdomain)" amHint="ድረ-ገጽ" helper="mybusiness.egebeya.et" error={fieldErrors.slug}>
-          <div className={slugStatus === 'unavailable' ? 'field-slug has-error' : 'field-slug'}>
-            <input
-              id="slug"
+
+      {screen === 'account' && (
+        <form onSubmit={handleAccountNext} style={{ fontFamily: 'var(--font-body)' }}>
+          <Field index="፩" id="phone" labelText="Phone Number" amHint="ስልክ" helper="Format: +251 followed by 9 digits" error={phoneError}>
+            <Input id="phone" type="tel" required value={phone} onChange={handlePhoneChange}
+              placeholder="+251911234567" autoComplete="tel" inputMode="tel" error={!!phoneError} />
+          </Field>
+
+          <Field index="፪" id="password" labelText="Password" amHint="የይለፍ ቃል" helper="At least 6 characters">
+            <div className="relative">
+              {/* Show-password is DEFAULT-ON (P2.4) — typing confidence on one phone. */}
+              <Input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                required
+                value={password}
+                onChange={handlePasswordChange}
+                placeholder="Choose a password"
+                autoComplete="new-password"
+                style={{ paddingRight: '2.75rem' }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                className="absolute right-2 top-1/2 -translate-y-1/2"
+                style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--color-ink-soft)', padding: 0, display: 'inline-flex' }}
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+            {passwordStrength && (
+              <div className="mt-3" aria-live="polite">
+                <div className="flex items-center gap-2">
+                  <div className="flex flex-1 gap-1" role="meter" aria-valuemin={0} aria-valuemax={4} aria-valuenow={passwordStrength.score} aria-label="Password strength">
+                    {[0, 1, 2, 3].map((level) => {
+                      const active = level <= passwordStrength.score;
+                      const weak = passwordStrength.score < 2;
+                      return (
+                        <span
+                          key={level}
+                          className="flex-1"
+                          style={{
+                            height: 3,
+                            backgroundColor: active
+                              ? weak ? 'var(--color-accent)' : 'var(--color-primary)'
+                              : 'var(--color-ink-rule)',
+                            transition: 'background-color 120ms ease-out',
+                          }}
+                        />
+                      );
+                    })}
+                  </div>
+                  <span
+                    className="stamp"
+                    style={{
+                      color: passwordStrength.score < 2 ? 'var(--color-accent)' : 'var(--color-primary)',
+                      borderColor: passwordStrength.score < 2 ? 'var(--color-accent)' : 'var(--color-primary)',
+                    }}
+                  >
+                    {STRENGTH_LABELS[passwordStrength.score]}
+                  </span>
+                </div>
+              </div>
+            )}
+          </Field>
+
+          <Field index="፫" id="consent" labelText="Consent" amHint="ስምምነት">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                id="consent"
+                type="checkbox"
+                required
+                checked={consent}
+                onChange={(e) => setConsent(e.target.checked)}
+                className="h-6 w-6 mt-0.5 rounded"
+                style={{ accentColor: 'var(--color-primary)', flexShrink: 0 }}
+              />
+              <div>
+                <div style={{ fontFamily: 'var(--font-body)', fontSize: '0.95rem', lineHeight: 1.5, color: 'var(--color-ink)' }}>
+                  I agree to the{' '}
+                  <Link to="/privacy" target="_blank" style={{ color: 'var(--color-link)', textDecoration: 'underline', textUnderlineOffset: 2 }}>Privacy Policy</Link>{' '}
+                  and{' '}
+                  <Link to="/terms" target="_blank" style={{ color: 'var(--color-link)', textDecoration: 'underline', textUnderlineOffset: 2 }}>Terms of Service</Link>.
+                </div>
+              </div>
+            </label>
+          </Field>
+
+          <div style={{ padding: '1rem 1.25rem' }}>
+            <button
+              type="submit"
+              data-testid="continue-btn"
+              className="w-full rounded-md bg-[var(--color-primary)] px-4 py-3.5 font-semibold text-white transition-opacity duration-200 hover:opacity-90 disabled:opacity-60"
+            >
+              ቀጥል · Continue
+            </button>
+          </div>
+        </form>
+      )}
+
+      {screen === 'business' && (
+        <div style={{ fontFamily: 'var(--font-body)' }}>
+          <Field index="፩" id="businessName" labelText="Business Name" amHint="የንግድ ስም">
+            <Input
+              id="businessName"
               type="text"
               required
-              value={formData.slug}
-              onChange={e => setFormData({ ...formData, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })}
-              onBlur={() => handleSlugCheck(formData.slug)}
-              placeholder="mybusiness"
+              value={businessName}
+              onChange={(e) => setBusinessName(e.target.value)}
+              placeholder="e.g. Lux Nails & Spa"
               autoComplete="organization"
-              className="slug-input"
-              aria-invalid={slugStatus === 'unavailable'}
+              autoFocus
             />
-            <span className="field-slug__suffix">.egebeya.et</span>
+          </Field>
+
+          <div className="mt-2" role="radiogroup" aria-label="Business category · የንግድ አይነት">
+            <p className="mb-2" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.72rem', letterSpacing: '0.05em', color: 'var(--color-ink-soft)' }}>
+              PICK ONE · አንዱን ይምረጡ
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              {CATEGORIES.map((c) => {
+                const selected = category === c.value;
+                return (
+                  <button
+                    key={c.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    disabled={submitting}
+                    data-testid={`category-${c.value}`}
+                    onClick={() => handleCategoryPick(c.value)}
+                    className="flex min-h-[76px] flex-col items-center justify-center gap-1 rounded-xl border-2 bg-paper-raised transition-colors duration-200 disabled:opacity-50"
+                    style={{
+                      borderColor: selected ? 'var(--color-primary)' : 'var(--color-ink-rule)',
+                      backgroundColor: selected ? 'rgba(15,169,88,0.08)' : undefined,
+                    }}
+                  >
+                    <span className="text-lg font-bold text-ink">{c.am}</span>
+                    <span className="text-xs text-ink-soft">{c.en}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
-          {slugStatus === 'checking' && (
-            <p className="mt-2 m-0" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--color-ink-soft)' }}>
-              Checking availability…
+
+          {submitting && (
+            <p className="mt-4 flex items-center justify-center gap-2 text-sm text-ink-soft" aria-live="polite">
+              <Loader2 className="h-4 w-4 animate-spin" /> Building your empire…
             </p>
           )}
-          {slugStatus === 'available' && (
-            <p
-              className="mt-2 m-0 inline-flex items-center gap-1.5 px-2 py-0.5"
-              style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: '0.72rem',
-                color: 'var(--color-primary)',
-                border: '1px dashed var(--color-primary)',
-                letterSpacing: '0.05em',
-              }}
+
+          <div style={{ padding: '1rem 1.25rem' }}>
+            <button
+              type="button"
+              onClick={() => goTo('account')}
+              className="w-full text-center text-sm text-ink-soft underline underline-offset-2"
             >
-              <Check size={12} />
-              <span>This URL is available</span>
-            </p>
-          )}
-        </Field>
-        <Field index="፮" id="city" labelText="City" amHint="ከተማ" helper="Shown on the public directory. You can change it later.">
-          <Input id="city" type="text" value={formData.city} onChange={set('city')} placeholder="e.g. Addis Ababa" autoComplete="address-line1" />
-        </Field>
-        <Field index="፯" id="password" labelText="Password" amHint="የይለፍ ቃል" helper="At least 6 characters" error={fieldErrors.password}>
-          <PasswordInput id="password" type="password" required value={formData.password} onChange={handlePasswordChange}
-            placeholder="Choose a password" autoComplete="new-password" />
-          {passwordStrength && (
-            <div className="mt-3" aria-live="polite">
-              <div className="flex items-center gap-2">
-                <div className="flex flex-1 gap-1" role="meter" aria-valuemin={0} aria-valuemax={4} aria-valuenow={passwordStrength.score} aria-label="Password strength">
-                  {[0, 1, 2, 3].map((level) => {
-                    const active = level <= passwordStrength.score;
-                    const weak = passwordStrength.score < 2;
-                    return (
-                      <span
-                        key={level}
-                        className="flex-1"
-                        style={{
-                          height: 3,
-                          backgroundColor: active
-                            ? weak ? 'var(--color-accent)' : 'var(--color-primary)'
-                            : 'var(--color-ink-rule)',
-                          transition: 'background-color 120ms ease-out',
-                        }}
-                      />
-                    );
-                  })}
-                </div>
-                <span
-                  className="stamp"
-                  style={{
-                    color: passwordStrength.score < 2 ? 'var(--color-accent)' : 'var(--color-primary)',
-                    borderColor: passwordStrength.score < 2 ? 'var(--color-accent)' : 'var(--color-primary)',
-                  }}
-                >
-                  {STRENGTH_LABELS[passwordStrength.score]}
-                </span>
-              </div>
-              {passwordStrength.feedback.length > 0 && (
-                <p className="mt-2 m-0" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem', color: 'var(--color-ink-soft)', letterSpacing: '0.04em' }}>
-                  {passwordStrength.feedback.join(' · ')}
-                </p>
-              )}
-            </div>
-          )}
-        </Field>
-        <Field index="፰" id="consent" labelText="Consent" amHint="ስምምነት" helper="Required to create your account">
-          <label className="flex items-start gap-3 cursor-pointer">
-            <input id="consent" type="checkbox" required checked={formData.consent}
-              onChange={e => setFormData({ ...formData, consent: e.target.checked })}
-              className="h-5 w-5 mt-0.5 rounded" style={{ accentColor: 'var(--color-primary)', flexShrink: 0 }} />
-            <div>
-              <div style={{ fontFamily: 'var(--font-body)', fontSize: '0.95rem', lineHeight: 1.5, color: 'var(--color-ink)' }}>
-                I agree to the{' '}
-                <Link to="/privacy" target="_blank" style={{ color: 'var(--color-link)', textDecoration: 'underline', textUnderlineOffset: 2 }}>Privacy Policy</Link>{' '}
-                and{' '}
-                <Link to="/terms" target="_blank" style={{ color: 'var(--color-link)', textDecoration: 'underline', textUnderlineOffset: 2 }}>Terms of Service</Link>.
-              </div>
-              <div className="mt-1" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem', color: 'var(--color-ink-soft)', letterSpacing: '0.04em' }}>
-                Your consent is recorded with a timestamp. You can request data export at any time.
-              </div>
-            </div>
-          </label>
-        </Field>
-        <div style={{ padding: '1rem 1.25rem' }}>
-          <Submit loading={loading || !!error} stamping={settled}>
-            {settled ? 'REGISTERED · ተመዝግቧል ✓' : loading ? 'Creating account...' : 'Start 14-day free trial'}
-          </Submit>
+              ← Back
+            </button>
+          </div>
         </div>
-      </form>
+      )}
     </AuthShell>
   );
 }

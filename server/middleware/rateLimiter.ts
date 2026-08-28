@@ -131,6 +131,58 @@ export const otpLimiter = rateLimit({
 });
 
 /**
+ * Consumer identity-lite surface (P3.4): request-code / verify /
+ * data-deletion. Public, phone-keyed, and therefore a brute-force +
+ * enumeration target — held to the same budget as auth surfaces.
+ * Every trigger lands in security_events like the booking limiter.
+ */
+export const consumerLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: isTestEnv,
+  message: {
+    error: 'Too many attempts, please try again later.',
+    code: 'RATE_LIMITED_CONSUMER',
+  },
+  handler: (req, res, _next, options) => {
+    logSecurityEvent({
+      type: 'rate_limit',
+      ip: ipFromRequest(req),
+      details: { surface: 'consumer', path: req.path, message: options.message },
+    });
+    res.status(429).json(options.message);
+  },
+});
+
+/**
+ * Consumer queue-status board (P4.3). Public, polled every ≤15s per waiting
+ * customer, keyed by an opaque booking token. 120 req / 10 min / IP leaves a
+ * real poller generous headroom (4 boards × 15s) while choking scrapers
+ * sweeping opaque ids. Every trigger lands in security_events.
+ */
+export const queueStatusLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: isTestEnv,
+  message: {
+    error: 'Too many requests, please slow down.',
+    code: 'RATE_LIMITED_QUEUE_STATUS',
+  },
+  handler: (req, res, _next, options) => {
+    logSecurityEvent({
+      type: 'rate_limit',
+      ip: ipFromRequest(req),
+      details: { surface: 'queue_status', path: req.path, message: options.message },
+    });
+    res.status(429).json(options.message);
+  },
+});
+
+/**
  * Booking endpoint (POST /api/public/bookings) — the most attractive
  * public-side abuse target: every hit creates a row in the DB and (when
  * the tenant requires it) initiates a real Chapa charge. 30 submissions

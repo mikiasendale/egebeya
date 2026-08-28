@@ -62,6 +62,11 @@ export function requireSuperadmin() {
       return res.status(401).json({ error: 'Invalid token' });
     }
 
+    // Audience confusion guard (P3.4) — same rule as requireAuth.
+    if (payload?.aud === 'consumer') {
+      return res.status(403).json({ error: 'Wrong token audience' });
+    }
+
     if (!payload?.userId) {
       return res.status(401).json({ error: 'Invalid token' });
     }
@@ -103,6 +108,13 @@ export function requireAuth(options: AuthOptions = {}) {
       payload = jwt.verify(token, jwtSecret());
     } catch {
       return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    // Audience confusion guard (P3.4): consumer JWTs carry aud:'consumer'
+    // and are verified by requireConsumerAuth only — a consumer token must
+    // never open merchant surfaces.
+    if (payload?.aud === 'consumer') {
+      return res.status(403).json({ error: 'Wrong token audience' });
     }
 
     if (!payload?.userId) {

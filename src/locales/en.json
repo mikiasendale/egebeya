@@ -236,7 +236,8 @@
     "reference": "Reference",
     "newDateTime": "New date & time (Addis Ababa)",
     "reschedule": "Reschedule",
-    "cancel": "Cancel booking"
+    "cancel": "Cancel booking",
+    "stampConfirmed": "ተመዝግቧል"
   },
   "publicTenant": {
     "loading": "LOADING",
@@ -350,6 +351,224 @@
     "newBookingBannerAt": "at",
     "noBookingsToday": "No bookings today yet.",
     "shopServices": "Services",
-    "shopStaff": "Staff"
+    "shopStaff": "Staff",
+    "billing": {
+      "title": "Billing & Plan",
+      "foundingLocked": "Founding rate locked",
+      "foundingLockedHint": "Your founding rate is locked until {{date}}",
+      "valueFrame": "{{count}} bookings this month — Pro already pays for itself",
+      "valueFrameOne": "1 booking this month",
+      "paymentPending": "Payment pending — this page updates automatically once Chapa confirms your payment",
+      "upgrade": "Upgrade to Pro — {{price}} ETB/month",
+      "renew": "Renew Pro — {{price}} ETB",
+      "cycleMonthly": "Monthly",
+      "cycleQuarterly": "Quarterly (5% off)",
+      "cycleAnnual": "Annual · 10-for-12",
+      "cycleNote": "You'll be redirected to a secure Chapa checkout. Cancel anytime.",
+      "totalToday": "Total today"
+    },
+    "funnel": {
+      "title": "Activation funnel",
+      "subtitle": "Weekly stage conversion + north-star",
+      "northStar": "North-star — weekly confirmed bookings per billing-active tenant",
+      "churn": "Monthly logo churn (guardrail ≤5%)",
+      "week": "Week",
+      "generated": "Sites generated",
+      "hoursConfirmed": "Hours confirmed",
+      "shared": "Shared",
+      "firstBooking": "First booking",
+      "invoicePaid": "First invoice paid",
+      "quietFillRate": "Quiet-hours fill rate",
+      "slots": "slots",
+      "quietFillRateOff": "not enabled — no tenant has switched it on yet"
+    }
+  },
+  "privacy": {
+    "back": "Back to Egebeya",
+    "title": "Privacy Policy",
+    "updated": "Last updated",
+    "law": "Prepared for PDPL 1321/2024",
+    "sections": [
+      {
+        "heading": "1. Information We Collect",
+        "body": "When a business registers we collect the owner's name, phone number, email and business details. When you make a booking we collect your name and phone number (normalized to +2519xxxxxxxx), plus an optional email address. Your consumer profile is keyed by phone."
+      },
+      {
+        "heading": "2. Telegram Messaging Consent",
+        "body": "You opt in to Telegram messages by tapping \"ማስታወሻ በ Telegram\" on your booking confirmation and pressing Start in our bot — that tap records your consent with a timestamp. We then send booking confirmations and reminders to that chat. The bot can never message you first; every flow starts from you. Withdraw anytime by blocking the bot or writing STOP."
+      },
+      {
+        "heading": "3. Marketing Consent",
+        "body": "Businesses may only send you promotions if you ticked the marketing-consent box at booking time or opted in through their customer list. The consent moment is timestamped. Opt out via STOP on any message or directly with the business."
+      },
+      {
+        "heading": "4. Loyalty Tracking & Data Use",
+        "body": "Your completed visits are counted per business, keyed by phone, to power punch-card rewards. Your data is stored securely and is never sold for marketing."
+      },
+      {
+        "heading": "5. Data Deletion Rights",
+        "body": "You may request deletion of your data at any time via POST /api/consumer/data-deletion (or by emailing support@egebeya.et). Requests are logged and acknowledged immediately, and fulfilled within 30 days."
+      }
+    ],
+    "contactHeading": "6. Contact",
+    "contactBody": "Questions about this policy? Reach us at"
+  },
+  "terms": {
+    "back": "Back to Egebeya",
+    "title": "Terms of Service",
+    "updated": "Last updated",
+    "sections": [
+      {
+        "heading": "1. Acceptance of Terms",
+        "body": "By registering for and using Egebeya you agree to these Terms of Service. If you do not agree, you may not use the service."
+      },
+      {
+        "heading": "2. Description of Service",
+        "body": "Egebeya provides an online booking platform connecting customers with service businesses. We facilitate bookings and payments but are not a party to the service agreement between businesses and customers."
+      },
+      {
+        "heading": "3. User Obligations",
+        "body": "You agree to provide accurate information, keep your credentials confidential, and use the service in compliance with applicable laws."
+      },
+      {
+        "heading": "4. Consumer Accounts & Telegram",
+        "body": "Consumer accounts are keyed by phone; login codes arrive over Telegram after you opt in via \"ማስታወሻ በ Telegram\". You may withdraw messaging consent at any time."
+      },
+      {
+        "heading": "5. Loyalty Rewards",
+        "body": "Punch-card rewards are merchant-funded: a reward equals a discount applied to a future booking payment, never cash."
+      },
+      {
+        "heading": "6. Limitation of Liability",
+        "body": "Egebeya shall not be liable for any indirect, incidental, or consequential damages arising from use of the service."
+      }
+    ],
+    "contactHeading": "7. Contact",
+    "contactBody": "For questions about these terms, contact"
+  },
+  "settings": {
+    "siteLiveTitle": "Your site is now live",
+    "siteLiveBody": "Hours confirmed — customers can start booking.",
+    "retryTitle": "We couldn't finish building your site",
+    "hoursPendingNote": "You'll confirm your hours next, from your dashboard",
+    "quietHours": {
+      "title": "Quiet hours",
+      "subtitle": "Offer a discount during slow day-parts.",
+      "enableLabel": "Enable quiet-hours discount",
+      "start": "Starts",
+      "end": "Ends",
+      "percent": "Discount (%)",
+      "save": "Save",
+      "saving": "Saving…",
+      "savedOn": "Quiet-hours discount enabled",
+      "savedOff": "Quiet-hours discount disabled",
+      "savedOffBody": "Customers pay full price again.",
+      "saveFailed": "Couldn't save the discount",
+      "networkError": "Network error — please retry."
+    }
+  },
+  "common": {
+    "loading": "Loading"
+  },
+  "queue": {
+    "title": "Today's queue",
+    "waitingLabel": "waiting",
+    "minUnit": "min",
+    "serving": "Serving",
+    "waiting": "Waiting",
+    "callBtn": "Next · አሳውቅ",
+    "doneBtn": "Done · ጨርስ",
+    "callAria": "Call the next customer",
+    "doneAria": "Mark service complete",
+    "emptyTitle": "The queue is empty.",
+    "emptyBody": "Walk-ins and Egebeya bookings appear here as they arrive.",
+    "loadFailed": "We couldn't load the queue.",
+    "retry": "Retry",
+    "advanceFailedTitle": "That tap didn't stick",
+    "advanceFailedBody": "Check your connection and tap again — the queue is safe.",
+    "positionLabel": "Position {{position}}"
+  },
+  "queueStatus": {
+    "yourTicket": "Your number",
+    "yourTurn": "ተራዎ ደርሷል!",
+    "done": "All done",
+    "doneBody": "Thanks for coming — see you next time.",
+    "expired": "Ticket not found",
+    "expiredBody": "This ticket belongs to a booking. Please check with the business.",
+    "almostThere": "Almost there",
+    "inLine": "in line",
+    "footer": "Egebeya · Addis time",
+    "trackLink": "Track your spot",
+    "yourTurnEn": "It's your turn"
+  },
+  "consumerBookings": {
+    "title": "My bookings",
+    "signInPrompt": "No consumer session yet. Sign in with your phone number.",
+    "signInLink": "Sign in · ይግቡ",
+    "punchCard": "Punch card",
+    "visits": "visits",
+    "rewardReady": "Reward ready — your next booking gets a discount!",
+    "rewardHint": "{{remaining}} more visits until your next reward."
+  },
+  "blockGallery": {
+    "title": "Your page blocks",
+    "add": "Add block",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "remove": "Remove block",
+    "addSheetTitle": "Pick a block",
+    "savedTitle": "Saved",
+    "savedBody": "Your page now renders in this order.",
+    "invalidTitle": "That change was rejected",
+    "invalidBody": "The edit failed document validation and was not saved.",
+    "loadFailedTitle": "Couldn't load your page",
+    "loadFailedBody": "Please try again.",
+    "saveFailedTitle": "Save failed",
+    "saveFailedBody": "Check your connection and retry."
+  },
+  "velvet": {
+    "sheetTitle": "What Pro unlocks",
+    "valueScene": "You took {{count}} bookings this month",
+    "perkCustomDomain": "Your own domain (yourshop.et)",
+    "perkCodeMode": "Code mode — full HTML control",
+    "perkStaff": "Unlimited staff seats",
+    "priceLabel": "Monthly",
+    "priceValue": "1000 ETB",
+    "upgradeCta": "Go Pro · Upgrade"
+  },
+  "quietHoursBadge": {
+    "label": "Quiet −{{percent}}%",
+    "tooltip": "{{percent}}% off during quiet hours — the discounted price applies at booking."
+  },
+  "velvetMore": {
+    "title": "All features",
+    "subtitle": "Pro capabilities are labeled with a lock — nothing is hidden.",
+    "homeLink": "All features · ሁሉም ባህሪያት",
+    "included": "Included",
+    "seeUpgrade": "See value & price",
+    "footer": "Locked capabilities grow with your business — they unlock together.",
+    "aiAssistant": {
+      "name": "AI Assistant",
+      "value": "Write and refine page copy with AI."
+    },
+    "codeMode": {
+      "name": "Code mode",
+      "value": "Full HTML control for professional sites."
+    },
+    "automations": {
+      "name": "Win-back automations",
+      "value": "Re-engage lapsed customers on autopilot."
+    },
+    "customerHealth": {
+      "name": "Customer health",
+      "value": "Spot at-risk regulars before they churn."
+    },
+    "customDomain": {
+      "name": "Custom domain",
+      "value": "Your own address — yours.et."
+    }
+  },
+  "receipt": {
+    "telegramCta": "ማስታወሻ በ Telegram · Remind me there"
   }
 }

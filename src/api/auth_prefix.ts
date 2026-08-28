@@ -5,7 +5,7 @@ import { db } from '../db';
 import { users, tenants, passwordResets, tenantSubscriptions, refreshTokenFamilies } from '../db/schema';
 import { eq, sql, and } from 'drizzle-orm';
 import crypto from 'crypto';
-import { sendMail } from '../../server/lib/mailer';
+import { notify } from '../../server/lib/notifications';
 import { applyTemplate } from '../../server/lib/mailTemplates';
 import { jwtSecret, refreshSecret, requireAuth } from './middleware/auth';
 import { csrfProtection } from './middleware/csrf';
@@ -346,10 +346,13 @@ router.post('/forgot-password', authLimiter, async (req, res) => {
   const locale: 'en' | 'am' = String(settings.defaultLocale || 'en').startsWith('am') ? 'am' : 'en';
   const { subject, text } = applyTemplate('passwordReset', locale, { link: resetLink });
 
-  await sendMail({
-    to: email,
+  await notify({
+    channel: 'email',
+    template: 'passwordReset',
+    to: { email },
     subject,
     text,
+    refType: 'user',
   });
 
     res.json({ success: true, message: 'If that email is registered, you will receive a reset link.' });

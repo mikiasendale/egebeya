@@ -38,7 +38,7 @@ export function PricingSection() {
             {t('pricing.eyebrow')} · {t('pricing.eyebrowAm')}
           </p>
           <h2
-            className="m-0"
+            className="m-0 print-strike"
             style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 'clamp(2rem, 5vw, 3.5rem)', letterSpacing: '-0.025em' }}
           >
             {t('pricing.heading')}

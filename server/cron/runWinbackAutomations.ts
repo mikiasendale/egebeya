@@ -10,6 +10,11 @@
  *     into provider rate limits.
  *   - No customer PII in logs — only a redacted phone prefix and counts.
  *
+ * CONSENT (P3.1): winback messages are MARKETING. The candidate query gates
+ * SQL-side on customer_stats.marketing_opt_in = 1 (booking-time checkbox or
+ * CRM toggle) AND tenants.settings.automations_enabled = 1 (owner switch).
+ * Opted-out customers are never loaded, messaged, or state-flipped.
+ *
  * Production crontab (runs daily at 09:00 Addis time):
  *   0 6 * * * cd /path/to/egebeya && npm run winback-automations
  *
@@ -26,7 +31,7 @@ import {
 } from '../../src/db/schema';
 import { eq, and, lt, sql } from 'drizzle-orm';
 import crypto from 'crypto';
-import { sendSms, type SmsOptions } from '../lib/sms';
+import { notify, type SendOutcome } from '../lib/notifications';
 
 /** Customers contacted in one run. Bounded to protect VPS RAM. */
 const CHUNK_SIZE = 50;
@@ -49,7 +54,8 @@ export interface WinbackDeps {
   now?: number;
   chunkSize?: number;
   throttleMs?: number;
-  sendSmsFn?: (opts: SmsOptions) => Promise<unknown>;
+  /** Adapter dispatch — injected for tests. Channel is always 'sms' here. */
+  notifyFn?: typeof notify;
 }
 
 function redactPhone(phone: string): string {
@@ -97,6 +103,12 @@ async function selectCandidates(
         eq(plans.name, 'pro'),
         // Active (or trialing, non-lapsed) Pro subscription only.
         sql`${tenantSubscriptions.status} IN ('active', 'trial')`,
+        // P3.1 CONSENT GATE (closes the audit-P0.2 bypass): winback is a
+        // marketing message — it fires ONLY for customers who explicitly
+        // opted in to marketing at booking time or via the CRM toggle.
+        // Filtered SQL-side so opted-out rows are never loaded, messaged,
+        // or state-flipped.
+        eq(customerStats.marketingOptIn, true),
         // Tenant-owner opt-in gate. The winback sequence only fires when the
         // owner has flipped `automations_enabled` ON in Settings. Filtered
         // SQL-side so a disabled tenant's rows are never loaded AND never
@@ -121,7 +133,7 @@ export async function runOnce(deps: WinbackDeps = {}): Promise<number> {
   const now = deps.now ?? Date.now();
   const chunkSize = deps.chunkSize ?? CHUNK_SIZE;
   const throttleMs = deps.throttleMs ?? THROTTLE_MS;
-  const sender = deps.sendSmsFn ?? sendSms;
+  const dispatch = deps.notifyFn ?? notify;
 
   const candidates = await selectCandidates(now, chunkSize);
   if (candidates.length === 0) {
@@ -161,8 +173,21 @@ export async function runOnce(deps: WinbackDeps = {}): Promise<number> {
     const link = `https://${c.tenantSlug}.egebeya.et`;
     const text = `ሰላም ${name}፣ እንደገና እንገናኝብሃለን! የልዩ የ10% ቅናጻ ${code} በመጠቀም ይመልሱ። ${link} / Hi ${name}, we miss you! Come back with 10% off using code ${code}. Book: ${link}`;
 
+    let outcome: SendOutcome;
     try {
-      await sender({ to: c.customerPhone, text });
+      // P3.1: dispatched through the NotificationAdapter (sms channel).
+      outcome = await dispatch({
+        channel: 'sms',
+        template: 'winback',
+        to: { phone: c.customerPhone },
+        text,
+        tenantId: c.tenantId,
+        refType: 'customer',
+        refId: c.customerPhone,
+      });
+      if (!outcome.ok) {
+        throw new Error(outcome.error || 'send failed');
+      }
     } catch (err) {
       // Log a redacted prefix only — never PII. Continue to the next customer.
       console.error(`[winback] Send failed for ${redactPhone(c.customerPhone)}; continuing.`, err);

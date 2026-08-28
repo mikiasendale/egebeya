@@ -256,6 +256,40 @@ body {
 }
 .stamp-press-in { animation: stamp-press 320ms cubic-bezier(0.2, 0.9, 0.25, 1) both; }
 
+/* ─── Till-print (overdrive A) — a ledger line PRINTING out of the roll ───
+   Wrap any single line in .till-print; children slide up out of the mask
+   like fresh thermal paper. Transform+opacity only, ≤300ms. */
+.till-print { overflow: hidden; }
+.till-print > * {
+  animation: till-print 300ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes till-print {
+  from { transform: translateY(110%); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+
+/* Per-character stagger for short strings (site URLs, totals).
+   Cap the delay so long strings never feel slow: delay = index * 18ms. */
+.till-char {
+  display: inline-block;
+  animation: till-print 240ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .till-print > *, .till-char { animation: none; }
+}
+
+/* ─── View Transitions (overdrive A) — signup screens morph, not jump ───
+   Cross-fade + slight upward settle; instant swap when unsupported
+   (feature-detected in JS) or when reduced motion is requested. */
+::view-transition-old(root) { animation: vt-fade-out 160ms ease-out both; }
+::view-transition-new(root) { animation: vt-fade-in 200ms ease-out both; }
+@keyframes vt-fade-out { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-6px); } }
+@keyframes vt-fade-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root), ::view-transition-new(root) { animation: none; }
+}
+
 /* Stamp-slam entrance — "MOST POPULAR" badge and footer seal slam in on scroll */
 @keyframes stamp-slam {
   0%   { transform: rotate(-4deg) scale(1.6); opacity: 0; }
@@ -265,6 +299,26 @@ body {
 .stamp-slam-in { animation: stamp-slam 380ms cubic-bezier(0.2, 0.9, 0.25, 1) both; }
 @media (prefers-reduced-motion: reduce) {
   .stamp-slam-in { animation: none; opacity: 1; transform: rotate(-1.5deg) scale(1); }
+}
+
+/* P4.4 receipt stamp — the confirmation seal presses in ≤250ms (motion law).
+   Opacity + transform only; reuses the stamp-slam keyframes at law-compliant
+   speed for the booking receipt's single authored moment. */
+.receipt-stamp-in { animation: stamp-slam 220ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .receipt-stamp-in { animation: none; opacity: 1; transform: rotate(-1.5deg) scale(1); }
+}
+
+/* P4.3 turn-pulse — "it's your turn" breathes once per cycle. Whitelisted
+   looping animation (P5.5 motion budget): the ONE moment the queue page
+   saves its energy for. Opacity + transform only; disabled under
+   prefers-reduced-motion where the border alone carries the state. */
+@keyframes turn-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; box-shadow: none; }
+  50%      { transform: scale(1.02); opacity: 0.94; box-shadow: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [style*="turn-pulse"] { animation: none !important; }
 }
 
 /* Receipt rule: 1px solid hairline divider, semantic on receipt cards */
@@ -1047,11 +1101,15 @@ button:hover .num-roller {
   .print-cursor { display: none; }
 }
 
-/* ─── Overdrive: scroll-printed ledger lines ─────────────────────────────
-   Where scroll-driven animations are supported, tariff rows and plan cards
-   "print" line-by-line as the print head passes over them (steps timing =
-   mechanical print, not fade). Unsupported browsers keep them fully
-   visible. */
+/* ─── Overdrive: the page is the print job ───────────────────────────────
+   Where scroll-driven animations are supported, the whole receipt feeds
+   through one machine: the rail's print head glides with scroll while every
+   section prints as it crosses the glass — headings strike in left→right
+   under the head, hairline rules draw themselves, tariff rows and sheets
+   print line-by-line in mechanical steps, and the section stamps land with
+   a hand-press settle. steps() timing = dot-matrix print head, not a fade.
+   Unsupported browsers and reduced motion keep every element fully
+   visible — the content is complete without the performance. */
 @keyframes row-print {
   from { clip-path: inset(0 100% 0 0); }
   to   { clip-path: inset(0 0 0 0); }
@@ -1059,6 +1117,28 @@ button:hover .num-roller {
 @keyframes card-print {
   from { clip-path: inset(100% 0 0 0); }
   to   { clip-path: inset(0 0 0 0); }
+}
+/* Headings strike like the head passing across the line — a stepped wipe,
+   never a fade. Applied to section H2s only; the hero types itself. */
+@keyframes strike-wipe {
+  from { clip-path: inset(0 100% 0 0); }
+  to   { clip-path: inset(0 0 0 0); }
+}
+/* Section stamps land as a hand-press: descend with tilt, overshoot once,
+   settle flat. Ends at transform:none so resting stamp classes keep their
+   incumbent geometry (never paired with .rubber's own resting tilt). */
+@keyframes stamp-land {
+  from { opacity: 0; transform: translateY(-5px) rotate(-6deg) scale(1.22); }
+  55%  { opacity: 1; transform: translateY(0.5px) rotate(0.8deg) scale(0.985); }
+  to   { opacity: 1; transform: none; }
+}
+/* A hairline rule that draws itself left→right as it enters — the head's
+   horizontal pass. Base state is the fully-drawn line, so no-@supports and
+   reduced-motion both keep the rule visible. */
+.print-rule {
+  height: 1px;
+  background-color: var(--color-ink-rule);
+  transform-origin: left center;
 }
 @supports (animation-timeline: scroll()) {
   .tariff-hover-row {
@@ -1085,11 +1165,54 @@ button:hover .num-roller {
     animation-range: entry 3% entry 34%;
     animation-timing-function: steps(18, jump-none);
   }
+  /* Section headings strike under the head as they enter. */
+  .print-strike {
+    animation: strike-wipe linear both;
+    animation-timeline: view();
+    animation-range: entry 8% entry 45%;
+    animation-timing-function: steps(16, jump-none);
+  }
+  /* Generic ledger rows — trust-feed entries, search chips, close-out
+     steps — print line-by-line, staggered per position in the sheet. */
+  .print-row {
+    animation: row-print linear both;
+    animation-timeline: view();
+    animation-range: entry 6% entry 34%;
+    animation-timing-function: steps(10, jump-none);
+  }
+  .print-row:nth-child(2) { animation-range: entry 10% entry 38%; }
+  .print-row:nth-child(3) { animation-range: entry 14% entry 42%; }
+  .print-row:nth-child(4) { animation-range: entry 18% entry 46%; }
+  .print-row:nth-child(5) { animation-range: entry 22% entry 50%; }
+  /* Small sheets (search form, CTA rows) feed up out of the printer slot. */
+  .print-card {
+    animation: card-print linear both;
+    animation-timeline: view();
+    animation-range: entry 4% entry 32%;
+    animation-timing-function: steps(14, jump-none);
+  }
+  /* Section stamps land once, quick: pressed by the same pass that prints
+     the rows beneath them. */
+  .print-stampin {
+    animation: stamp-land linear both;
+    animation-timeline: view();
+    animation-range: entry 12% entry 32%;
+  }
+  .print-rule {
+    animation: tear-draw linear both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 40%;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .tariff-hover-row { animation: none; }
   .plan-card { animation: none; }
   .queue-board { animation: none; }
+  .print-strike { animation: none; }
+  .print-row { animation: none; }
+  .print-card { animation: none; }
+  .print-stampin { animation: none; }
+  .print-rule { animation: none; }
 }
 
 /* Plan cards: lift on hover, settle on press — matches the button language */

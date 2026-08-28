@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Home, Store, Globe, Calendar, UserPlus, Package, Users, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { prefersReducedMotionOrLowMem, SOLID_PAPER_BACKGROUND } from '../lib/motionGuard';
 
 /**
  * UberPWA BottomNav — mobile-first bottom navigation with:
@@ -51,6 +52,8 @@ export function UberBottomNav({ role, walkInEnabled, onWalkIn, inventoryLowStock
   const tabRefs = useRef<Map<string, HTMLAnchorElement>>(new Map());
   const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 });
   const [pressedTab, setPressedTab] = useState<string | null>(null);
+  // P5.5: low-mem / reduced-motion devices get solid paper, not glass.
+  const [lowFx] = useState(() => prefersReducedMotionOrLowMem());
   const velocityRef = useRef(0);
   const currentPosRef = useRef(0);
   const rafRef = useRef<number>(0);
@@ -147,9 +150,11 @@ export function UberBottomNav({ role, walkInEnabled, onWalkIn, inventoryLowStock
         className="fixed bottom-0 inset-x-0 z-40 flex"
         style={{
           paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 0px)',
-          background: 'rgba(249, 243, 222, 0.85)',
-          backdropFilter: 'saturate(180%) blur(12px)',
-          WebkitBackdropFilter: 'saturate(180%) blur(12px)',
+          background: lowFx ? SOLID_PAPER_BACKGROUND : 'rgba(249, 243, 222, 0.85)',
+          ...(lowFx ? {} : {
+            backdropFilter: 'saturate(180%) blur(12px)',
+            WebkitBackdropFilter: 'saturate(180%) blur(12px)',
+          }),
           borderTop: '1px solid rgba(26, 20, 17, 0.08)',
         }}
         aria-label="Primary"
@@ -193,7 +198,7 @@ export function UberBottomNav({ role, walkInEnabled, onWalkIn, inventoryLowStock
                   width: 44,
                   height: 44,
                   transform: `scale(${pressed ? 0.92 : active ? 1.05 : 1})`,
-                  transition: pressed ? 'transform 80ms cubic-bezier(0.22, 1, 0.36, 1)' : 'transform 350ms cubic-bezier(0.22, 1, 0.36, 1)',
+                  transition: pressed ? 'transform 80ms cubic-bezier(0.22, 1, 0.36, 1)' : 'transform 220ms cubic-bezier(0.22, 1, 0.36, 1)',
                 }}
               >
                 {/* Active background glow */}
@@ -201,7 +206,7 @@ export function UberBottomNav({ role, walkInEnabled, onWalkIn, inventoryLowStock
                   <div
                     className="absolute inset-0 rounded-full bg-primary/10"
                     style={{
-                      animation: 'tab-glow-pulse 2s ease-in-out infinite',
+                      // P5.5 motion law: no unwhitelisted loops — static glow carries the state.
                     }}
                   />
                 )}

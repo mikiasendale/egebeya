@@ -2,9 +2,13 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 
 /**
- * InstantEmpire — the 3-second cinematic reveal that fires when the owner
- * publishes their site from the SetupWizard. Canvas particles assemble into
- * the ኢ-ገበያ mark, then dissolve to reveal the live site preview.
+ * InstantEmpire — the staged-generation garnish shown while the owner's site
+ * provisions. Canvas particles assemble into the ኢ-ገበያ mark, then dissolve
+ * to reveal the site preview.
+ *
+ * P2.4 rules: this is GARNISH, never a gate. It is skippable after 800ms,
+ * renders as a static card on reduced-motion / low-memory devices, and never
+ * blocks progress reporting (that is /provision/status's honest job).
  *
  * Phases:
  *   0–1200ms  — particles scatter → converge into glyph shape
@@ -15,6 +19,7 @@ import { motion, AnimatePresence } from 'motion/react';
 
 const PHASE_DURATION = [1200, 800, 800, 200] as const;
 const TOTAL_DURATION = PHASE_DURATION.reduce((a, b) => a + b, 0);
+const SKIP_AVAILABLE_AFTER_MS = 800;
 
 interface Particle {
   x: number; y: number;
@@ -23,8 +28,6 @@ interface Particle {
   alpha: number;
   hue: number;        // green spectrum variation
   speed: number;
-  angle: number;
-  orbit: number;
 }
 
 // Glyph target points — sampled from the ኢ character rendered at center.
@@ -62,19 +65,62 @@ function sampleGlyphPoints(count: number): { x: number; y: number }[] {
   return points;
 }
 
-interface InstantEmpireAnimationProps {
+export interface InstantEmpireAnimationProps {
   businessName: string;
   onComplete: () => void;
 }
 
+/**
+ * Static fallback predicate: reduced-motion OR genuinely low-end devices get
+ * the honest static card instead of a particle system (ROADMAP motion law).
+ */
+export function shouldUseStaticFallback(): boolean {
+  if (typeof window === 'undefined') return true;
+  try {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return true;
+    const nav = navigator as any;
+    const mem = typeof nav.deviceMemory === 'number' ? nav.deviceMemory : 8;
+    const cores = typeof nav.hardwareConcurrency === 'number' ? nav.hardwareConcurrency : 8;
+    return mem < 2 || cores <= 4;
+  } catch {
+    return false;
+  }
+}
+
+type Phase = 'assembling' | 'pulse' | 'dissolve' | 'done';
+
 export function InstantEmpireAnimation({ businessName, onComplete }: InstantEmpireAnimationProps) {
+  const [staticMode] = useState(shouldUseStaticFallback);
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const particlesRef = useRef<Particle[]>([]);
   const startRef = useRef<number>(0);
   const rafRef = useRef<number>(0);
-  const [phase, setPhase] = useState<'assembling' | 'pulse' | 'dissolve' | 'done'>('assembling');
+  // Phase lives in a ref for the draw loop; state mirrors it ONLY on change
+  // so React re-renders per phase transition, not per frame.
+  const phaseRef = useRef<Phase>('assembling');
+  const [phase, setPhaseState] = useState<Phase>('assembling');
   const [showText, setShowText] = useState(false);
   const [showSite, setShowSite] = useState(false);
+  const [canSkip, setCanSkip] = useState(false);
+  const completedRef = useRef(false);
+
+  const finish = useCallback(() => {
+    if (completedRef.current) return;
+    completedRef.current = true;
+    cancelAnimationFrame(rafRef.current);
+    onComplete();
+  }, [onComplete]);
+
+  useEffect(() => {
+    // Reduced-motion / low-mem: static card, brief honest pause, done.
+    if (staticMode) {
+      const id = setTimeout(finish, 400);
+      return () => clearTimeout(id);
+    }
+    const id = setTimeout(() => setCanSkip(true), SKIP_AVAILABLE_AFTER_MS);
+    return () => clearTimeout(id);
+  }, [staticMode, finish]);
 
   const initParticles = useCallback((width: number, height: number) => {
     const count = Math.min(180, Math.floor((width * height) / 4000));
@@ -96,13 +142,15 @@ export function InstantEmpireAnimation({ businessName, onComplete }: InstantEmpi
         alpha: 0,
         hue: 130 + Math.random() * 40, // green spectrum
         speed: 0.02 + Math.random() * 0.03,
-        angle: angle,
-        orbit: dist,
       };
     });
   }, []);
 
+  // The animation effect runs ONCE — phase transitions are computed from the
+  // timeline inside draw(), never from state deps (fixes mid-flight restarts).
   useEffect(() => {
+    if (staticMode || completedRef.current) return;
+
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -116,6 +164,13 @@ export function InstantEmpireAnimation({ businessName, onComplete }: InstantEmpi
 
     initParticles(rect.width, rect.height);
     startRef.current = performance.now();
+
+    const setPhase = (next: Phase) => {
+      if (phaseRef.current !== next) {
+        phaseRef.current = next;
+        setPhaseState(next);
+      }
+    };
 
     const draw = (now: number) => {
       const elapsed = now - startRef.current;
@@ -134,10 +189,10 @@ export function InstantEmpireAnimation({ businessName, onComplete }: InstantEmpi
       ctx.fillRect(0, 0, w, h);
 
       const particles = particlesRef.current;
+      let glowAlpha = 0;
 
-      // Phase control
+      // Phase control — pure function of elapsed time.
       if (elapsed < PHASE_DURATION[0]) {
-        // Phase 1: converge
         const t = elapsed / PHASE_DURATION[0];
         const ease = 1 - Math.pow(1 - t, 3); // ease-out cubic
         setPhase('assembling');
@@ -148,14 +203,13 @@ export function InstantEmpireAnimation({ businessName, onComplete }: InstantEmpi
           p.alpha = Math.min(1, ease * 1.5);
         }
       } else if (elapsed < PHASE_DURATION[0] + PHASE_DURATION[1]) {
-        // Phase 2: pulse / breathe
         const t = (elapsed - PHASE_DURATION[0]) / PHASE_DURATION[1];
         setPhase('pulse');
+        glowAlpha = 0.12;
         if (t > 0.2) setShowText(true);
 
         const pulse = Math.sin(t * Math.PI * 3) * 0.15 + 1;
         for (const p of particles) {
-          // Subtle breathing
           const dx = p.targetX - cx;
           const dy = p.targetY - cy;
           p.x = cx + dx * pulse + (Math.random() - 0.5) * 0.5;
@@ -163,7 +217,6 @@ export function InstantEmpireAnimation({ businessName, onComplete }: InstantEmpi
           p.alpha = 1;
         }
       } else if (elapsed < TOTAL_DURATION) {
-        // Phase 3: dissolve outward
         const t = (elapsed - PHASE_DURATION[0] - PHASE_DURATION[1]) / PHASE_DURATION[2];
         setPhase('dissolve');
         setShowSite(true);
@@ -172,7 +225,6 @@ export function InstantEmpireAnimation({ businessName, onComplete }: InstantEmpi
         for (const p of particles) {
           const dx = p.x - cx;
           const dy = p.y - cy;
-          const dist = Math.sqrt(dx * dx + dy * dy);
           const angle = Math.atan2(dy, dx);
           const push = ease * 300;
           p.x += Math.cos(angle + p.speed * 5) * (push * 0.05 + 1);
@@ -181,9 +233,7 @@ export function InstantEmpireAnimation({ businessName, onComplete }: InstantEmpi
           p.size *= 0.995;
         }
       } else {
-        // Done
-        setPhase('done');
-        onComplete();
+        finish();
         return;
       }
 
@@ -202,8 +252,7 @@ export function InstantEmpireAnimation({ businessName, onComplete }: InstantEmpi
       }
 
       // Central glow during pulse
-      if (phase === 'pulse' || (elapsed > PHASE_DURATION[0] * 0.8 && elapsed < PHASE_DURATION[0] + PHASE_DURATION[1])) {
-        const glowAlpha = phase === 'pulse' ? 0.12 : 0.05;
+      if (glowAlpha > 0) {
         const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, 120);
         glow.addColorStop(0, `rgba(15, 169, 88, ${glowAlpha})`);
         glow.addColorStop(1, 'rgba(15, 169, 88, 0)');
@@ -219,19 +268,28 @@ export function InstantEmpireAnimation({ businessName, onComplete }: InstantEmpi
     return () => {
       cancelAnimationFrame(rafRef.current);
     };
-  }, [initParticles, phase, onComplete]);
+  }, [initParticles, staticMode, finish]);
 
-  // Respect reduced motion
-  const prefersReducedMotion = typeof window !== 'undefined'
-    && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-  if (prefersReducedMotion) {
-    // Skip animation, just fire onComplete after a brief pause
-    useEffect(() => {
-      const id = setTimeout(onComplete, 400);
-      return () => clearTimeout(id);
-    }, [onComplete]);
-    return null;
+  // ── Static fallback (reduced motion / low-mem): honest, no cinema ──
+  if (staticMode) {
+    return (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-canvas">
+        <div className="flex flex-col items-center gap-4 text-center px-6">
+          <div className="text-6xl font-bold" style={{ color: '#0FA958', fontFamily: "'Noto Serif Ethiopic', serif" }}>
+            ኢ-ገበያ
+          </div>
+          <p className="text-base font-semibold" style={{ color: '#F4E8C1' }}>
+            {businessName || 'Your Business'}
+          </p>
+          <button
+            onClick={finish}
+            className="mt-2 rounded-md bg-primary px-5 py-2 text-sm font-semibold text-white"
+          >
+            Continue · ቀጥል
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -309,6 +367,17 @@ export function InstantEmpireAnimation({ businessName, onComplete }: InstantEmpi
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Skip — garnish must never gate progress (visible after 800ms). */}
+      {canSkip && !completedRef.current && (
+        <button
+          onClick={finish}
+          data-testid="empire-skip-btn"
+          className="absolute top-4 right-4 z-40 rounded-full border border-white/20 bg-black/30 px-4 py-1.5 text-xs font-medium text-white/80 hover:text-white"
+        >
+          ዝለፋ · Skip
+        </button>
+      )}
 
       {/* Site preview slides up during dissolve */}
       <AnimatePresence>
