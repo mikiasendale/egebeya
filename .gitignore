@@ -24,3 +24,4 @@ graphify-out/
 # scratch test artifact
 _test_pixel.png
 .aider*
+.opencode/
