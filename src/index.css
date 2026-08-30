@@ -1144,12 +1144,14 @@ button:hover .num-roller {
   .tariff-hover-row {
     animation: row-print linear both;
     animation-timeline: view();
-    animation-range: entry 6% entry 40%;
+    /* Rows are ~76px tall, so their entry span is only ~76px of scroll —
+       too short to read. cover-based ranges ride real viewport travel. */
+    animation-range: cover 1% cover 10%;
     animation-timing-function: steps(12, jump-none);
   }
-  .tariff-hover-row:nth-child(2) { animation-range: entry 11% entry 45%; }
-  .tariff-hover-row:nth-child(3) { animation-range: entry 16% entry 50%; }
-  .tariff-hover-row:nth-child(4) { animation-range: entry 21% entry 55%; }
+  .tariff-hover-row:nth-child(2) { animation-range: cover 3.5% cover 12.5%; }
+  .tariff-hover-row:nth-child(3) { animation-range: cover 6% cover 15%; }
+  .tariff-hover-row:nth-child(4) { animation-range: cover 8.5% cover 17.5%; }
   .plan-card {
     animation: card-print linear both;
     animation-timeline: view();
@@ -1165,30 +1167,32 @@ button:hover .num-roller {
     animation-range: entry 3% entry 34%;
     animation-timing-function: steps(18, jump-none);
   }
-  /* Section headings strike under the head as they enter. */
+  /* Section headings strike under the head as they enter. A heading is
+     small, so entry (its own height of travel) is invisible — cover-based
+     ranges give the wipe ~150px of real scroll to read across. */
   .print-strike {
     animation: strike-wipe linear both;
     animation-timeline: view();
-    animation-range: entry 8% entry 45%;
+    animation-range: cover 2% cover 16%;
     animation-timing-function: steps(16, jump-none);
   }
-  /* Generic ledger rows — trust-feed entries, search chips, close-out
-     steps — print line-by-line, staggered per position in the sheet. */
+  /* Generic ledger rows — search chips, close-out steps — print
+     line-by-line, staggered per position in the sheet. */
   .print-row {
     animation: row-print linear both;
     animation-timeline: view();
-    animation-range: entry 6% entry 34%;
+    animation-range: cover 0% cover 9%;
     animation-timing-function: steps(10, jump-none);
   }
-  .print-row:nth-child(2) { animation-range: entry 10% entry 38%; }
-  .print-row:nth-child(3) { animation-range: entry 14% entry 42%; }
-  .print-row:nth-child(4) { animation-range: entry 18% entry 46%; }
-  .print-row:nth-child(5) { animation-range: entry 22% entry 50%; }
+  .print-row:nth-child(2) { animation-range: cover 2% cover 11%; }
+  .print-row:nth-child(3) { animation-range: cover 4% cover 13%; }
+  .print-row:nth-child(4) { animation-range: cover 6% cover 15%; }
+  .print-row:nth-child(5) { animation-range: cover 8% cover 17%; }
   /* Small sheets (search form, CTA rows) feed up out of the printer slot. */
   .print-card {
     animation: card-print linear both;
     animation-timeline: view();
-    animation-range: entry 4% entry 32%;
+    animation-range: cover 0% cover 13%;
     animation-timing-function: steps(14, jump-none);
   }
   /* Section stamps land once, quick: pressed by the same pass that prints
@@ -1196,12 +1200,12 @@ button:hover .num-roller {
   .print-stampin {
     animation: stamp-land linear both;
     animation-timeline: view();
-    animation-range: entry 12% entry 32%;
+    animation-range: cover 2% cover 11%;
   }
   .print-rule {
     animation: tear-draw linear both;
     animation-timeline: view();
-    animation-range: entry 0% entry 40%;
+    animation-range: cover 0% cover 22%;
   }
 }
 @media (prefers-reduced-motion: reduce) {
