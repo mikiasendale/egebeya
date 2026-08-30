@@ -21,6 +21,7 @@ import {
   appointmentServices,
   recurringSeries,
   inventoryItems,
+  invoices,
 } from '../db/schema';
 import { eq, and, inArray, desc, sql, gte, lt, lte, or, isNull } from 'drizzle-orm';
 import crypto from 'crypto';
@@ -31,13 +32,27 @@ import fs from 'fs';
 import path from 'path';
 import { requirePlanLimit, requireActiveSubscription } from '../../server/middleware/planLimits';
 import { createCheckout, generateTxRef } from '../../server/lib/chapa';
-import { PRO_PLAN_PRICE_BIRR, GRACE_PERIOD_MS, billingStateFor } from '../../server/lib/billing';
+import {
+  PRO_PLAN_PRICE_BIRR,
+  GRACE_PERIOD_MS,
+  billingStateFor,
+  resolvePriceForTenant,
+  countFoundingCohort,
+  priceForCycle,
+  SUPPORTED_CYCLE_DAYS,
+  FOUNDING_RATE_CAP,
+} from '../../server/lib/billing';
+import type { CycleDays } from '../../server/lib/billing';
+import { getOrCreateProPlan } from '../../server/lib/plans';
 import { resolveMediaUrl } from '../../server/lib/mediaUrls';
 import { requireAuth } from './middleware/auth';
+import { buildTemplatePage, templateForCategory, TEMPLATE_BUSINESS_HOURS } from '../../server/lib/siteTemplates';
+import { validateBlockDoc, migrateBlockDoc } from '../lib/blocks/schema';
 import tenantDashboardRoutes from '../../server/api/tenantRoute';
 import { csrfProtection } from './middleware/csrf';
 import { tenantWriteLimiter, uploadLimiter } from '../../server/middleware/rateLimiter';
 import { normalizePhone } from '../lib/phone';
+import { trackEvent } from '../../server/lib/analytics';
 import { shareLinkFor } from './site-generator';
 import {
   getAddisDayOfWeek,
@@ -534,6 +549,35 @@ router.get('/subscription', async (req, res) => {
     const plan = await db.select().from(plans).where(eq(plans.id, subscription.planId!)).get();
     const staffList = await db.select().from(staff).where(eq(staff.tenantId, tenantId)).all();
 
+    // P1.3 price-ladder context.
+    const pricing = await resolvePriceForTenant(tenantId);
+    const tenantRow = await db.select().from(tenants).where(eq(tenants.id, tenantId)).get();
+
+    // Value-frame stat: bookings confirmed in the last 30 days ("በዚህ ወር N ቀጠሮዎች").
+    const monthAgo = Date.now() - 30 * 24 * 3600 * 1000;
+    const bookingsRow = await db.select({ n: sql<number>`count(*)` })
+      .from(appointments)
+      .where(and(
+        eq(appointments.tenantId, tenantId),
+        or(eq(appointments.status, 'confirmed'), eq(appointments.status, 'completed')),
+        gte(appointments.startTime, monthAgo),
+      ))
+      .get();
+    const monthlyBookings = Number(bookingsRow?.n ?? 0);
+
+    // A recent unpaid Pro checkout → "payment pending" state on the Billing page.
+    const dayAgo = Date.now() - 24 * 3600 * 1000;
+    const pendingRow = await db.select({ id: payments.id })
+      .from(payments)
+      .where(and(
+        eq(payments.tenantId, tenantId),
+        eq(payments.status, 'pending'),
+        sql`json_extract(${payments.meta}, '$.purpose') = 'pro_subscription'`,
+        gte(payments.createdAt, dayAgo),
+      ))
+      .get();
+    const pendingCheckout = pendingRow != null;
+
     res.json({
       subscription,
       plan,
@@ -550,6 +594,12 @@ router.get('/subscription', async (req, res) => {
           ? subscription.endsAt + GRACE_PERIOD_MS
           : null,
         renewRequired: typeof subscription.endsAt === 'number' && subscription.endsAt <= Date.now(),
+        isFoundingRate: pricing.isFoundingRate,
+        foundingRateLockedUntil: typeof tenantRow?.foundingRateLockedUntil === 'number'
+          ? tenantRow.foundingRateLockedUntil
+          : null,
+        monthlyBookings,
+        pendingCheckout,
       },
     });
   } catch (error) {
@@ -569,20 +619,43 @@ router.get('/subscription', async (req, res) => {
 router.post('/subscription/checkout', async (req, res) => {
   const { tenantId } = (req as any).user;
   try {
-    const proPlan = await db.select().from(plans).where(eq(plans.name, 'pro')).get();
-    if (!proPlan) {
-      return res.status(500).json({ error: 'Pro plan is not configured on this platform.' });
-    }
+    // Self-healing: create the canonical 'pro' row if a fresh DB never seeded
+    // it (previously a missing row returned 500 "Pro plan is not configured").
+    const proPlan = await getOrCreateProPlan();
 
     const owner = await db.select().from(users)
       .where(and(eq(users.tenantId, tenantId), eq(users.role, 'owner')))
       .get();
 
+    // P1.5 prepay cycle: 30 (standard) | 90 (5% off) | 365 (founding 10-for-12).
+    const requestedCycle = Number(req.body?.cycle ?? 30);
+    if (!(SUPPORTED_CYCLE_DAYS as readonly number[]).includes(requestedCycle)) {
+      return res.status(400).json({ error: `cycle must be one of ${SUPPORTED_CYCLE_DAYS.join(', ')} days` });
+    }
+    const cycleDays = requestedCycle as CycleDays;
+
+    // The annual 10-for-12 offer exists only while the founding cohort is
+    // open — paying it locks the founding rate for 12 months.
+    if (cycleDays === 365) {
+      const othersInCohort = await countFoundingCohort(Date.now(), tenantId);
+      if (othersInCohort >= FOUNDING_RATE_CAP) {
+        return res.status(400).json({ error: 'Annual prepay is only available while the founding cohort is open' });
+      }
+    }
+
+    // P1.1 pricing ladder: resolve list vs founding rate for this tenant.
+    const pricing = await resolvePriceForTenant(tenantId);
+    const amountCents = priceForCycle(pricing.amountCents, cycleDays);
+    const amountBirr = String(Math.round(amountCents / 100));
+
     const txRef = generateTxRef('pro');
     const now = Date.now();
 
+    // P3.5 pricing-funnel: the owner reached a live checkout.
+    trackEvent(tenantId, 'checkout_started', { cycleDays, isFoundingRate: pricing.isFoundingRate });
+
     const checkout = await createCheckout({
-      amountBirr: PRO_PLAN_PRICE_BIRR,
+      amountBirr,
       txRef,
       firstName: owner?.name?.split(' ')[0] || 'Egebeya',
       lastName: owner?.name?.split(' ').slice(1).join(' ') || undefined,
@@ -594,25 +667,455 @@ router.post('/subscription/checkout', async (req, res) => {
     await db.insert(payments).values({
       id: crypto.randomUUID(),
       tenantId,
-      amount: Number(PRO_PLAN_PRICE_BIRR) * 100, // ETB cents
+      amount: amountCents, // ETB cents
       gateway: 'chapa',
       method: 'checkout',
       gatewayReference: txRef,
       status: 'pending',
-      meta: { purpose: 'pro_subscription', planId: proPlan.id, product: 'pro-monthly' },
+      createdAt: now,
+      meta: {
+        purpose: 'pro_subscription',
+        planId: proPlan.id,
+        product: `pro-${cycleDays}d`,
+        cycleDays,
+        isFoundingRate: pricing.isFoundingRate,
+      },
     });
 
     res.json({
       success: true,
       checkoutUrl: checkout.checkoutUrl,
       txRef,
-      amountEtb: PRO_PLAN_PRICE_BIRR,
+      amountEtb: amountBirr,
+      amountCents,
+      cycleDays,
+      isFoundingRate: pricing.isFoundingRate,
       plan: { id: proPlan.id, name: proPlan.name, price: proPlan.price },
       expiresAt: now,
     });
   } catch (error: any) {
     console.error('Subscription checkout error:', error?.message || error);
+    // P3.5 pricing-funnel: a checkout that dies before Chapa even returns a
+    // URL is the one abandonment signal we can record server-side. (Silent
+    // drop-offs after redirect are derived in funnel math from
+    // checkout_started rows that never meet a first_invoice_paid.)
+    trackEvent((req as any)?.user?.tenantId ?? null, 'checkout_abandoned', {
+      reason: 'checkout_error',
+      message: String(error?.message || '').slice(0, 200),
+    });
     res.status(502).json({ error: 'Failed to start checkout. Please try again.' });
+  }
+});
+
+// ---- Invoices & receipts (P1.2) ----
+
+/**
+ * GET /api/tenant/invoices — owner-only. Lists the tenant's subscription
+ * invoices, newest first.
+ */
+router.get('/invoices', async (req, res) => {
+  const { tenantId } = (req as any).user;
+  try {
+    const rows = await db.select().from(invoices)
+      .where(eq(invoices.tenantId, tenantId))
+      .orderBy(desc(invoices.issuedAt));
+    res.json({ success: true, invoices: rows });
+  } catch (error) {
+    console.error('List invoices error:', error);
+    res.status(500).json({ error: 'Failed to list invoices' });
+  }
+});
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
+ * GET /api/tenant/invoices/:id/receipt — owner-only printable receipt HTML.
+ * Amharic-first labels ("ደረሰኝ") with English subtitles, business name and
+ * ETB amounts — clean enough to hand to an accountant or print for PLC books.
+ */
+router.get('/invoices/:id/receipt', async (req, res) => {
+  const { tenantId } = (req as any).user;
+  try {
+    const invoice = await db.select().from(invoices)
+      .where(and(eq(invoices.id, req.params.id), eq(invoices.tenantId, tenantId)))
+      .get();
+    if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
+
+    const tenant = await db.select().from(tenants).where(eq(tenants.id, tenantId)).get();
+    const businessName = tenant?.name ?? 'Egebeya';
+
+    const amountEtb = (invoice.amount / 100).toFixed(2);
+    const fmtDate = (ms: number | null) =>
+      typeof ms === 'number' ? new Date(ms).toISOString().slice(0, 10) : '—';
+    const statusLabels: Record<string, { am: string; en: string; color: string }> = {
+      paid: { am: 'ተከፍሏል', en: 'Paid', color: '#0FA958' },
+      draft: { am: 'በመጠባበቅ ላይ', en: 'Draft', color: '#B4552D' },
+      void: { am: 'ተሰርዟል', en: 'Void', color: '#D64545' },
+    };
+    const statusLabel = statusLabels[invoice.status] ?? { am: invoice.status, en: invoice.status, color: '#1A1411' };
+
+    const html = `<!doctype html>
+<html lang="am">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ደረሰኝ ${escapeHtml(invoice.number)}</title>
+<style>
+  body { font-family: 'Noto Sans Ethiopic', Inter, system-ui, sans-serif; background: #F7F1E3; color: #1A1411; margin: 0; padding: 24px; line-height: 1.65; }
+  .receipt { max-width: 560px; margin: 0 auto; background: #fff; border: 1px solid #1A1411; padding: 32px; }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  .sub { font-size: 13px; opacity: .7; }
+  table { width: 100%; border-collapse: collapse; margin-top: 24px; }
+  td { padding: 8px 0; border-bottom: 1px solid #e0d8c8; vertical-align: top; }
+  td.label { font-weight: 600; width: 45%; }
+  .amount { font-size: 28px; font-weight: 700; }
+  .status { display: inline-block; border: 1px solid ${statusLabel.color}; color: ${statusLabel.color}; padding: 2px 10px; font-size: 13px; margin-top: 12px; }
+  @media print { body { background: #fff; padding: 0; } .receipt { border: none; } }
+</style>
+</head>
+<body>
+<div class="receipt">
+  <h1>ደረሰኝ · Receipt</h1>
+  <div class="sub">${escapeHtml(businessName)} · Egebeya</div>
+  <span class="status">${escapeHtml(statusLabel.am)} · ${escapeHtml(statusLabel.en)}</span>
+  <table>
+    <tr><td class="label">የደረሰኝ ቁጥር · Invoice no.</td><td>${escapeHtml(invoice.number)}</td></tr>
+    <tr><td class="label">መጠን · Amount</td><td class="amount">${amountEtb} ${escapeHtml(invoice.currency)}</td></tr>
+    <tr><td class="label">የክፍያ ጊዜ · Billing period</td><td>${fmtDate(invoice.periodStart)} – ${fmtDate(invoice.periodEnd)}</td></tr>
+    <tr><td class="label">የተነሳበት ቀን · Issued</td><td>${fmtDate(invoice.issuedAt)}</td></tr>
+    <tr><td class="label">የተከፈለበት ቀን · Paid on</td><td>${fmtDate(invoice.paidAt)}</td></tr>
+    <tr><td class="label">የክፍያ ማጣቀሻ · Tx reference</td><td>${escapeHtml(invoice.chapaTxRef ?? '—')}</td></tr>
+  </table>
+  <p class="sub" style="margin-top:24px;">ይህ ደረሰኝ በ Chapa በኩል የተከፈለ የ Egebeya Pro ክፍያ ማረጋገጫ ነው። This receipt confirms a Pro subscription payment collected through Chapa.</p>
+</div>
+</body>
+</html>`;
+    res.type('html').send(html);
+  } catch (error) {
+    console.error('Receipt render error:', error);
+    res.status(500).json({ error: 'Failed to render receipt' });
+  }
+});
+
+// ---- Instant Empire provisioning pipeline (P2.3) ----
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Idempotency helper: a page row counts as "generated" only when it holds a
+ * non-empty block document. Wizard-built pages count — provisioning never
+ * overwrites real work.
+ */
+async function pageHasContent(tenantId: string): Promise<boolean> {
+  const page = await db.select().from(pages).where(eq(pages.tenantId, tenantId)).get();
+  if (!page?.content) return false;
+  const check = validateBlockDoc(page.content);
+  return check.ok && (check.doc?.content.length ?? 0) > 0;
+}
+
+/**
+ * POST /api/tenant/provision — owner-only. The "generation" behind Instant
+ * Empire: given business name + category, materialize a full draft site in
+ * one call — block page from the category template pack, default services,
+ * owner-as-first-staff with availability, and business hours.
+ *
+ * Every step is guarded by an existence check, so a crash mid-provision is
+ * recoverable: re-running completes ONLY the missing pieces. The site stays
+ * dark (unlisted + hours unconfirmed) until the owner confirms hours once
+ * (see /provision/confirm-hours, P2.6).
+ */
+router.post('/provision', async (req, res) => {
+  const { tenantId } = (req as any).user;
+  try {
+    const tenant = await db.select().from(tenants).where(eq(tenants.id, tenantId)).get();
+    if (!tenant) return res.status(404).json({ error: 'Tenant not found' });
+
+    const settings = { ...(tenant.settings as any || {}) };
+    const onboarding = { ...(settings.onboarding || {}) };
+
+    // Category: explicit body wins, else existing tenant.category, else Other.
+    const requestedCategory = typeof req.body?.category === 'string' ? req.body.category.trim() : '';
+    const packCategory = templateForCategory(requestedCategory || tenant.category).category;
+    const businessName = typeof req.body?.businessName === 'string' && req.body.businessName.trim()
+      ? req.body.businessName.trim().slice(0, 120)
+      : tenant.name;
+
+    const steps: Record<string, boolean> = {};
+
+    // Step 1 — page content from the template pack (never overwrites work).
+    if (!(await pageHasContent(tenantId))) {
+      const doc = buildTemplatePage(businessName, packCategory);
+      await db.insert(pages)
+        .values({ tenantId, content: doc })
+        .onConflictDoUpdate({ target: pages.tenantId, set: { content: doc } });
+      steps.page = true;
+    } else {
+      steps.page = false; // already present
+    }
+
+    // Step 2 — default service(s) only when the tenant has none yet.
+    const existingServices = await db.select({ id: servicesTable.id })
+      .from(servicesTable).where(eq(servicesTable.tenantId, tenantId)).all();
+    if (existingServices.length === 0) {
+      // Single batched insert — no per-row queries inside a loop (N+1 law).
+      const pack = templateForCategory(packCategory);
+      await db.insert(servicesTable).values(
+        pack.defaultServices.map((svc) => ({
+          id: crypto.randomUUID(),
+          tenantId,
+          name: svc.name,
+          durationMinutes: svc.durationMinutes,
+          price: svc.price,
+          active: true as const,
+        })),
+      );
+      steps.services = true;
+    } else {
+      steps.services = false;
+    }
+
+    // Step 3 — owner-as-first-staff + default availability.
+    const existingStaff = await db.select({ id: staff.id }).from(staff)
+      .where(eq(staff.tenantId, tenantId)).all();
+    if (existingStaff.length === 0) {
+      const ownerUser = await db.select().from(users)
+        .where(and(eq(users.tenantId, tenantId), eq(users.role, 'owner')))
+        .get();
+      const staffId = crypto.randomUUID();
+      await db.insert(staff).values({
+        id: staffId,
+        tenantId,
+        userId: ownerUser?.id ?? null,
+        name: ownerUser?.name || businessName,
+        title: 'Owner',
+        active: true,
+      });
+      await db.insert(staffAvailability).values(
+        [1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({
+          id: crypto.randomUUID(),
+          staffId,
+          dayOfWeek,
+          startTime: '09:00',
+          endTime: '18:00',
+        })),
+      );
+      steps.staff = true;
+    } else {
+      steps.staff = false;
+    }
+
+    // Step 4 — business hours rows (Mon–Sat 09:00–18:00, Sunday closed).
+    const existingHours = await db.select({ id: tenantBusinessHours.id })
+      .from(tenantBusinessHours).where(eq(tenantBusinessHours.tenantId, tenantId)).all();
+    if (existingHours.length === 0) {
+      await db.insert(tenantBusinessHours).values(
+        TEMPLATE_BUSINESS_HOURS.map((h) => ({
+          id: crypto.randomUUID(),
+          tenantId,
+          dayOfWeek: h.dayOfWeek,
+          openTime: h.openTime,
+          closeTime: h.closeTime,
+          isClosed: h.isClosed,
+        })),
+      );
+      steps.hours = true;
+    } else {
+      steps.hours = false;
+    }
+
+    // Stamp generation metadata (kept across re-runs).
+    onboarding.generatedAt = onboarding.generatedAt ?? Date.now();
+    settings.onboarding = onboarding;
+
+    const updates: Record<string, any> = { settings };
+    if (requestedCategory && requestedCategory !== tenant.category && templateForCategory(requestedCategory).category !== 'Other') {
+      updates.category = requestedCategory;
+    }
+    if (businessName !== tenant.name && req.body?.businessName) {
+      updates.name = businessName;
+    }
+    await db.update(tenants).set(updates).where(eq(tenants.id, tenantId));
+
+    // P3.5: site_generated fires on the FIRST successful materialization
+    // (idempotent re-runs that only backfill missing pieces still count as
+    // generated once — the event is the funnel entry, not a usage counter).
+    if (steps.page && !onboarding.siteGeneratedTracked) {
+      trackEvent(tenantId, 'site_generated', { category: packCategory });
+      onboarding.siteGeneratedTracked = true;
+      settings.onboarding = onboarding;
+      await db.update(tenants).set({ settings }).where(eq(tenants.id, tenantId));
+    }
+
+    res.json({
+      success: true,
+      provisioned: Object.values(steps).some(Boolean),
+      steps,
+      share: `/${tenant.slug}`,
+    });
+  } catch (error: any) {
+    console.error('Provision error:', error?.message || error);
+    res.status(500).json({ error: 'Failed to provision site' });
+  }
+});
+
+/**
+ * POST /api/tenant/provision/confirm-hours (P2.6 write side + P3.5 event)
+ *
+ * The one-time owner confirmation that the auto-generated hours are right.
+ * Until this flips, provisioned sites stay dark (public.ts soft-landing).
+ * Emits the `hours_confirmed` activation event exactly once.
+ */
+router.post('/provision/confirm-hours', async (req, res) => {
+  const { tenantId } = (req as any).user;
+  try {
+    const tenant = await db.select().from(tenants).where(eq(tenants.id, tenantId)).get();
+    if (!tenant) return res.status(404).json({ error: 'Tenant not found' });
+
+    const settings = { ...(tenant.settings as any || {}) };
+    const onboarding = { ...(settings.onboarding || {}) };
+    const alreadyConfirmed = onboarding.confirmedHours === true;
+
+    if (!alreadyConfirmed) {
+      // Hours are "confirmed" in the sense of "I've seen and accepted them" —
+      // edits after this point go through the normal business-hours routes.
+      onboarding.confirmedHours = true;
+      onboarding.confirmedHoursAt = Date.now();
+      settings.onboarding = onboarding;
+      await db.update(tenants).set({ settings }).where(eq(tenants.id, tenantId));
+      trackEvent(tenantId, 'hours_confirmed');
+    }
+
+    res.json({ success: true, confirmedHours: true, already: alreadyConfirmed });
+  } catch (error: any) {
+    console.error('Confirm-hours error:', error?.message || error);
+    res.status(500).json({ error: 'Failed to confirm hours' });
+  }
+});
+
+// ---- Activation-event beacons (P3.5) ----
+
+/**
+ * POST /api/tenant/events/site-shared — owner beacon fired when the share
+ * sheet is used (FirstShareHero / ShareSiteBar). Fire-and-forget from the
+ * client; the server stamps it into activation_events.
+ */
+router.post('/events/site-shared', async (req, res) => {
+  const { tenantId } = (req as any).user;
+  trackEvent(tenantId, 'site_shared', { via: req.body?.via ?? null });
+  res.json({ ok: true });
+});
+
+/**
+ * POST /api/tenant/events/price-seen — owner beacon fired when the Billing
+ * page renders the price ladder (elasticity input for the M9 hybrid arm).
+ */
+router.post('/events/price-seen', async (req, res) => {
+  const { tenantId } = (req as any).user;
+  trackEvent(tenantId, 'price_seen', {
+    isFoundingRate: req.body?.isFoundingRate ?? null,
+    amountEtb: typeof req.body?.amountEtb === 'number' ? req.body.amountEtb : null,
+  });
+  res.json({ ok: true });
+});
+
+/**
+/**
+ * GET /api/tenant/provision/status — honest staged progress for the signup
+ * flow (no fake cinema): each step reports whether its artifacts exist.
+ *
+ * P2.4 reopen (A1): `generationComplete` separates "the GENERATION finished"
+ * (all four provisioning artifacts exist) from "HOURS confirmed" (the P2.6
+ * gate, which stays false until the owner acts). Signup Screen 3 advances to
+ * the Share Hero on generationComplete alone — the hours item legitimately
+ * remains pending and becomes the first item of the dashboard checklist.
+ * Chosen over client-side filtering so every consumer of this endpoint shares
+ * one definition of "generation done".
+ */
+router.get('/provision/status', async (req, res) => {
+  const { tenantId } = (req as any).user;
+  try {
+    const tenant = await db.select().from(tenants).where(eq(tenants.id, tenantId)).get();
+    if (!tenant) return res.status(404).json({ error: 'Tenant not found' });
+
+    const settings = (tenant.settings as any) || {};
+    const onboarding = settings.onboarding || {};
+    const [servicesRows, staffRows, hoursRows] = await Promise.all([
+      db.select({ n: sql<number>`count(*)` }).from(servicesTable).where(eq(servicesTable.tenantId, tenantId)).get(),
+      db.select({ n: sql<number>`count(*)` }).from(staff).where(eq(staff.tenantId, tenantId)).get(),
+      db.select({ n: sql<number>`count(*)` }).from(tenantBusinessHours).where(eq(tenantBusinessHours.tenantId, tenantId)).get(),
+    ]);
+
+    const pageDone = await pageHasContent(tenantId);
+    const servicesDone = Number(servicesRows?.n ?? 0) > 0;
+    const staffDone = Number(staffRows?.n ?? 0) > 0;
+    const hoursDone = Number(hoursRows?.n ?? 0) > 0;
+
+    res.json({
+      generatedAt: onboarding.generatedAt ?? null,
+      confirmedHours: onboarding.confirmedHours === true,
+      sitePublic: tenant.isListed === true && onboarding.confirmedHours === true,
+      // Generation = artifacts exist. Hours confirmation deliberately NOT
+      // part of it (council ruling: mandatory human gate).
+      generationComplete: pageDone && servicesDone && staffDone && hoursDone,
+      steps: [
+        { step: 'page', done: pageDone },
+        { step: 'services', done: servicesDone },
+        { step: 'staff', done: staffDone },
+        { step: 'hours', done: hoursDone },
+        { step: 'hoursConfirmed', done: onboarding.confirmedHours === true },
+      ],
+    });
+  } catch (error) {
+    console.error('Provision status error:', error);
+    res.status(500).json({ error: 'Failed to fetch provision status' });
+  }
+});
+
+
+// ── P5.6 Quiet-hours discount flag ───────────────────────────────────────
+
+/**
+ * PUT /api/tenant/quiet-hours — boolean + badge, NO pricing engine (council
+ * ruling): one toggle with a day-part window and a percent. Stored in the
+ * tenant settings JSON per the audit-P0.4 convention.
+ */
+router.put('/quiet-hours', async (req, res) => {
+  const { tenantId } = (req as any).user;
+  try {
+    const { enabled, startMinute, endMinute, percent } = req.body ?? {};
+    if (typeof enabled !== 'boolean') {
+      return res.status(400).json({ error: 'enabled must be a boolean' });
+    }
+    const sm = Number(startMinute); const em = Number(endMinute); const pc = Number(percent);
+    for (const [label, v] of [['startMinute', sm], ['endMinute', em]] as const) {
+      if (!Number.isInteger(v) || v < 0 || v >= 1440) {
+        return res.status(400).json({ error: `${label} must be an integer minute-of-day (0-1439)` });
+      }
+    }
+    if (!Number.isInteger(pc) || pc < 1 || pc > 90) {
+      return res.status(400).json({ error: 'percent must be an integer between 1 and 90' });
+    }
+
+    const tenant = await db.select().from(tenants).where(eq(tenants.id, tenantId)).get();
+    if (!tenant) return res.status(404).json({ error: 'Tenant not found' });
+
+    const settings = { ...(tenant.settings as any || {}) };
+    settings.quiet_hours_discount = enabled
+      ? { enabled: true, start_minute: sm, end_minute: em, percent: pc }
+      : { enabled: false };
+    await db.update(tenants).set({ settings }).where(eq(tenants.id, tenantId));
+
+    res.json({ success: true, quietHoursDiscount: settings.quiet_hours_discount });
+  } catch (error: any) {
+    console.error('Quiet-hours save error:', error?.message || error);
+    res.status(500).json({ error: 'Failed to save quiet hours' });
   }
 });
 
@@ -683,6 +1186,18 @@ router.put('/page', async (req, res) => {
   const { tenantId } = (req as any).user;
   const { content } = req.body;
   try {
+    // P5.3: every saved page must be a VALID block document. Legacy shapes
+    // are migrated first (PascalCase types, missing version); anything still
+    // failing validation is rejected with field-level errors instead of
+    // poisoning the single source of truth.
+    if (content && typeof content === 'object') {
+      const migrated = migrateBlockDoc(content);
+      const check = validateBlockDoc(migrated);
+      if (!check.ok) {
+        return res.status(422).json({ error: 'Invalid page document', issues: check.issues });
+      }
+    }
+
     const existing = await db.select().from(pages).where(eq(pages.tenantId, tenantId)).get();
     if (existing) {
       await db.update(pages).set({ content }).where(eq(pages.tenantId, tenantId));
@@ -1549,10 +2064,17 @@ router.get('/export/csv', async (req, res) => {
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${tenantId}-${type}-${Date.now()}.csv"`);
 
-    // Helper to escape CSV fields
+    // Helper to escape CSV fields. Besides quoting separators, a leading
+    // = + - or @ is prefixed with a single quote so Excel/LibreOffice/Sheets
+    // cannot interpret attacker-controlled text (customer_name comes from
+    // the public booking form!) as a formula — the classic CSV injection
+    // vector (=HYPERLINK(...), =cmd|'/c calc'!A0, @SUM(...), ...).
     const escapeCsv = (field: any): string => {
       if (field === null || field === undefined) return '';
-      const str = String(field);
+      let str = String(field);
+      if (/^[=+\-@\t\r]/.test(str)) {
+        str = "'" + str;
+      }
       if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
         return '"' + str.replace(/"/g, '""') + '"';
       }

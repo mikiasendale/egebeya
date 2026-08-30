@@ -152,33 +152,28 @@ export function Navbar() {
         </div>
       </div>
 
-      {mobileMenuOpen && (
-        <div
-          className="md:hidden absolute top-full left-0 right-0 px-5 py-4 flex flex-col gap-0"
+      <div
+        className={`md:hidden mobile-menu${mobileMenuOpen ? ' is-open' : ''}`}
+        aria-hidden={!mobileMenuOpen}
+      >
+        <MobileLink href="#tariff">{t('nav.tariff')} · ዝርዝር</MobileLink>
+        <MobileLink href="#pricing">{t('nav.pricing')} · ዋጋ</MobileLink>
+        <MobileLink href="/discover">{t('nav.businesses')} · ንግድ</MobileLink>
+        <MobileLink href="/login">{t('nav.login')} · ግባ</MobileLink>
+        <a
+          href="/register"
+          className="inline-flex items-center justify-center px-5 py-3 no-underline font-semibold mt-3"
           style={{
-            backgroundColor: 'var(--color-paper)',
-            borderBottom: '1px solid var(--color-ink)',
+            backgroundColor: 'var(--color-ink)',
+            color: 'var(--color-paper)',
+            fontFamily: 'var(--font-display)',
+            borderRadius: 'var(--rd-card)',
+            fontSize: '0.85rem',
           }}
         >
-          <MobileLink href="#tariff">{t('nav.tariff')} · ዝርዝር</MobileLink>
-          <MobileLink href="#pricing">{t('nav.pricing')} · ዋጋ</MobileLink>
-          <MobileLink href="/discover">{t('nav.businesses')} · ንግድ</MobileLink>
-          <MobileLink href="/login">{t('nav.login')} · ግባ</MobileLink>
-          <a
-            href="/register"
-            className="inline-flex items-center justify-center px-5 py-3 no-underline font-semibold mt-3"
-            style={{
-              backgroundColor: 'var(--color-ink)',
-              color: 'var(--color-paper)',
-              fontFamily: 'var(--font-display)',
-              borderRadius: 'var(--rd-card)',
-              fontSize: '0.85rem',
-            }}
-          >
-            {t('nav.takeNumber')} · ፩
-          </a>
-        </div>
-      )}
+          {t('nav.takeNumber')} · ፩
+        </a>
+      </div>
     </nav>
   );
 }

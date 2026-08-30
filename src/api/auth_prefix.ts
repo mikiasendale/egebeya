@@ -2,10 +2,10 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { db } from '../db';
-import { users, tenants, passwordResets, plans, tenantSubscriptions, refreshTokenFamilies } from '../db/schema';
+import { users, tenants, passwordResets, tenantSubscriptions, refreshTokenFamilies } from '../db/schema';
 import { eq, sql, and } from 'drizzle-orm';
 import crypto from 'crypto';
-import { sendMail } from '../../server/lib/mailer';
+import { notify } from '../../server/lib/notifications';
 import { applyTemplate } from '../../server/lib/mailTemplates';
 import { jwtSecret, refreshSecret, requireAuth } from './middleware/auth';
 import { csrfProtection } from './middleware/csrf';
@@ -13,6 +13,7 @@ import { authLimiter, otpLimiter } from '../../server/middleware/rateLimiter';
 import { logSecurityEvent, ipFromRequest } from '../../server/lib/securityLog';
 import { normalizePhone } from '../lib/phone';
 import { generateOtp, verifyOtp } from '../../server/lib/otp';
+import { getOrCreateFreePlan } from '../../server/lib/plans';
 
 const router = Router();
 
@@ -74,13 +75,6 @@ router.post('/check-slug', async (req, res) => {
 });
 
 // Find (or create) the canonical 'free' plan row.
-async function getOrCreateFreePlan() {
-  const existing = await db.select().from(plans).where(eq(plans.name, 'free')).get();
-  if (existing) return existing;
-  const row = { id: crypto.randomUUID(), name: 'free', price: 0, maxStaff: 2, customDomainAllowed: false };
-  await db.insert(plans).values(row);
-  return row;
-}
 
 router.post('/register', authLimiter, async (req, res) => {
   try {
@@ -352,10 +346,13 @@ router.post('/forgot-password', authLimiter, async (req, res) => {
   const locale: 'en' | 'am' = String(settings.defaultLocale || 'en').startsWith('am') ? 'am' : 'en';
   const { subject, text } = applyTemplate('passwordReset', locale, { link: resetLink });
 
-  await sendMail({
-    to: email,
+  await notify({
+    channel: 'email',
+    template: 'passwordReset',
+    to: { email },
     subject,
     text,
+    refType: 'user',
   });
 
     res.json({ success: true, message: 'If that email is registered, you will receive a reset link.' });

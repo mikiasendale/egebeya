@@ -19,6 +19,8 @@ import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { StaffRedirect } from './StaffRedirect';
 import { useBuilderMode } from './BuilderModeContext';
+import { BlockGalleryEditor } from '../../components/dashboard/BlockGalleryEditor';
+import { ValuePricingSheet, LockChip, usePlanGate } from '../../components/dashboard/VelvetRope';
 import { getAllWidgets, type WidgetSpec } from '../../lib/widgetRoutes';
 import { ShareSiteBar } from './ShareSiteBar';
 
@@ -76,7 +78,9 @@ function WebsiteBuilderInner() {
   const [bootError, setBootError] = useState<string | null>(null);
 
   const [disclaimer, setDisclaimer] = useState<BuilderMode | null>(null);
-  const [subscribeOpen, setSubscribeOpen] = useState(false);
+  // P5.4: the value-anchored sheet replaces the naked upsell on gated taps.
+  const [velvetOpen, setVelvetOpen] = useState(false);
+  const planGate = usePlanGate();
   const [aiOpen, setAiOpen] = useState(false);
   const [codeSaveStatus, setCodeSaveStatus] = useState<SaveStatus>('idle');
 
@@ -165,7 +169,8 @@ function WebsiteBuilderInner() {
   // ---- AI Assistant ----
   const handleAiClick = () => {
     if (!planState.isPro) {
-      setSubscribeOpen(true);
+      // P5.4: label, don't hide — open the value-anchored pricing sheet.
+      setVelvetOpen(true);
       return;
     }
     if (mode === 'code') {
@@ -178,7 +183,9 @@ function WebsiteBuilderInner() {
 
   const handleCodeClick = () => {
     if (!planState.isPro) {
-      setSubscribeOpen(true);
+      // P5.4 G5: label, don't hide — the value-anchored sheet replaces the
+      // naked SubscribeModal on the free path.
+      setVelvetOpen(true);
       return;
     }
     if (mode === 'puck') {
@@ -245,8 +252,13 @@ function WebsiteBuilderInner() {
 
         {/* Editor body */}
       {mode === 'puck' ? (
-        <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-ink-rule bg-white">
-          <Puck config={config} data={puckContent} onPublish={handlePuckPublish} />
+        <div className="min-h-0 flex-1 overflow-y-auto space-y-4">
+          {/* P5.3: the SIMPLE editor — reorder/add/remove blocks with big
+              buttons, operating on the same validated JSON Puck uses. */}
+          <BlockGalleryEditor />
+          <div className="rounded-xl border border-ink-rule bg-white overflow-hidden">
+            <Puck config={config} data={puckContent} onPublish={handlePuckPublish} />
+          </div>
         </div>
       ) : (
         <CodeMode
@@ -279,7 +291,7 @@ function WebsiteBuilderInner() {
       />
 
       {/* Subscribe-to-Pro modal */}
-      <SubscribeModal open={subscribeOpen} onClose={() => setSubscribeOpen(false)} />
+      <ValuePricingSheet open={velvetOpen} onClose={() => setVelvetOpen(false)} info={planGate.info} />
     </div>
   );
 }

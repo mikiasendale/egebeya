@@ -26,7 +26,7 @@ import { eq } from 'drizzle-orm';
 import apiRoutes from '../../src/api';
 import { db } from '../../src/db';
 import {
-  tenants, users, plans, tenantSubscriptions, payments, proSiteFiles,
+  tenants, users, plans, tenantSubscriptions, payments, proSiteFiles, invoices,
 } from '../../src/db/schema';
 import { getWebhookSecret } from '../../server/lib/chapa';
 
@@ -40,7 +40,7 @@ vi.mock('../../server/lib/chapa', async (importOriginal) => {
       txRef: opts.txRef,
       raw: { status: 'success' },
     })),
-    verifyPayment: vi.fn(async () => ({ status: 'success', amount: '500', tx_ref: '', raw: {} })),
+    verifyPayment: vi.fn(async () => ({ status: 'success', amount: '1000', tx_ref: '', raw: {} })),
   };
 });
 
@@ -70,6 +70,7 @@ describe('Pro-subscription billing (checkout / webhook / grace / downgrade)', ()
   let tenantId: string;
   let userId: string;
   let token: string;
+  let staffToken: string;
   let freePlanId: string;
   let proPlanId: string;
   let txRef: string;
@@ -92,6 +93,18 @@ describe('Pro-subscription billing (checkout / webhook / grace / downgrade)', ()
       passwordHash: await bcrypt.hash('pass1234', 10),
       role: 'owner', createdAt: Date.now(),
     });
+    // A real staff DB row: requireAuth reads role from the FRESH DB row
+    // (anti-forgery), so the staff-rejection test needs an actual staff user.
+    const staffUserId = crypto.randomUUID();
+    await db.insert(users).values({
+      id: staffUserId, tenantId, name: 'Billing Staff',
+      phone: `+251${String(Math.floor(Math.random() * 1e9)).padStart(9, '0')}`,
+      email: `billing-staff-${slug}@egebeya.test`,
+      passwordHash: await bcrypt.hash('pass1234', 10),
+      role: 'staff', createdAt: Date.now(),
+    });
+    staffToken = tokenFor(staffUserId, tenantId, 'staff');
+
     await db.insert(tenantSubscriptions).values({
       id: crypto.randomUUID(), tenantId, planId: freePlanId, status: 'active', startsAt: Date.now(),
     });
@@ -101,6 +114,9 @@ describe('Pro-subscription billing (checkout / webhook / grace / downgrade)', ()
 
   afterAll(async () => {
     await db.delete(payments).where(eq(payments.tenantId, tenantId));
+    // P1.2 webhooks create invoices referencing the tenant — remove them
+    // before the tenant row or the FK constraint blocks cleanup.
+    await db.delete(invoices).where(eq(invoices.tenantId, tenantId)).catch(() => {});
     await db.delete(proSiteFiles).where(eq(proSiteFiles.tenantId, tenantId));
     await db.delete(tenantSubscriptions).where(eq(tenantSubscriptions.tenantId, tenantId));
     await db.delete(users).where(eq(users.tenantId, tenantId));
@@ -108,7 +124,7 @@ describe('Pro-subscription billing (checkout / webhook / grace / downgrade)', ()
   });
 
   beforeEach(async () => {
-    (mockedVerify as any).mockResolvedValue({ status: 'success', amount: '500', tx_ref: '', raw: {} });
+    (mockedVerify as any).mockResolvedValue({ status: 'success', amount: '1000', tx_ref: '', raw: {} });
     // Reset to a clean Free, active subscription for each test.
     await db.update(tenantSubscriptions)
       .set({ planId: freePlanId, status: 'active', endsAt: null, trialEndsAt: null, startsAt: Date.now() })
@@ -124,7 +140,7 @@ describe('Pro-subscription billing (checkout / webhook / grace / downgrade)', ()
     expect(res.body.success).toBe(true);
     expect(typeof res.body.checkoutUrl).toBe('string');
     expect(res.body.checkoutUrl).toMatch(/https?:\/\//);
-    expect(String(res.body.amountEtb)).toBe('500');
+    expect(String(res.body.amountEtb)).toBe('1000');
     txRef = res.body.txRef;
 
     const payment = await db.select().from(payments)
@@ -132,6 +148,25 @@ describe('Pro-subscription billing (checkout / webhook / grace / downgrade)', ()
     expect(payment).toBeTruthy();
     expect(payment?.status).toBe('pending');
     expect((payment?.meta as any)?.purpose).toBe('pro_subscription');
+  });
+
+  it('self-heals a missing pro plan row: checkout 200 instead of 500', async () => {
+    // Drop the canonical pro row as if a fresh DB never seeded it. Re-point
+    // any subscriptions first to avoid the FK constraint, then delete.
+    await db.update(tenantSubscriptions).set({ planId: freePlanId }).where(eq(tenantSubscriptions.planId, proPlanId));
+    await db.delete(plans).where(eq(plans.name, 'pro')).run();
+    expect(await db.select().from(plans).where(eq(plans.name, 'pro')).get()).toBeUndefined();
+
+    const res = await request(app)
+      .post('/api/tenant/subscription/checkout')
+      .set('Authorization', `Bearer ${token}`)
+      .send({});
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(typeof res.body.checkoutUrl).toBe('string');
+
+    // The helper and boot-time normalizePlanRows recreate the canonical row.
+    proPlanId = (await db.select().from(plans).where(eq(plans.name, 'pro')).get())!.id;
   });
 
   it('a completed webhook activates the Pro subscription (+30 days)', async () => {
@@ -169,7 +204,7 @@ describe('Pro-subscription billing (checkout / webhook / grace / downgrade)', ()
   });
 
   it('a failed webhook leaves the tenant on Free', async () => {
-    (mockedVerify as any).mockResolvedValue({ status: 'failed', amount: '500', tx_ref: '', raw: {} });
+    (mockedVerify as any).mockResolvedValue({ status: 'failed', amount: '1000', tx_ref: '', raw: {} });
 
     const checkout = await request(app)
       .post('/api/tenant/subscription/checkout')
@@ -198,7 +233,6 @@ describe('Pro-subscription billing (checkout / webhook / grace / downgrade)', ()
   });
 
   it('owner-only: a non-owner token is rejected on checkout', async () => {
-    const staffToken = tokenFor(userId, tenantId, 'staff');
     const res = await request(app)
       .post('/api/tenant/subscription/checkout')
       .set('Authorization', `Bearer ${staffToken}`)

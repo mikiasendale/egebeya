@@ -14,3 +14,9 @@ export const ETHIOPIAN_MONTHS = [
   'Meskerem', 'Tikimt', 'Hidar', 'Tahsas', 'Tir', 'Yakatit',
   'Maggabit', 'Miyazya', 'Ginbot', 'Sene', 'Hamle', 'Nehasse', 'Pagume'
 ];
+
+/** Amharic month names — single source (F5: was duplicated in QueueStatus + ReceiptTicket). */
+export const ETHIOPIAN_MONTHS_AM = [
+  'መስከረም', 'ጥቅምት', 'ኅዳር', 'ታኅሣሥ', 'ጥር', 'የካቲት',
+  'መጋቢት', 'ሚያዝያ', 'ግንቦት', 'ሰኔ', 'ሐምሌ', 'ነሐሴ', 'ጳጉሜን',
+];

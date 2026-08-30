@@ -1,11 +1,28 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 export function Footer() {
   const { t } = useTranslation();
   const year = new Date().getFullYear();
+  const footerRef = useRef<HTMLElement>(null);
+  const [sealVisible, setSealVisible] = useState(false);
+  useEffect(() => {
+    const el = footerRef.current;
+    if (!el) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setSealVisible(true);
+      return;
+    }
+    const io = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) { setSealVisible(true); io.disconnect(); } },
+      { threshold: 0.3 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
   return (
     <footer
+      ref={footerRef}
       className="surface-graphite px-5 sm:px-8 lg:px-12 py-14 scroll-reveal"
       aria-label="Egebeya footer"
     >
@@ -67,7 +84,7 @@ export function Footer() {
         >
           <span
             aria-hidden
-            className="footer-seal"
+            className={`footer-seal${sealVisible ? ' stamp-slam-in' : ''}`}
             style={{
               marginTop: 36,
               transform: 'rotate(-3deg)',

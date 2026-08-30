@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -6,8 +6,25 @@ export function PricingSection() {
   const { t } = useTranslation();
   const basicFeatures = t('pricing.basicFeatures', { returnObjects: true }) as string[];
   const proFeatures = t('pricing.proFeatures', { returnObjects: true }) as string[];
+  const sectionRef = useRef<HTMLElement>(null);
+  const [stampsVisible, setStampsVisible] = useState(false);
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setStampsVisible(true);
+      return;
+    }
+    const io = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) { setStampsVisible(true); io.disconnect(); } },
+      { threshold: 0.3 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
   return (
     <section
+      ref={sectionRef}
       id="pricing"
       className="px-5 sm:px-8 lg:px-12 py-16 lg:py-24 scroll-reveal"
       style={{ backgroundColor: 'var(--color-paper-bleached)' }}
@@ -21,7 +38,7 @@ export function PricingSection() {
             {t('pricing.eyebrow')} · {t('pricing.eyebrowAm')}
           </p>
           <h2
-            className="m-0"
+            className="m-0 print-strike"
             style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 'clamp(2rem, 5vw, 3.5rem)', letterSpacing: '-0.025em' }}
           >
             {t('pricing.heading')}
@@ -56,6 +73,7 @@ export function PricingSection() {
             highlighted
             mostPopular={`${t('pricing.mostPopular')} · ${t('pricing.mostPopularAm')}`}
             seal={`${t('pricing.seal')} · ${t('pricing.sealAm')}`}
+            stampsVisible={stampsVisible}
           />
         </div>
       </div>
@@ -75,6 +93,7 @@ function PlanCard({
   highlighted,
   mostPopular,
   seal,
+  stampsVisible,
 }: {
   tag: string;
   title: string;
@@ -87,6 +106,7 @@ function PlanCard({
   highlighted?: boolean;
   mostPopular?: string;
   seal?: string;
+  stampsVisible?: boolean;
 }) {
   return (
     <div
@@ -100,7 +120,7 @@ function PlanCard({
     >
       {highlighted && mostPopular && (
         <div
-          className="stamp rubber whitespace-nowrap"
+          className={`stamp rubber whitespace-nowrap${stampsVisible ? ' stamp-slam-in' : ''}`}
           style={{
             position: 'absolute',
             top: -14,
@@ -118,7 +138,7 @@ function PlanCard({
       {highlighted && seal && (
         <div
           aria-hidden
-          className="stamp seal-wobble"
+          className={`stamp seal-wobble${stampsVisible ? ' stamp-slam-in' : ''}`}
           style={{
             position: 'absolute',
             top: 18,

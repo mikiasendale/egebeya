@@ -83,6 +83,14 @@ router.put('/:id/status', async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
 
+  // Whitelist the allowed lifecycle states — an unvalidated string used to be
+  // written straight to the row, letting any staff token set arbitrary junk
+  // values ("", "hacked", objects) and corrupt dashboards/exports downstream.
+  const ALLOWED_STATUSES = ['pending', 'confirmed', 'completed', 'cancelled', 'no_show'];
+  if (typeof status !== 'string' || !ALLOWED_STATUSES.includes(status)) {
+    return res.status(400).json({ error: `status must be one of: ${ALLOWED_STATUSES.join(', ')}` });
+  }
+
   try {
     const appointment = await db.select().from(appointments).where(and(eq(appointments.id, id), eq(appointments.tenantId, tenantId))).get();
 
@@ -97,6 +105,21 @@ router.put('/:id/status', async (req, res) => {
     const now = Date.now();
 
     if (status === 'completed' && previousStatus !== 'completed') {
+      // P5.1: a completed visit is one punch. Zero merchant action — the
+      // ledger accrues here; the engine's gate decides whether it counts.
+      try {
+        const { recordPunch } = await import('../../server/lib/loyalty');
+        await recordPunch({
+          tenantId,
+          consumerPhone: appointment.customerPhone,
+          reason: 'visit',
+          refType: 'appointment',
+          refId: id,
+        });
+      } catch (punchErr) {
+        console.error('[loyalty] punch failed (non-fatal):', punchErr);
+      }
+
       const paymentRecord = await db.select({ amount: payments.amount })
         .from(payments)
         .where(eq(payments.appointmentId, id))
@@ -386,6 +409,9 @@ walkInRouter.post('/walk-in', async (req, res) => {
           status: 'confirmed',
           reminderSent: false,
           opaqueId,
+          // P4.2: owner-entered walk-ins carry the marker that orders them
+          // BEHIND Egebeya bookings in the queue (booked-floats-above).
+          bookingSource: 'walk_in',
         });
       }, { behavior: 'immediate' });
     } catch (err: any) {

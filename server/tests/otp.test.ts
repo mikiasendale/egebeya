@@ -9,16 +9,28 @@
  *   3. The 3-sends-per-hour per-phone rate limit returns 429.
  *   4. reset-password-via-sms → verify-otp → confirm-password-reset roundtrip.
  *
- * OTP codes are read straight from the `otp_codes` table (the SMS stub never
- * carries them on a real gateway), keeping the test independent of SMS
- * delivery plumbing.
+ * OTP codes are stored as SHA-256 hashes at rest (P0.5) — the plaintext is
+ * only ever carried in the SMS body, so tests capture codes from a mocked
+ * `sendSms` instead of reading the `otp_codes` table. This also lets the
+ * suite assert that what IS stored is a hash, not the code.
  */
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import request from 'supertest';
 import express from 'express';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
-import { eq, desc } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
+
+const { smsSends } = vi.hoisted(() => ({
+  smsSends: [] as Array<{ to: string; text: string }>,
+}));
+
+vi.mock('../../server/lib/sms', () => ({
+  sendSms: vi.fn(async (opts: { to: string; text: string }) => {
+    smsSends.push(opts);
+    return { success: true, messageId: 'test-sms-id' };
+  }),
+}));
 
 import apiRoutes from '../../src/api';
 import { db } from '../../src/db';
@@ -34,11 +46,15 @@ function randomPhone(): string {
 }
 
 async function latestCode(phone: string): Promise<string | null> {
-  const row = await db.select().from(otpCodes)
-    .where(eq(otpCodes.phone, phone))
-    .orderBy(desc(otpCodes.createdAt))
-    .get();
-  return row?.code ?? null;
+  // The plaintext code only ever travels in the SMS body — pull it from the
+  // captured send for this phone (latest first).
+  for (let i = smsSends.length - 1; i >= 0; i--) {
+    const send = smsSends[i];
+    if (send.to !== phone) continue;
+    const match = send.text.match(/code is: (\d{6})/);
+    if (match) return match[1];
+  }
+  return null;
 }
 
 interface SendOpts {
@@ -116,6 +132,34 @@ describe('SMS OTP identity (Feature E)', () => {
 
     const tenant = await db.select().from(tenants).where(eq(tenants.slug, slug)).get();
     expect(tenant).toBeTruthy();
+  });
+
+  it('stores OTP codes as SHA-256 hashes at rest (P0.5)', async () => {
+    const phone = randomPhone();
+    const slug = `otphash-${Date.now()}-${crypto.randomUUID().slice(0, 6)}`;
+    createdPhones.push(phone);
+    createdTenantSlugs.push(slug);
+
+    const send = await sendOtpRequest({ phone, slug });
+    expect(send.status).toBe(200);
+
+    const code = await latestCode(phone);
+    expect(code).toMatch(/^\d{6}$/);
+
+    // Whatever sits in otp_codes.code must NOT be the plaintext code and must
+    // be the SHA-256 hex digest of it.
+    const row = await db.select().from(otpCodes)
+      .where(eq(otpCodes.phone, phone))
+      .get();
+    expect(row).toBeTruthy();
+    expect(row!.code).not.toBe(code);
+    expect(row!.code).not.toMatch(/^\d{6}$/);
+    const expectedHash = crypto.createHash('sha256').update(code!, 'utf8').digest('hex');
+    expect(row!.code).toBe(expectedHash);
+
+    // And verification still works against the hashed storage.
+    const verify = await verifyRegisterRequest(phone, code!, slug);
+    expect(verify.status).toBe(200);
   });
 
   it('a resend invalidates the previously-issued code', async () => {

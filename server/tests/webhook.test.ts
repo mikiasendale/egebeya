@@ -40,8 +40,12 @@ app.use(express.json({
 app.use('/api', apiRoutes);
 
 // Force the test-mode secret fallback so signatures are deterministic.
+// SECURITY: never hardcode a real secret here — the previous fallback reused
+// the leaked CHAPA_WEBHOOK_SECRET from git history. Signing only needs to be
+// self-consistent inside this file (sign() uses WEBHOOK_SECRET), so a
+// runtime-generated value is just as deterministic for the test run.
 const WEBHOOK_SECRET = (() => {
-  try { return getWebhookSecret(); } catch { return '***REMOVED***'; }
+  try { return getWebhookSecret(); } catch { return crypto.randomBytes(24).toString('hex'); }
 })();
 
 function sign(rawBody: string, secret: string = WEBHOOK_SECRET): string {

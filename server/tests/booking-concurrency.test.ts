@@ -19,6 +19,22 @@ import {
 } from '../../src/db/schema';
 import { eq, inArray } from 'drizzle-orm';
 import crypto from 'crypto';
+/** F7: test writes that can contend with the booking path's busy-retry lock
+ * get the same retry discipline. */
+async function retryWrites(fn: () => Promise<unknown>): Promise<void> {
+  for (let i = 0; i < 4; i++) {
+    try {
+      await fn();
+      return;
+    } catch (err: any) {
+      const code = String(err?.code || err?.cause?.code || '');
+      if (!code.includes('BUSY')) throw err;
+      await new Promise((r) => setTimeout(r, 60 * (i + 1)));
+    }
+  }
+}
+
+
 
 /**
  * Concurrency contract for POST /api/public/bookings
@@ -122,8 +138,12 @@ describe('Booking concurrency / double-booking protection', () => {
     const apptIds = (await db.select({ id: appointments.id }).from(appointments)
       .where(eq(appointments.tenantId, tenantId)).all()).map((r) => r.id);
     if (apptIds.length) {
-      await db.delete(appointmentServices).where(inArray(appointmentServices.appointmentId, apptIds));
-      await db.delete(payments).where(inArray(payments.appointmentId, apptIds));
+      await retryWrites(() =>
+        db.delete(appointmentServices).where(inArray(appointmentServices.appointmentId, apptIds)),
+      );
+      await retryWrites(() =>
+        db.delete(payments).where(inArray(payments.appointmentId, apptIds)),
+      );
     }
     await db.delete(appointments).where(eq(appointments.tenantId, tenantId));
     await db.delete(recurringSeries).where(eq(recurringSeries.tenantId, tenantId));
@@ -177,7 +197,7 @@ describe('Booking concurrency / double-booking protection', () => {
 
     // And exactly one appointment row should exist for this exact slot.
     const rows = await db
-      .select({ id: appointments.id })
+      .select({ id: appointments.opaqueId })
       .from(appointments)
       .where(eq(appointments.staffId, staffId))
       .all();
@@ -203,12 +223,14 @@ describe('Booking concurrency / double-booking protection', () => {
 
   it('rejects a booking on a tenant-closure date with 422', async () => {
     const closureDate = new Date(startTimeMs).toISOString().slice(0, 10);
-    await db.insert(tenantClosures).values({
-      id: crypto.randomUUID(),
-      tenantId,
-      date: closureDate,
-      reason: 'Concurrency test closure',
-    });
+    await retryWrites(() =>
+      db.insert(tenantClosures).values({
+        id: crypto.randomUUID(),
+        tenantId,
+        date: closureDate,
+        reason: 'Concurrency test closure',
+      }),
+    );
 
     try {
       const res = await request(app)

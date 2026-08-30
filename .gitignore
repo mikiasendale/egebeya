@@ -6,9 +6,22 @@ coverage/
 *.log
 .env*
 !.env.example
+.vs/
+.idea/
+.freebuff/
+preview/
 .impeccable/live/sessions/
 dist-server/
 
 # Local dev database (sqlite/libsql) — runtime data, not source
 sqlite.db
 sqlite.db-*
+
+# graphify knowledge-graph output (regenerable)
+graphify-out/
+# impeccable review screenshots (regenerable)
+.impeccable/
+# scratch test artifact
+_test_pixel.png
+.aider*
+.opencode/

@@ -140,7 +140,7 @@ describe('Group / Multi-Service Bookings', () => {
     expect(res.body.appointment).toBeTruthy();
 
     const appt = await db.select().from(appointments)
-      .where(eq(appointments.id, res.body.appointment.id))
+      .where(eq(appointments.opaqueId, res.body.appointment.id))
       .get();
     expect(appt).toBeTruthy();
 
@@ -178,7 +178,7 @@ describe('Group / Multi-Service Bookings', () => {
 
     expect(res.status).toBe(201);
     const appt = await db.select().from(appointments)
-      .where(eq(appointments.id, res.body.appointment.id))
+      .where(eq(appointments.opaqueId, res.body.appointment.id))
       .get();
     expect(appt?.serviceId).toBe(serviceA);
     expect(appt?.endTime - appt?.startTime).toBe(30 * 60000);

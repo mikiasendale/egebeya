@@ -62,6 +62,11 @@ export function requireSuperadmin() {
       return res.status(401).json({ error: 'Invalid token' });
     }
 
+    // Audience confusion guard (P3.4) — same rule as requireAuth.
+    if (payload?.aud === 'consumer') {
+      return res.status(403).json({ error: 'Wrong token audience' });
+    }
+
     if (!payload?.userId) {
       return res.status(401).json({ error: 'Invalid token' });
     }
@@ -105,6 +110,13 @@ export function requireAuth(options: AuthOptions = {}) {
       return res.status(401).json({ error: 'Invalid token' });
     }
 
+    // Audience confusion guard (P3.4): consumer JWTs carry aud:'consumer'
+    // and are verified by requireConsumerAuth only — a consumer token must
+    // never open merchant surfaces.
+    if (payload?.aud === 'consumer') {
+      return res.status(403).json({ error: 'Wrong token audience' });
+    }
+
     if (!payload?.userId) {
       return res.status(401).json({ error: 'Invalid token' });
     }
@@ -119,7 +131,11 @@ export function requireAuth(options: AuthOptions = {}) {
       return res.status(401).json({ error: 'Session has been revoked, please sign in again' });
     }
 
-    if (options.roles && options.roles.length > 0 && !options.roles.includes(payload.role)) {
+    // Role is checked against the FRESH DB row, not the JWT claim: an owner
+    // demoted to staff mid-token-lifetime must lose owner endpoints
+    // immediately, and a forged/upgraded `role` claim in a stolen token must
+    // never grant privileges the DB does not confirm.
+    if (options.roles && options.roles.length > 0 && !options.roles.includes((user as any).role)) {
       return res.status(403).json({ error: 'Forbidden' });
     }
 

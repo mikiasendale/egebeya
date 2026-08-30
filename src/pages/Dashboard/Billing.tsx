@@ -1,61 +1,113 @@
 /**
- * /dashboard/billing — current plan, renewals, and the Pro upgrade.
+ * /dashboard/billing — current plan, renewals, and the Pro price ladder.
  *
- * Mirrors the server gate: a paid Pro subscription whose `endsAt` has lapsed
- * but is still inside the 5-day grace window shows a "Renew" banner while
- * keeping access; past the window it is expired and blocks.
+ * P1.3: everything on this page is driven by GET /api/tenant/subscription's
+ * `billing` object (state machine: idle → redirecting → pending → active /
+ * grace / expired). Founding members see "የመስራች ዋጋ ተይዟል" + renewal date;
+ * new tenants see list price; a value frame ("bookings this month") sits
+ * ABOVE any price so the plan is framed by value, never by a naked delta
+ * (CPO ruling).
  */
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
-import { CreditCard, Loader2, Zap, AlertTriangle, CheckCircle2, ExternalLink } from 'lucide-react';
-import { authFetch } from '../../lib/api';
+import { CreditCard, Loader2, Zap, AlertTriangle, Check, CheckCircle2, ExternalLink, Clock } from 'lucide-react';
 import { showToast } from '../../components/ui/toast-helper';
-import { billingState, type BillingState } from '../../lib/subscription';
+import { authFetch } from '../../lib/api';
+import { fetchSubscription, billingState, type BillingState } from '../../lib/subscription';
+import type { SubscriptionSummary } from '../../lib/subscription';
 import { StaffRedirect } from './StaffRedirect';
 
-const PRO_PRICE_ETB = 500;
+type CycleDays = 30 | 90 | 365;
+
+// Button state machine (P1.3): idle → redirecting → (Chapa) → pending → active.
+type CheckoutPhase = 'idle' | 'redirecting' | 'pending';
+
+const CYCLES: Array<{ days: CycleDays; labelKey: string }> = [
+  { days: 30, labelKey: 'dashboard.billing.cycleMonthly' },
+  { days: 90, labelKey: 'dashboard.billing.cycleQuarterly' },
+  { days: 365, labelKey: 'dashboard.billing.cycleAnnual' },
+];
 
 export function Billing() {
-  const [summary, setSummary] = useState<any>(null);
+  const { t } = useTranslation();
+  const [summary, setSummary] = useState<SubscriptionSummary | null>(null);
   const [loading, setLoading] = useState(true);
-  const [starting, setStarting] = useState(false);
+  const [phase, setPhase] = useState<CheckoutPhase>('idle');
+  const [cycleDays, setCycleDays] = useState<CycleDays>(30);
 
   useEffect(() => {
-    authFetch('/api/tenant/subscription')
-      .then((r) => (r.ok ? r.json() : null))
-      .then(setSummary)
+    fetchSubscription()
+      .then((data) => {
+        setSummary(data);
+        // P3.5 pricing-funnel: the owner saw the price ladder.
+        const b = (data as any)?.billing ?? {};
+        authFetch('/api/tenant/events/price-seen', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            isFoundingRate: b.isFoundingRate ?? null,
+            amountEtb: typeof b.priceEtbPerMonth === 'string' ? Number(b.priceEtbPerMonth) : null,
+          }),
+        }).catch(() => {});
+      })
       .catch(() => setSummary(null))
       .finally(() => setLoading(false));
   }, []);
 
-  const state: BillingState = billingState(summary);
+  const billing = (summary as any)?.billing ?? {};
+  // Server is the source of truth; client math is a fallback for old payloads.
+  const state: BillingState = billing.state ?? billingState(summary);
   const planName: string = summary?.plan?.name || 'free';
   const isPro = planName.toLowerCase() === 'pro';
   const staffUsage: number = summary?.staffUsage ?? 0;
   const maxStaff: number = summary?.plan?.maxStaff ?? 0;
   const endsAt: number | null = summary?.subscription?.endsAt ?? null;
   const trialEndsAt: number | null = summary?.subscription?.trialEndsAt ?? null;
+  const graceEndsAt: number | null = billing.graceEndsAt ??
+    (typeof endsAt === 'number' ? endsAt + 5 * 24 * 60 * 60 * 1000 : null);
 
-  const startCheckout = async () => {
-    setStarting(true);
+  const priceEtb: string = String(billing.priceEtbPerMonth ?? '1000');
+  const isFoundingRate: boolean = billing.isFoundingRate === true;
+  const monthlyBookings: number = billing.monthlyBookings ?? 0;
+  const paymentPending: boolean =
+    billing.pendingCheckout === true && !isProActiveState(state);
+
+  // Receipt-strip math (P1.5): mirrors server/lib/billing.ts priceForCycle.
+  function cyclePriceEtb(days: CycleDays): string {
+    const base = Number(priceEtb) || 0;
+    const total = days === 90 ? base * 3 * 0.95 : days === 365 ? base * 10 : base;
+    return `${total.toLocaleString()} ETB`;
+  }
+  function cycleTotalEtb(days: CycleDays): string {
+    return cyclePriceEtb(days);
+  }
+
+  function isProActiveState(s: BillingState): boolean {
+    return s === 'active' || s === 'grace';
+  }
+
+  async function startCheckout() {
+    setPhase('redirecting');
     try {
+      // authFetch carries the CSRF header + silent-refresh semantics.
       const res = await authFetch('/api/tenant/subscription/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ cycle: cycleDays }),
       });
       const body = await res.json().catch(() => ({}));
       if (res.ok && body.checkoutUrl) {
         window.location.assign(body.checkoutUrl);
-        return;
+        return; // navigation away — phase stays 'redirecting'
       }
+      setPhase('idle');
       showToast('Checkout failed to start', body.error || 'Please try again.', 'destructive');
-    } catch (err) {
+    } catch {
+      setPhase('idle');
       showToast('Checkout failed to start', 'Network error.', 'destructive');
-    } finally {
-      setStarting(false);
     }
-  };
+  }
 
   if (loading) {
     return (
@@ -71,24 +123,39 @@ export function Billing() {
     return (
       <StaffRedirect>
         <div className="bg-paper-bleached rounded-xl border border-ink-rule p-6">
-          <h2 className="text-lg font-bold text-ink mb-2">Billing & Plan</h2>
+          <h2 className="text-lg font-bold text-ink mb-2">{t('dashboard.billing.title')}</h2>
           <p className="text-sm text-ink-soft">Unable to load your subscription. Please try again.</p>
         </div>
       </StaffRedirect>
     );
   }
 
+  const busy = phase === 'redirecting';
+
   return (
     <StaffRedirect>
       <div className="space-y-6">
-        <div className="flex items-center gap-2">
-          <h1 className="text-xl font-bold text-ink">Billing & Plan</h1>
+        <div className="flex items-center gap-2 flex-wrap">
+          <h1 className="text-xl font-bold text-ink">{t('dashboard.billing.title')}</h1>
+          {isFoundingRate && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-telebirr/15 text-telebirr-deep">
+              <CheckCircle2 className="h-3 w-3" /> {t('dashboard.billing.foundingLocked')}
+            </span>
+          )}
           {state === 'grace' && (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-accent-secondary/15 text-accent-secondary-deep">
               <AlertTriangle className="h-3 w-3" /> Grace period
             </span>
           )}
         </div>
+
+        {/* Pending checkout: Chapa hasn't confirmed yet (P1.3 state machine). */}
+        {paymentPending && (
+          <div className="flex items-start gap-3 p-4 rounded-xl border border-accent-secondary/40 bg-accent-secondary/10">
+            <Clock className="h-5 w-5 text-accent-secondary-deep shrink-0 mt-0.5" />
+            <p className="text-sm text-ink flex-1">{t('dashboard.billing.paymentPending')}</p>
+          </div>
+        )}
 
         {state === 'grace' && (
           <div className="flex items-start gap-3 p-4 rounded-xl border border-accent-secondary/40 bg-accent-secondary/10">
@@ -101,10 +168,11 @@ export function Billing() {
             </div>
             <button
               onClick={startCheckout}
-              disabled={starting}
+              disabled={busy}
+              data-testid="renew-banner-btn"
               className="shrink-0 inline-flex items-center gap-1 rounded-md bg-ink text-white px-4 py-2 text-sm font-medium hover:opacity-90 disabled:opacity-60"
             >
-              {starting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Renew'}
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Renew'}
             </button>
           </div>
         )}
@@ -133,33 +201,120 @@ export function Billing() {
               </div>
             </div>
 
+            {/* Value frame ABOVE any price — never a naked price delta (CPO ruling). */}
+            {!isPro && monthlyBookings > 0 && (
+              <p className="mb-3 text-sm font-medium text-telebirr-deep" data-testid="value-frame">
+                {monthlyBookings === 1
+                  ? t('dashboard.billing.valueFrameOne')
+                  : t('dashboard.billing.valueFrame', { count: monthlyBookings })}
+              </p>
+            )}
+
+            {/* Cycle selector (P1.5) — a receipt strip: picking a cycle PRINTS
+                its ledger line and slams the discount stamp (overdrive A). */}
+            {!isPro && (
+              <div className="mb-3" role="radiogroup" aria-label="Billing cycle">
+                <div className="rounded-lg border border-ink-rule bg-paper-raised overflow-hidden">
+                  {CYCLES.map((c, i) => {
+                    const selected = cycleDays === c.days;
+                    return (
+                      <button
+                        key={c.days}
+                        role="radio"
+                        aria-checked={selected}
+                        onClick={() => setCycleDays(c.days)}
+                        disabled={busy}
+                        data-testid={`cycle-${c.days}`}
+                        className={`till-print w-full flex items-center justify-between gap-2 px-3 py-3 min-h-[52px] text-left transition-colors duration-200 ${
+                          i > 0 ? 'border-t border-dashed border-ink-rule' : ''
+                        } ${selected ? 'bg-paper-bleached' : 'hover:bg-paper-bleached/60'}`}
+                      >
+                        <span className="flex items-center gap-2 min-w-0">
+                          <span
+                            aria-hidden
+                            className={`inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border ${
+                              selected ? 'border-primary bg-primary' : 'border-ink-rule'
+                            }`}
+                          >
+                            {selected && <Check className="h-3 w-3 text-white" />}
+                          </span>
+                          <span className={`text-sm truncate ${selected ? 'font-semibold text-ink' : 'text-ink-soft'}`}>
+                            {t(c.labelKey)}
+                          </span>
+                        </span>
+                        <span
+                          className="text-xs shrink-0"
+                          style={{ fontFamily: 'var(--font-receipt)', color: selected ? 'var(--color-primary-deep)' : 'var(--color-ink-stamp)' }}
+                        >
+                          {cyclePriceEtb(c.days)}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* The printed total line + discount stamp slam in on change. */}
+                <div key={cycleDays} className="till-print mt-2 flex items-center justify-between gap-2">
+                  <span className="text-sm font-bold text-ink">
+                    {t('dashboard.billing.totalToday', { defaultValue: 'ዛሬ ክፍል · Total today' })}
+                  </span>
+                  <span className="flex items-center gap-2">
+                    {cycleDays !== 30 && (
+                      <span
+                        className="stamp stamp-slam-in"
+                        style={{ color: 'var(--color-primary-deep)', borderColor: 'var(--color-primary-deep)' }}
+                        data-testid="cycle-discount-stamp"
+                      >
+                        {cycleDays === 90 ? '5% OFF' : '10 ለ 12'}
+                      </span>
+                    )}
+                    <span className="text-base font-bold" style={{ fontFamily: 'var(--font-receipt)', color: 'var(--color-ink)' }}>
+                      {cycleTotalEtb(cycleDays)}
+                    </span>
+                  </span>
+                </div>
+              </div>
+            )}
+
             {!isPro && (
               <>
                 <button
                   onClick={startCheckout}
-                  disabled={starting}
-                  className="w-full bg-ink text-white px-4 py-2.5 rounded-md font-medium text-sm hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
+                  disabled={busy}
+                  data-testid="upgrade-btn"
+                  className="w-full bg-telebirr text-white px-4 py-2.5 rounded-md font-medium text-sm hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
                 >
-                  {starting ? <Loader2 className="h-4 w-4 animate-spin" /> : (
+                  {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : (
                     <>
-                      Upgrade to Pro — {PRO_PRICE_ETB.toLocaleString()} ETB/month
+                      {t('dashboard.billing.upgrade', { price: priceEtb })}
                       <ExternalLink className="h-4 w-4" />
                     </>
                   )}
                 </button>
                 <p className="mt-2 text-xs text-ink-soft">
-                  Cancel anytime. You'll be redirected to a secure Chapa checkout.
+                  {t('dashboard.billing.cycleNote')}
                 </p>
               </>
+            )}
+
+            {isFoundingRate && (
+              <p className="mt-3 text-xs text-telebirr-deep" data-testid="founding-hint">
+                {t('dashboard.billing.foundingLockedHint', {
+                  date: typeof billing.foundingRateLockedUntil === 'number'
+                    ? format(new Date(billing.foundingRateLockedUntil), 'MMM d, yyyy')
+                    : '—',
+                })}
+              </p>
             )}
 
             {isPro && state !== 'grace' && (
               <button
                 onClick={startCheckout}
-                disabled={starting}
+                disabled={busy}
+                data-testid="renew-btn"
                 className="w-full bg-ink text-white px-4 py-2.5 rounded-md font-medium text-sm hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
               >
-                {starting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Renew Pro'}
+                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : t('dashboard.billing.renew', { price: priceEtb })}
               </button>
             )}
 
@@ -185,8 +340,8 @@ export function Billing() {
               <p className="text-ink">
                 {state === 'trial' && trialEndsAt
                   ? `Trial ends ${format(new Date(trialEndsAt), 'MMM d, yyyy')}`
-                  : state === 'grace' && endsAt
-                    ? `Renew by ${format(new Date(endsAt + 5 * 24 * 60 * 60 * 1000), 'MMM d, yyyy')} to avoid losing Pro`
+                  : state === 'grace' && graceEndsAt
+                    ? `Renew by ${format(new Date(graceEndsAt), 'MMM d, yyyy')} to avoid losing Pro`
                     : isPro
                       ? `Next renewal ${endsAt ? format(new Date(endsAt), 'MMM d, yyyy') : '—'}`
                       : 'Monthly (Free plan has no billing cycle)'}
