@@ -342,7 +342,7 @@ function DashboardInner() {
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <Link
-                to="/settings"
+                to="/dashboard/settings"
                 data-testid="setup-banner-action"
                 className="bg-ink text-paper px-4 py-1.5 rounded-md text-sm font-medium hover:opacity-90 transition-opacity whitespace-nowrap"
               >
