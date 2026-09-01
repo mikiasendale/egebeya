@@ -17,7 +17,10 @@ import { requireAuth } from './middleware/auth';
 import { csrfProtection } from './middleware/csrf';
 import { intentLimiter } from '../../server/middleware/rateLimiter';
 
-const router = Router();
+// Two routers instead of one mounted twice: each endpoint serves under
+// exactly ONE canonical prefix — /public/intent for the consumer signal,
+// /tenant/alerts for the owner dashboard read.
+export const intentPublicRouter = Router();
 
 /**
  * POST /api/public/intent
@@ -36,7 +39,7 @@ const IntentSchema = z.object({
   action: z.enum(['view', 'search']),
 });
 
-router.post('/intent', intentLimiter, async (req, res) => {
+intentPublicRouter.post('/intent', intentLimiter, async (req, res) => {
   try {
     const parsed = IntentSchema.safeParse(req.body || {});
     if (!parsed.success) {
@@ -66,7 +69,8 @@ router.post('/intent', intentLimiter, async (req, res) => {
  * first. Used by the Market Pulse widget. Includes only alerts created in the
  * last 7 days so the widget stays fresh. Owner-only.
  */
-router.get('/alerts', requireAuth({ roles: ['owner'] }), csrfProtection, async (req, res) => {
+export const intentTenantRouter = Router();
+intentTenantRouter.get('/alerts', requireAuth({ roles: ['owner'] }), csrfProtection, async (req, res) => {
   const { tenantId } = (req as any).user;
   try {
     const since = Date.now() - 7 * 24 * 60 * 60 * 1000;
@@ -89,5 +93,3 @@ router.get('/alerts', requireAuth({ roles: ['owner'] }), csrfProtection, async (
     res.status(500).json({ error: 'Failed to fetch alerts' });
   }
 });
-
-export default router;
