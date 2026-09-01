@@ -84,6 +84,28 @@ Check `.env.example` for the full list. The critical ones:
 | `DATABASE_AUTH_TOKEN` | Prod only | Turso auth token, required when `DATABASE_URL` is set |
 | `APP_URL` | Prod | Canonical URL of the deployment |
 | `ALLOW_UNVERIFIED_PAYMENTS` | Temporary | `true` lets the server boot without Chapa keys while an account is still unverified |
+| `SMS_API_KEY` | Prod | SMSEthiopia API key — real SMS delivery (OTP, reminders, win-back). See [SMS Provider](#sms-provider-smsethiopia) |
+| `TELEGRAM_BOT_TOKEN` | Optional | Enables the Telegram channel (booking deep-link opt-in, Telegram confirmations, consumer OTP login) |
+| `TELEGRAM_WEBHOOK_SECRET` | With bot | Secret token Telegram echoes on the webhook (required when the bot is configured) |
+| `TELEGRAM_BOT_USERNAME` | With bot | Bot username without `@` — builds the "ማስታወሻ በ Telegram" deep links |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` | Prod | SMTP credentials. ⚠️ Unset = the mailer logs instead of sending and reports `sent` — password-reset email will NOT deliver. Always set in production |
+| `TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` | Optional | Cloudflare Turnstile bot-check on the public booking form (skipped when unset) |
+| `OPENROUTER_API_KEY` | Pro feature | AI Assistant (Code Mode) in the Website Builder — 500s without it |
+| `OPS_BACKUP_UPLOAD_CMD` | Recommended | Off-host backup hook, e.g. `rclone copy {} remote:egebeya-backups` (`{}` = snapshot path). Unset = snapshots stay on-host only |
+
+### SMS Provider (SMSEthiopia)
+
+Real SMS delivery (registration OTP, password resets via SMS, appointment reminders, win-back) goes through [SMSEthiopia](https://smsethiopia.com) (`server/lib/sms.ts`):
+
+- **Auth:** the key is sent as a `KEY` HTTP header — set `SMS_API_KEY` in `.env` (dev) and the Render environment (prod).
+- **Sender ID:** bound to the key's campaign on the SMSEthiopia side — no `from` field is sent.
+- **Honest failures:** an unset key, a provider refusal, or a network error returns `success: false` and lands in `notification_log` as `failed`. Nothing is ever reported "sent" unless the provider accepted the message.
+- **Starter-campaign gotcha:** the free/default campaign can only deliver to numbers **whitelisted in the SMSEthiopia dashboard** — un-whitelisted recipients fail with `DEFAULT_CAMPAIGN_RECIPIENT_NOT_WHITELISTED` (error code 10007). Verify your own number in their dashboard for testing, and purchase a paid package for production volume.
+- **Delivery status:** message ids returned by `sendSms` (stored as the `messageId` in notification outcomes) can be checked against `GET /api/v2/sms/{id}` on the provider for delivery records.
+
+### AI Provider (OpenRouter)
+
+The Website Builder's Code-Mode AI Assistant calls OpenRouter with `OPENROUTER_API_KEY` (`src/api/ai-chat.ts`). Get a key at https://openrouter.ai/keys. Without it the Pro AI panel returns "AI service is not configured on this server."
 
 ---
 
