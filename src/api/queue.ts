@@ -27,8 +27,6 @@ import {
 } from '../lib/ethiopianCalendar';
 import { toAddis } from '../../server/lib/timezone';
 
-const router = Router();
-
 // ── Queue console ─────────────────────────────────────────────────────────
 // F4 (Phase-4 polish): the wedge acceptance is "a BARBER clears his morning
 // queue with one tap per customer" — the barber is STAFF. Read + advance are
@@ -178,4 +176,3 @@ publicRouter.get('/queue-status/:opaqueId', queueStatusLimiter, async (req, res)
 });
 
 export { ownerRouter as queueOwnerRouter, publicRouter as queuePublicRouter };
-export default router;

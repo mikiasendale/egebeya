@@ -17,7 +17,7 @@ import apiKeysRoutes from './api-keys';
 import v1Routes from './v1';
 import telegramRoutes from './telegram';
 import consumerRoutes from './consumer';
-import queueRoutes, { queueOwnerRouter, queuePublicRouter } from './queue';
+import { queueOwnerRouter, queuePublicRouter } from './queue';
 import { apiKeyLimiter } from '../../server/middleware/rateLimiter';
 import { dbHealthMiddleware } from '../db/health';
 
