@@ -71,6 +71,28 @@ export function Automations() {
   const settingKeyFor = (id: string): string =>
     id === 'holiday_vip' ? 'gift_vouchers_enabled' : 'automations_enabled';
 
+  // Hydrate toggle state from the persisted settings on mount — without
+  // this the toggles always initialize OFF and a refresh reads as data
+  // loss, even though the cron gates on the saved setting.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await authFetch('/api/tenant/settings');
+        if (!res.ok || cancelled) return;
+        const data = await res.json().catch(() => null);
+        if (!data || cancelled) return;
+        setSequences((prev) => prev.map((s) => ({
+          ...s,
+          enabled: Boolean(data[settingKeyFor(s.id)]),
+        })));
+      } catch {
+        // Leave defaults on failure — same UX as before hydration existed.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   const toggleSequence = useCallback(async (id: string) => {
     setSavingId(id);
     const nextEnabled = !sequences.find((s) => s.id === id)?.enabled;
