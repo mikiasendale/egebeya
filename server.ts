@@ -19,6 +19,7 @@ import { runOnce as runWinback } from './server/cron/runWinbackAutomations';
 import { expandAllSeries } from './server/cron/expandRecurring';
 import { runOnce as runDowngradeExpired } from './server/cron/downgradeExpired';
 import { runOnce as runAggregateIntent } from './server/cron/aggregateIntent';
+import { runOnce as runSettlementReconciliation } from './server/cron/settlementReconciliation';
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
@@ -277,6 +278,21 @@ async function startServer() {
       }
     });
 
+    // Settlement reconciliation — daily at 04:00 UTC, deliberately AFTER
+    // downgradeExpired (03:05) so settlement statuses refresh against
+    // post-downgrade state.
+    cron.schedule('0 4 * * *', async () => {
+      console.log('[CRON] Running settlement reconciliation...');
+      try {
+        const { stalePayments, staleInvoices } = await runSettlementReconciliation();
+        if (stalePayments > 0 || staleInvoices > 0) {
+          console.warn(`[CRON] Settlement reconciliation: ${stalePayments} stale payment(s), ${staleInvoices} stale invoice(s) — manual review needed`);
+        }
+      } catch (e) {
+        console.error('[CRON] Settlement reconciliation failed:', e);
+      }
+    });
+
     // Buying intent aggregation — every 2 hours.
     cron.schedule('0 */2 * * *', async () => {
       console.log('[CRON] Aggregating buying intent...');
@@ -287,7 +303,7 @@ async function startServer() {
       }
     });
 
-    console.log('[CRON] 5 cron jobs scheduled (reminders, winback, expand, downgrade, intent)');
+    console.log('[CRON] 6 cron jobs scheduled (reminders, winback, expand, downgrade, settlements, intent)');
   }
 
   app.listen(PORT, HOST, () => {
