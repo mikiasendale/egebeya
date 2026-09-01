@@ -73,6 +73,11 @@ export function Settings() {
   const [hoursLoading, setHoursLoading] = useState(true);
   const [hoursSaving, setHoursSaving] = useState(false);
 
+  // Custom-domain state — persisted via PUT /api/tenant/domain (Pro-gated).
+  const [domainInput, setDomainInput] = useState('');
+  const [savedDomain, setSavedDomain] = useState<string | null>(null);
+  const [domainSaving, setDomainSaving] = useState(false);
+
   useEffect(() => {
     Promise.all([
       authFetch('/api/tenant/subscription').then(r => r.json()),
@@ -85,6 +90,8 @@ export function Settings() {
         setSubscription(subData);
         setSettings(settingsData);
         setHours(mergeWithDefaults(Array.isArray(hoursData) ? hoursData : []));
+        setSavedDomain(typeof settingsData?.domain === 'string' && settingsData.domain ? settingsData.domain : null);
+        setDomainInput(typeof settingsData?.domain === 'string' && settingsData.domain ? settingsData.domain : '');
         setLoading(false);
         setHoursLoading(false);
       })
@@ -124,6 +131,33 @@ export function Settings() {
     setHours((prev) =>
       prev.map((row) => (row.dayOfWeek === dayOfWeek ? { ...row, ...patch } : row)),
     );
+  };
+
+  const saveDomain = async () => {
+    setDomainSaving(true);
+    try {
+      const res = await authFetch('/api/tenant/domain', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domain: domainInput.trim() }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setSavedDomain(body.domain ?? null);
+        showToast(
+          body.domain ? 'Custom domain saved' : 'Custom domain cleared',
+          body.domain
+            ? `Point your DNS to this site: ${body.domain}`
+            : 'Your site no longer maps a custom domain.',
+        );
+      } else {
+        showToast('Could not save domain', body.error || 'Please try again.', 'destructive');
+      }
+    } catch {
+      showToast('Could not save domain', 'Network error.', 'destructive');
+    } finally {
+      setDomainSaving(false);
+    }
   };
 
   const saveBusinessHours = async () => {
@@ -450,9 +484,6 @@ export function Settings() {
               <div className="bg-ink/10 p-6 rounded-xl border border-ink/10 relative overflow-hidden">
                 <Zap className="absolute top-4 right-4 text-ink-stamp" size={64} />
                 <h3 className="text-lg font-bold text-ink mb-1">{subscription.plan?.name} Plan</h3>
-                <span className="inline-block ml-2 align-middle inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-telebirr/10 text-telebirr-deep">
-                  Billing coming soon
-              </span>
                 <p className="text-sm text-ink-soft mb-4">
                   {subscription.subscription.status === 'trial' ? 'Trial Active' : 'Subscription Active'}
               </p>
@@ -461,25 +492,19 @@ export function Settings() {
                   <div className="flex justify-between text-sm">
                     <span className="text-ink">Staff Limit</span>
                     <span className="font-bold text-ink">{subscription.staffUsage} / {subscription.plan?.maxStaff}</span>
-                 </div>
+                  </div>
                   <div className="w-full bg-ink-rule rounded-full h-2">
                     <div className="bg-ink h-2 rounded-full" style={{ width: `${(subscription.staffUsage / subscription.plan?.maxStaff) * 100}%` }}></div>
-                 </div>
-               </div>
+                  </div>
+                </div>
 
-                <button
-                  type="button"
-                  disabled
-                  title="Manage your plan on the Billing page."
-                  className="bg-ink text-white px-4 py-2 rounded-md font-medium text-sm hover:opacity-90 w-full disabled:opacity-60 disabled:cursor-not-allowed"
+                <Link
+                  to="/dashboard/billing"
+                  className="block text-center bg-ink text-white px-4 py-2 rounded-md font-medium text-sm hover:opacity-90 w-full"
                 >
                   Upgrade Plan
-</button>
-                <p className="mt-2 text-xs text-ink-soft">
-                  Manage your plan on the{' '}
-                  <Link to="/dashboard/billing" className="font-medium text-primary-deep underline">Billing page</Link>.
-             </p>
-             </div>
+                </Link>
+              </div>
 
               <div className="space-y-4">
                 <div className="p-4 border border-ink-rule rounded-lg bg-paper-raised">
@@ -495,25 +520,49 @@ export function Settings() {
                 <div className="p-4 border border-ink-rule rounded-lg bg-paper-raised">
                   <div className="flex items-center gap-2 mb-1">
                     <h4 className="font-semibold text-ink text-sm">Custom Domain</h4>
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-telebirr/10 text-telebirr-deep">
-                      Coming soon
-                 </span>
-                 </div>
-                  <p className="text-ink">
-                    {subscription.plan?.customDomainAllowed ? 'Included (on roadmap)' : 'Requires Pro Plan'}
-</p>
-                  <p className="mt-2 text-xs text-ink-soft">
-                    Connecting your own domain (e.g. <code className="font-mono">book.yourbrand.com</code>) is on the roadmap.
-                </p>
-                  <button
-                    type="button"
-                    disabled
-                    title="Custom-domain onboarding is coming soon."
-                    className="mt-3 inline-flex items-center px-3 py-1.5 rounded-md border border-ink-rule bg-paper-bleached text-ink text-xs font-medium disabled:opacity-60 disabled:cursor-not-allowed"
-                  >
-                    Connect Domain
-</button>
-               </div>
+                    {!subscription.plan?.customDomainAllowed && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-telebirr/10 text-telebirr-deep">
+                        Pro
+                      </span>
+                    )}
+                  </div>
+                  {subscription.plan?.customDomainAllowed ? (
+                    <>
+                      <div className="mt-2 flex gap-2">
+                        <input
+                          type="text"
+                          value={domainInput}
+                          onChange={(e) => setDomainInput(e.target.value)}
+                          placeholder="book.yourbrand.com"
+                          className="flex-1 border-ink-rule rounded-md shadow-sm focus:border-ink focus:ring-ink font-mono text-sm"
+                        />
+                        <button
+                          type="button"
+                          onClick={saveDomain}
+                          disabled={domainSaving || domainInput.trim() === savedDomain}
+                          className="inline-flex items-center px-3 py-1.5 rounded-md border border-ink-rule bg-paper-bleached text-ink text-xs font-medium hover:bg-paper-raised disabled:opacity-60 disabled:cursor-not-allowed"
+                        >
+                          {domainSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : (savedDomain ? 'Update' : 'Connect')}
+                        </button>
+                      </div>
+                      {savedDomain && (
+                        <p className="mt-2 text-xs text-ink-soft">
+                          Connected: <code className="font-mono">{savedDomain}</code> · point your DNS here.
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-ink">
+                        Requires Pro Plan
+                      </p>
+                      <p className="mt-2 text-xs text-ink-soft">
+                        Connecting your own domain (e.g. <code className="font-mono">book.yourbrand.com</code>) is available on Pro.{' '}
+                        <Link to="/dashboard/billing" className="font-medium text-primary-deep underline">Upgrade</Link>.
+                      </p>
+                    </>
+                  )}
+                </div>
              </div>
            </div>
          </section>

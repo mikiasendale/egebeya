@@ -1130,6 +1130,7 @@ router.get('/settings', async (req, res) => {
       id: tenant.id,
       name: tenant.name,
       slug: tenant.slug,
+      domain: tenant.domain,
       ...(tenant.settings as any || {}),
     });
   } catch (error) {
