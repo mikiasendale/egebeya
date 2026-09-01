@@ -8,7 +8,6 @@ export function ResetPassword() {
   const token = searchParams.get('token') || '';
 
   const [password, setPassword] = useState('');
-  const [oldPassword, setOldPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -19,10 +18,6 @@ export function ResetPassword() {
 
     if (!token) {
       setError('No reset token found. Please use the link from your email.');
-      return;
-    }
-    if (!oldPassword) {
-      setError('Current password is required');
       return;
     }
     if (password.length < 6) {
@@ -39,7 +34,7 @@ export function ResetPassword() {
       const res = await fetch('/api/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, oldPassword, newPassword: password }),
+        body: JSON.stringify({ token, newPassword: password }),
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
@@ -59,7 +54,7 @@ export function ResetPassword() {
       formCode="FORM EGB-04 · RESET PASSWORD"
       title="Reset your password"
       amTitle="የይለፍ ቃል ይቀይሩ"
-      lede={<>Enter your current password and choose a new one. Must be at least 6 characters.</>}
+      lede={<>Choose a new password. Must be at least 6 characters.</>}
     >
       {!token ? (
         <div className="space-y-4" style={{ padding: '1rem 1.25rem' }}>
@@ -74,18 +69,7 @@ export function ResetPassword() {
         <form onSubmit={handleSubmit} style={{ fontFamily: 'var(--font-body)' }}>
           {error && <Flash kind="error">{error}</Flash>}
 
-          <Field index="፩" id="current-password" labelText="Current password" amHint="የአሁኑ የይለፍ ቃል" helper="For your security, confirm your current password even when resetting.">
-            <PasswordInput
-              id="current-password"
-              name="current-password"
-              required
-              value={oldPassword}
-              onChange={e => setOldPassword(e.target.value)}
-              autoComplete="current-password"
-            />
-          </Field>
-
-          <Field index="፪" id="password" labelText="New password" amHint="አዲስ የይለፍ ቃል">
+          <Field index="፩" id="password" labelText="New password" amHint="አዲስ የይለፍ ቃል">
             <PasswordInput
               id="password"
               name="password"
@@ -96,7 +80,7 @@ export function ResetPassword() {
             />
           </Field>
 
-          <Field index="፫" id="confirm" labelText="Confirm new password" amHint="አረጋግጡ">
+          <Field index="፪" id="confirm" labelText="Confirm new password" amHint="አረጋግጡ">
             <PasswordInput
               id="confirm"
               name="confirm"
