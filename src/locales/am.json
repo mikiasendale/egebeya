@@ -364,9 +364,12 @@
       "cycleMonthly": "ወርሃዊ",
       "cycleQuarterly": "3 ወር (5% ቅናሽ)",
       "cycleAnnual": "ዓመታዊ · 10 ለ 12",
-      "cycleNote": "በየጊዜው ወደ አስተማማኝ Chapa ክፍያ ይላካሉ። በማንኛውም ጊዜ ማቆም ይችላሉ።",
-      "totalToday": "ዛሬ ክፍል · Total today"
-    },
+    "cycleNote": "በየጊዜው ወደ አስተማማኝ Chapa ክፍያ ይላካሉ። በማንኛውም ጊዜ ማቆም ይችላሉ።",
+    "totalToday": "ዛሬ ክፍል · Total today",
+    "countdownTitle": "የPro እቅድዎ በቅርቡ ያልቃል",
+    "countdownBody": "ጣቢያዎን፣ የAI መሳሪያዎችንና የPro ጥቅሞችን ያለማቋረጥ ለማስቀጠል በሚቀጥሉት {{days}} ቀን(ዋት) ውስጥ ያድሱ።",
+    "countdownAction": "ዳግም ይመዝገቡ · Re-subscribe"
+  },
     "funnel": {
       "title": "የንቁትነት ላኩ (Funnel)",
       "subtitle": "ሳምንታዊ የመቀየር መጠን + north-star",
@@ -464,7 +467,14 @@
       "savedOff": "ዝቅተኛ ሰዓት ቅናሽ ጠፍቷል",
       "savedOffBody": "ደንበኞች ሙሉ ዋጋ ይከፍላሉ።",
       "saveFailed": "ቅናሹን ማስቀመጥ አልተቻለም",
-      "networkError": "ኢንተርኔት ችግር አለ — እንደገና ይሞክሩ።"
+      "networkError": "ኢንተርኔት ችግር አለ — እንደገና ይሞክሩ።",
+      "payoff": {
+        "title": "የመሙያ መጠን — በቅናሽ ሰዓት ውስጥ የገቡ ቀጠሮዎች",
+        "off": "ጥቅሙን ለመለካት ማብሪያውን ያብሩ።",
+        "noBookings": "ባለፉት 30 ቀናት እስካሁን ቀጠሮ የለም።",
+        "body": "ከ{{total}} ቀጠሮዎች {{inWindow}} ቱ በቅናሽ ሰዓት ውስጥ ገብተዋል።",
+        "failed": "ስታቲስቲክሱን ማምጣት አልተቻለም።"
+      }
     }
   },
   "common": {
@@ -487,6 +497,66 @@
     "advanceFailedTitle": "ለውጡ አልተቀመጠም",
     "advanceFailedBody": "ኢንተርኔትዎን ያረጋግጡ እና እንደገና ይንኩ።",
     "positionLabel": "ተራ {{position}}"
+  },
+  "loyaltyStaff": {
+    "title": "የ loyalty ቡጢ ካርዶች",
+    "gate": {
+      "on": "ብቅ ብሏል · Live",
+      "off": "ደብቋል · Dark"
+    },
+    "explainer": {
+      "title": "Loyalty በቅርቡ ይጀመራል",
+      "body": "ያስተዳደሯቸው ካርዶች ፕሮግራሙ ሲጀመር በራሳቸው ይንቀሳቀሳሉ — አስተማማኝ እና ዝግጁ ይሆናሉ፣ ምንም አይጠፋም።"
+    },
+    "phonePlaceholder": "የደንበኛ ስልክ (ለምሳሌ 0911 234 567)",
+    "issueButton": "ቡጢ ካርድ አውጣ",
+    "invalidPhone": "ስልክ ቁጥሩ ትክክል አይደለም — 09… ወይም +2519… ይሞክሩ",
+    "issuedTitle": "ቡጢ ካርድ ተሰጥቷል",
+    "issuedBody": "የደንበኛው ካርድ ንቁ ነው እና በተጠናቀቁ ጉብኝቶች ይሰበሰባል።",
+    "gateClosedTitle": "Loyalty አሁንም ደብቋል",
+    "gateClosedBody": "ካርዱ አልተፈጠረም — ፕሮግራሙ ሲጀመር ይንቀሳቀሳል።",
+    "networkTitle": "አገልጋዩን ማግኘት አልተቻለም",
+    "networkBody": "ኢንተርኔትዎን ያረጋግጡ እና እንደገና ይሞክሩ።"
+  },
+  "grace": {
+    "title": "የPro መዳረሻዎ በቅርቡ ያልቃል",
+    "message": "ብጁ ጣቢያዎንና የAI መሳሪያዎትን አታጡ።",
+    "daysLeft": "የPro መዳረሻ በ{{days}} ቀን(ዋት) ውስጥ ያልቃል",
+    "renew": "በChapa ይመዝገቡ"
+  },
+  "admin": {
+    "stuck": {
+      "title": "የተቆሙ ደንበኞች · Stuck tenants",
+      "subtitle": "ከ48 ሰዓታት በላይ የተመዘገቡ፣ ሰዓታት ያላረጋገጡ — ቅድሚያ ለአስቸኳዩ",
+      "empty": "የተቆሙ ደንበኞች የሉም — ሁሉም ምዝገባ ውቅሩን ጨርሷል።",
+      "business": "ንግድ",
+      "registered": "የተመዘገበበት",
+      "lastStep": "የመጨረሻው ደረጃ",
+      "trialLeft": "የሙከራ ቀናት",
+      "none": "—",
+      "step": {
+        "siteGenerated": "ጣቢያ ተፈጥሯል",
+        "hoursConfirmed": "ሰዓታት ተረጋግጠዋል",
+        "siteShared": "ጣቢያ ተጋርቷል",
+        "firstBooking": "የመጀመሪያ ቀጠሮ",
+        "firstInvoicePaid": "የመጀመሪያ ክፍያ"
+      }
+    },
+    "winback": {
+      "title": "ዋጋ ያዩ ያልገዙ · Price-seen winback leads",
+      "subtitle": "ዋጋውን አይተው ወደ ክፍያ ያልደረሱ — እጅግ ሞቃት ዝርዝር",
+      "empty": "አሁን ምንም ዕድሎች የሉም።",
+      "business": "ንግድ",
+      "sawPricing": "ዋጋ ያዩት",
+      "phone": "የባለቤት ስልክ",
+      "action": "ተግባር",
+      "daysAgo": "ከ{{days}} ቀን በፊት",
+      "sendOffer": "ቅናሽ ላክ",
+      "sentTitle": "ቅናሽ ተልኳል",
+      "sentBody": "የመስራች ኮድ {{code}} ተፈጥሮ ተልኳል።",
+      "failTitle": "ቅናሹን መላክ አልተቻለም",
+      "loadFailed": "ዝርዝሩን ማምጣት አልተቻለም።"
+    }
   },
   "queueStatus": {
     "yourTicket": "የእርስዎ ቁጥር",

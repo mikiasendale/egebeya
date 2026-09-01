@@ -10,7 +10,11 @@ import * as React from 'react';
 
 export type UserRole = 'owner' | 'admin' | 'staff' | null;
 
-export function getRole(): UserRole {
+// T4.12 decision B: getRole/isOwner had zero importers — dead exports that
+// invited "wire this up" churn. getRole survives as the private helper behind
+// isStaff (its only consumer); role for UI is derived via useRole() or,
+// ultimately, /auth/me. isOwner is gone.
+function getRole(): UserRole {
   if (typeof window === 'undefined') return null;
   const raw = localStorage.getItem('role');
   if (raw === 'owner' || raw === 'admin' || raw === 'staff') return raw;
@@ -19,11 +23,6 @@ export function getRole(): UserRole {
 
 export function isStaff(): boolean {
   return getRole() === 'staff';
-}
-
-export function isOwner(): boolean {
-  const r = getRole();
-  return r === 'owner' || r === 'admin';
 }
 
 /**

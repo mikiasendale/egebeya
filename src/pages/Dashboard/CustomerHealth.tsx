@@ -16,6 +16,7 @@ import { showToast } from '../../components/ui/toast-helper';
 import { isProActive, type SubscriptionSummary } from '../../lib/subscription';
 import { HEALTH_TAGS, type HealthTag } from '../../lib/customer-health';
 import { StaffRedirect } from './StaffRedirect';
+import { LoyaltyCardIssuer } from '../../components/dashboard/LoyaltyCardIssuer';
 
 interface Customer {
   phone: string;
@@ -248,6 +249,9 @@ export function CustomerHealth() {
             {customers.length} customers · scored from visit &amp; no-show history
           </p>
         </div>
+
+        {/* T4.2: manual punch-card issuance — gate-aware, engine-only. */}
+        <LoyaltyCardIssuer />
 
         {loading && (
           <div className="space-y-3">

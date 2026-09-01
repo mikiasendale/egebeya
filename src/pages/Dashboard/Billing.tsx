@@ -29,6 +29,12 @@ const CYCLES: Array<{ days: CycleDays; labelKey: string }> = [
   { days: 365, labelKey: 'dashboard.billing.cycleAnnual' },
 ];
 
+// T4.3 anti-surprise window: surface a persistent countdown when a paid Pro
+// subscription has ≤ 7 days left. No stored cards on telebirr rails, so this
+// is a fresh prepay checkout — but an ANNOUNCED expiry never gets blamed on
+// the merchant the way a *surprised* downgrade does (ROADMAP 7.1).
+const RENEWAL_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+
 export function Billing() {
   const { t } = useTranslation();
   const [summary, setSummary] = useState<SubscriptionSummary | null>(null);
@@ -72,6 +78,17 @@ export function Billing() {
   const monthlyBookings: number = billing.monthlyBookings ?? 0;
   const paymentPending: boolean =
     billing.pendingCheckout === true && !isProActiveState(state);
+
+  // T4.3: days-remaining for the pre-expiry countdown banner. Only meaningful
+  // when the tenant is still active (paid Pro) and squarely inside the window.
+  const daysToExpiry: number | null = typeof endsAt === 'number'
+    ? Math.max(0, Math.ceil((endsAt - Date.now()) / (24 * 60 * 60 * 1000)))
+    : null;
+  const showRenewalCountdown: boolean =
+    state === 'active' &&
+    typeof endsAt === 'number' &&
+    endsAt > Date.now() &&
+    endsAt - Date.now() <= RENEWAL_WINDOW_MS;
 
   // Receipt-strip math (P1.5): mirrors server/lib/billing.ts priceForCycle.
   function cyclePriceEtb(days: CycleDays): string {
@@ -154,6 +171,31 @@ export function Billing() {
           <div className="flex items-start gap-3 p-4 rounded-xl border border-accent-secondary/40 bg-accent-secondary/10">
             <Clock className="h-5 w-5 text-accent-secondary-deep shrink-0 mt-0.5" />
             <p className="text-sm text-ink flex-1">{t('dashboard.billing.paymentPending')}</p>
+          </div>
+        )}
+
+        {/* T4.3 anti-surprise countdown: ≤ 7 days to expiry, still active. An
+            announced expiry is a prepay, not a downgrade surprise. */}
+        {showRenewalCountdown && (
+          <div
+            className="flex items-start gap-3 p-4 rounded-xl border border-accent-secondary/40 bg-accent-secondary/10"
+            data-testid="renewal-countdown-banner"
+          >
+            <AlertTriangle className="h-5 w-5 text-accent-secondary-deep shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-ink">{t('dashboard.billing.countdownTitle')}</p>
+              <p className="text-sm text-ink-soft mt-0.5">
+                {t('dashboard.billing.countdownBody', { days: daysToExpiry ?? 0 })}
+              </p>
+            </div>
+            <button
+              onClick={startCheckout}
+              disabled={busy}
+              data-testid="renewal-countdown-btn"
+              className="shrink-0 inline-flex items-center gap-1 rounded-md bg-telebirr text-white px-4 py-2 text-sm font-medium hover:opacity-90 disabled:opacity-60"
+            >
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : t('dashboard.billing.countdownAction')}
+            </button>
           </div>
         )}
 

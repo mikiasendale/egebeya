@@ -7,6 +7,8 @@
  *   - 'booking'        → service-necessity basis: the customer gave us their
  *                        phone to receive booking service messages.
  *   - 'consumer_login' → explicit identity login via OTP verify.
+ *   - 'merchant_card'  → a merchant issued a loyalty punch card on the
+ *                        customer's phone; the customer provided it in person.
  * Marketing contact is a SEPARATE, opt-in flag (customer_stats.marketing_opt_in)
  * and is never implied by either basis.
  */
@@ -17,7 +19,7 @@ import { consumers } from '../../src/db/schema';
 import { eq } from 'drizzle-orm';
 import { normalizePhone } from '../../src/lib/phone';
 
-export type ConsentBasis = 'booking' | 'consumer_login';
+export type ConsentBasis = 'booking' | 'consumer_login' | 'merchant_card';
 
 export async function upsertConsumerByPhone(input: {
   phone: string;

@@ -711,12 +711,86 @@ export function Settings() {
              data-testid="quiet-save-btn"
              className="bg-ink text-white px-4 py-2 rounded-md font-medium text-sm hover:opacity-90 disabled:opacity-50 inline-flex items-center gap-2"
            >
-             {quietSaving && <Loader2 className="h-4 w-4 animate-spin" />}
-             {quietSaving ? t('settings.quietHours.saving') : t('settings.quietHours.save')}
-           </button>
-         </div>
-       </section>
+              {quietSaving && <Loader2 className="h-4 w-4 animate-spin" />}
+              {quietSaving ? t('settings.quietHours.saving') : t('settings.quietHours.save')}
+            </button>
+          </div>
+
+          {/* T4.7 — read-only payoff card beside the toggle: what share of
+              bookings landed inside the discounted window (30d). Seeing the
+              lift drives adoption of the discount they configured. */}
+          <QuietHoursPayoffCard enabled={quietEnabled} />
+        </section>
      </div>
-   </StaffRedirect>
+    </StaffRedirect>
+  );
+}
+
+/**
+ * QuietHoursPayoffCard (T4.7) — the read-only payoff for the quiet-hours
+ * discount: over the trailing 30 days, what share of confirmed/completed
+ * bookings landed inside the discounted window. Honest null states — no
+ * bookings yet, toggle off, or not enough data — never a fabricated number.
+ */
+interface QuietStats {
+  enabled: boolean;
+  windowDays: number;
+  totalBookings: number;
+  quietBookings: number;
+  inWindowBookings: number;
+  rate: number | null;
+  firstQuietEventAt: number | null;
+}
+
+function QuietHoursPayoffCard({ enabled }: { enabled: boolean }) {
+  const { t } = useTranslation();
+  const [stats, setStats] = useState<QuietStats | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    authFetch('/api/tenant/quiet-hours/stats')
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error('failed'))))
+      .then((data: QuietStats) => { if (!cancelled) setStats(data); })
+      .catch(() => { if (!cancelled) setFailed(true); });
+    return () => { cancelled = true; };
+  }, []);
+
+  const pct = (v: number | null): string => (v == null ? '—' : `${Math.round(v * 100)}%`);
+  const showNumbers = stats && stats.totalBookings > 0;
+
+  return (
+    <div
+      className="mt-4 rounded-lg border p-4"
+      data-testid="quiet-payoff-card"
+      style={{
+        borderColor: 'var(--color-ink-rule)',
+        backgroundColor: 'var(--color-paper-raised)',
+      }}
+    >
+      <div className="flex items-baseline justify-between gap-2">
+        <div className="text-xs font-medium text-ink-soft">{t('settings.quietHours.payoff.title')}</div>
+        <div className="text-xl font-bold text-ink" data-testid="quiet-payoff-rate">
+          {showNumbers ? pct(stats!.rate) : '—'}
+        </div>
+      </div>
+
+      {failed ? (
+        <p className="mt-2 text-xs text-ink-soft">{t('settings.quietHours.payoff.failed')}</p>
+      ) : !stats ? (
+        <p className="mt-2 text-xs text-ink-soft">{t('common.loading')}…</p>
+      ) : !enabled ? (
+        <p className="mt-2 text-xs text-ink-soft">{t('settings.quietHours.payoff.off')}</p>
+      ) : !showNumbers ? (
+        <p className="mt-2 text-xs text-ink-soft">{t('settings.quietHours.payoff.noBookings')}</p>
+      ) : (
+        <p className="mt-2 text-xs text-ink-soft">
+          {t('settings.quietHours.payoff.body', {
+            inWindow: stats!.inWindowBookings,
+            total: stats!.totalBookings,
+          })}
+        </p>
+      )}
+    </div>
   );
 }

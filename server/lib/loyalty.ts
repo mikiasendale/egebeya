@@ -225,6 +225,31 @@ export async function getCardForConsumer(tenantId: string, consumerPhone: string
 }
 
 /**
+ * Merchant manual card issuance (T4.2). Gate-first, engine-only.
+ *
+ * A clerk hands a physical punch card to a customer by phone without waiting
+ * for consumer Telegram opt-in — but ONLY through the engine's own API, and
+ * ONLY while the council gate is open. With the gate closed the card row is
+ * never created: a card written into a dead feature is ghost data nothing in
+ * the booking flow consumes (pendingRewardDiscount / consumeReward both
+ * short-circuit on !gate.open), so we refuse instead of accreting orphans.
+ * Issuing reuses getCardForConsumer, so the ledger stays truth, the card
+ * cache is sync'd, and punches are recomputed from appended rows — never a
+ * hand-rolled punch_cards insert that could bypass the engine's ledger math.
+ */
+export async function issueCard(input: {
+  tenantId: string;
+  consumerPhone: string;
+}): Promise<{ issued: boolean; gateOpen: boolean; card: ConsumerCard | null }> {
+  const gate = await gateStatus();
+  if (!gate.open) {
+    return { issued: false, gateOpen: false, card: null };
+  }
+  const card = await getCardForConsumer(input.tenantId, input.consumerPhone);
+  return { issued: true, gateOpen: true, card };
+}
+
+/**
  * Redemption preview + application helper for the charge path.
  * Returns the ETB-cents discount to apply to the NEXT Chapa charge, or 0.
  * Does NOT consume anything here — consumption happens when the discounted

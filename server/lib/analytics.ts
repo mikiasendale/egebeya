@@ -32,9 +32,23 @@ export const ACTIVATION_EVENTS = [
   'checkout_abandoned',
   // P5.6 fill-rate delta input.
   'quiet_hours_booking',
+  // T4.8 idempotency beacon for the merchant winback offer.
+  'winback_offer_sent',
+  // T4.9 anonymous pre-register beacons (NULL tenant, cookie-bound).
+  'reg_step_viewed',
+  'slug_checked',
+  'reg_details_submitted',
 ] as const;
 
 export type ActivationEvent = (typeof ACTIVATION_EVENTS)[number];
+
+// Events that are meaningful WITHOUT a tenant — pre-identity touches only.
+const NULL_TENANT_EVENTS: ReadonlySet<string> = new Set([
+  'price_seen',
+  'reg_step_viewed',
+  'slug_checked',
+  'reg_details_submitted',
+]);
 
 /**
  * Record one activation event. Never throws into the caller's path.
@@ -45,7 +59,7 @@ export function trackEvent(
   meta?: Record<string, unknown>,
 ): void {
   try {
-    if (!tenantId && event !== 'price_seen') {
+    if (!tenantId && !NULL_TENANT_EVENTS.has(event)) {
       // Events without a tenant are only meaningful for pre-tenant funnel
       // touches; everything else requires attribution context.
       console.warn(`[analytics] ${event} fired without tenantId; dropped`);

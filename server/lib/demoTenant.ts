@@ -17,7 +17,23 @@
 
 export const DEMO_TENANT_SLUG = 'demo';
 
+/**
+ * Every fictional/demo tenant slug that must be excluded from platform
+ * aggregates: the reserved 'demo' slug plus the five seeded /discover tenants
+ * (server/seed.ts). Single source of truth shared by the seed, the idempotent
+ * migration backfill, and the admin aggregator.
+ */
+export const SEED_TENANT_SLUGS: string[] = [
+  DEMO_TENANT_SLUG,
+  'addisdental',
+  'bolehair',
+  'piazzapharmacy',
+  'saritmedspa',
+  'kazungawellness',
+];
+
 let cachedDemoTenantId: string | null | undefined;
+let cachedDemoTenantIds: Set<string> | null | undefined;
 
 /**
  * Resolve (and cache) the demo tenant's id. Returns null when no demo tenant
@@ -38,20 +54,42 @@ export async function getDemoTenantId(): Promise<string | null> {
   return cachedDemoTenantId;
 }
 
-/** Test seam: clear the memoized id between fixtures. */
+/**
+ * Resolve (and cache) the id of EVERY flagged demo/seed tenant (is_demo =
+ * true). This is the structural exclusion set for admin aggregates —
+ * the single mechanism that keeps fictional rows out of the metrics the
+ * council reviews.
+ */
+export async function getDemoTenantIds(): Promise<Set<string>> {
+  if (cachedDemoTenantIds !== undefined) return cachedDemoTenantIds;
+  try {
+    const { db } = await import('../../src/db');
+    const { tenants } = await import('../../src/db/schema');
+    const { eq } = await import('drizzle-orm');
+    const rows = await db.select({ id: tenants.id }).from(tenants)
+      .where(eq(tenants.isDemo, true)).all();
+    cachedDemoTenantIds = new Set(rows.map((r) => r.id));
+  } catch {
+    cachedDemoTenantIds = new Set();
+  }
+  return cachedDemoTenantIds;
+}
+
+/** Test seam: clear the memoized ids between fixtures. */
 export function __resetDemoTenantCache(): void {
   cachedDemoTenantId = undefined;
+  cachedDemoTenantIds = undefined;
 }
 
 /**
- * Drop rows belonging to the demo tenant. Rows carry `tenantId` (any shape
- * with that field qualifies); pass through untouched when there is no demo
- * tenant to exclude.
+ * Drop rows belonging to any flagged demo/seed tenant. Rows carry `tenantId`
+ * (any shape with that field qualifies); pass through untouched when there is
+ * nothing to exclude.
  */
 export function excludeDemoRows<T extends { tenantId?: string | null }>(
   rows: T[],
-  demoTenantId: string | null,
+  demoIds: Set<string> | null,
 ): T[] {
-  if (!demoTenantId) return rows;
-  return rows.filter((r) => r.tenantId !== demoTenantId);
+  if (!demoIds || demoIds.size === 0) return rows;
+  return rows.filter((r) => !r.tenantId || !demoIds.has(r.tenantId));
 }

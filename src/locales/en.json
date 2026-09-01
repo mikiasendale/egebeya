@@ -364,9 +364,12 @@
       "cycleMonthly": "Monthly",
       "cycleQuarterly": "Quarterly (5% off)",
       "cycleAnnual": "Annual · 10-for-12",
-      "cycleNote": "You'll be redirected to a secure Chapa checkout. Cancel anytime.",
-      "totalToday": "Total today"
-    },
+    "cycleNote": "You'll be redirected to a secure Chapa checkout. Cancel anytime.",
+    "totalToday": "Total today",
+    "countdownTitle": "Your Pro plan expires soon",
+    "countdownBody": "Renew in the next {{days}} day(s) to keep your site, AI tools, and Pro features without interruption.",
+    "countdownAction": "Re-subscribe · ዳግም ይመዝገቡ"
+  },
     "funnel": {
       "title": "Activation funnel",
       "subtitle": "Weekly stage conversion + north-star",
@@ -464,7 +467,14 @@
       "savedOff": "Quiet-hours discount disabled",
       "savedOffBody": "Customers pay full price again.",
       "saveFailed": "Couldn't save the discount",
-      "networkError": "Network error — please retry."
+      "networkError": "Network error — please retry.",
+      "payoff": {
+        "title": "Fill rate — bookings in the discount window",
+        "off": "Turn the toggle on to start measuring the lift.",
+        "noBookings": "No bookings in the last 30 days yet.",
+        "body": "{{inWindow}} of {{total}} bookings landed in the discounted window.",
+        "failed": "Couldn't load quiet-hours stats."
+      }
     }
   },
   "common": {
@@ -487,6 +497,66 @@
     "advanceFailedTitle": "That tap didn't stick",
     "advanceFailedBody": "Check your connection and tap again — the queue is safe.",
     "positionLabel": "Position {{position}}"
+  },
+  "loyaltyStaff": {
+    "title": "Loyalty punch cards",
+    "gate": {
+      "on": "Live · ብቅ ብሏል",
+      "off": "Dark · ደብቋል"
+    },
+    "explainer": {
+      "title": "Loyalty is launching soon",
+      "body": "Cards you issue will activate automatically when the loyalty program launches — they'll be safe and ready, nothing is lost."
+    },
+    "phonePlaceholder": "Customer phone (e.g. 0911 234 567)",
+    "issueButton": "Issue punch card",
+    "invalidPhone": "That phone number isn't valid — try 09… or +2519…",
+    "issuedTitle": "Punch card issued",
+    "issuedBody": "The customer's card is live and accrues punches on completed visits.",
+    "gateClosedTitle": "Loyalty is still dark",
+    "gateClosedBody": "The card wasn't created — it will activate when the program launches.",
+    "networkTitle": "Couldn't reach the server",
+    "networkBody": "Check your connection and try again."
+  },
+  "grace": {
+    "title": "Your Pro access expires soon",
+    "message": "Don't lose your custom site and AI tools.",
+    "daysLeft": "Losing Pro access in {{days}} day(s)",
+    "renew": "Renew via Chapa"
+  },
+  "admin": {
+    "stuck": {
+      "title": "Stuck tenants",
+      "subtitle": "Registered >48h ago, never confirmed hours — urgent first",
+      "empty": "No stuck tenants — every registration finished its setup.",
+      "business": "Business",
+      "registered": "Registered",
+      "lastStep": "Last step",
+      "trialLeft": "Trial left",
+      "none": "—",
+      "step": {
+        "siteGenerated": "Site generated",
+        "hoursConfirmed": "Hours confirmed",
+        "siteShared": "Site shared",
+        "firstBooking": "First booking",
+        "firstInvoicePaid": "First invoice paid"
+      }
+    },
+    "winback": {
+      "title": "Price-seen winback leads",
+      "subtitle": "Saw pricing, never reached checkout — the warmest list",
+      "empty": "No leads right now.",
+      "business": "Business",
+      "sawPricing": "Saw pricing",
+      "phone": "Owner phone",
+      "action": "Action",
+      "daysAgo": "{{days}}d ago",
+      "sendOffer": "Send offer",
+      "sentTitle": "Offer sent",
+      "sentBody": "Founder code {{code}} created and messaged.",
+      "failTitle": "Couldn't send offer",
+      "loadFailed": "Failed to load winback leads."
+    }
   },
   "queueStatus": {
     "yourTicket": "Your number",

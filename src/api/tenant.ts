@@ -22,6 +22,7 @@ import {
   recurringSeries,
   inventoryItems,
   invoices,
+  activationEvents,
 } from '../db/schema';
 import { eq, and, inArray, desc, sql, gte, lt, lte, or, isNull } from 'drizzle-orm';
 import crypto from 'crypto';
@@ -52,7 +53,7 @@ import tenantDashboardRoutes from '../../server/api/tenantRoute';
 import { csrfProtection } from './middleware/csrf';
 import { tenantWriteLimiter, uploadLimiter } from '../../server/middleware/rateLimiter';
 import { normalizePhone } from '../lib/phone';
-import { trackEvent } from '../../server/lib/analytics';
+import { trackEvent, quietHoursConfigOf } from '../../server/lib/analytics';
 import { shareLinkFor } from './site-generator';
 import {
   getAddisDayOfWeek,
@@ -1116,6 +1117,65 @@ router.put('/quiet-hours', async (req, res) => {
   } catch (error: any) {
     console.error('Quiet-hours save error:', error?.message || error);
     res.status(500).json({ error: 'Failed to save quiet hours' });
+  }
+});
+
+/**
+ * GET /api/tenant/quiet-hours/stats (T4.7)
+ *
+ * Read-only payoff card for the quiet-hours toggle: over the trailing 30-day
+ * window, what share of the tenant's bookings landed inside the discounted
+ * window. Numerator from the quiet_hours_booking events the public booking
+ * flow already records; denominator from confirmed/completed appointments.
+ * Honest nulls when there are no bookings or the toggle is off.
+ */
+router.get('/quiet-hours/stats', async (req, res) => {
+  const { tenantId } = (req as any).user;
+  try {
+    const tenant = await db.select().from(tenants).where(eq(tenants.id, tenantId)).get();
+    if (!tenant) return res.status(404).json({ error: 'Tenant not found' });
+    const cfg = quietHoursConfigOf((tenant.settings as any) ?? null);
+
+    const now = Date.now();
+    const WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+    const since = now - WINDOW_MS;
+
+    const [totalRow, eventRows] = await Promise.all([
+      db.select({ n: sql<number>`count(*)`.as('n') })
+        .from(appointments)
+        .where(and(
+          eq(appointments.tenantId, tenantId),
+          gte(appointments.startTime, since),
+          or(eq(appointments.status, 'confirmed'), eq(appointments.status, 'completed')),
+        ))
+        .get(),
+      db.select({ meta: activationEvents.meta, createdAt: activationEvents.createdAt })
+        .from(activationEvents)
+        .where(and(
+          eq(activationEvents.tenantId, tenantId),
+          eq(activationEvents.event, 'quiet_hours_booking'),
+          gte(activationEvents.createdAt, since),
+        ))
+        .all(),
+    ]);
+
+    const inWindowEvents = eventRows.filter((e) => (e.meta as any)?.inWindow === true);
+    const totalBookings = Number(totalRow?.n ?? 0);
+    const quietBookings = eventRows.length;
+    const inWindowBookings = inWindowEvents.length;
+
+    res.json({
+      enabled: cfg?.enabled === true,
+      windowDays: 30,
+      totalBookings,
+      quietBookings,
+      inWindowBookings,
+      rate: totalBookings === 0 ? null : inWindowBookings / totalBookings,
+      firstQuietEventAt: eventRows.length > 0 ? Math.min(...eventRows.map((e) => e.createdAt)) : null,
+    });
+  } catch (error: any) {
+    console.error('quiet-hours stats error:', error?.message || error);
+    res.status(500).json({ error: 'Failed to load quiet-hours stats' });
   }
 });
 

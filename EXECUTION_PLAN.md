@@ -562,3 +562,123 @@ required to the gate itself — it is data + flag driven.
 confirmations (P3.2 channel), which is the primary source of the confirmation-time
 opt-in rate the gate reads. Production rollout of P4.4 is the first step to opening
 this program.
+
+---
+
+## ROADMAP TICKETS — T6.x (customer-dashboard phase · written Sept 2026 · DO NOT START)
+
+*Ticket-writing pass only. Line refs are ground truth as of the Sept 2026 tree
+(post T4.5/T4.6–T4.9; earlier citations in this file may have drifted).*
+
+### T6.1 InventoryPage editor — `🟡` → customer-dashboard phase
+- **Problem:** the page is read-only while the backend fully exists:
+  `GET /tenant/inventory` (`tenant.ts:1935`), `PUT /tenant/inventory`
+  (`:1971`), `POST /tenant/inventory/:id/adjust` (`:2085`); low-stock already
+  bubbles to the dashboard (payload flag → `UberBottomNav` badge via
+  `InventoryPage onLowStock`).
+- **Scope:** create-item form; restock/adjust UI per row; wire the low-stock
+  react (badge + inline warning).
+- **Acceptance:** owner creates an item, adjusts stock, and sees the low-stock
+  signal react end-to-end.
+
+### T6.2 AI Assistant — `🟡`
+- **Problem:** dead toast (`WebsiteBuilder.tsx` puck branch, ~`:180` — "coming
+  soon") sitting on top of a real endpoint (`POST /tenant/site/ai-chat`,
+  `ai-chat.ts:94`) that runs DARK without `OPENROUTER_API_KEY` (`:128`).
+- **Scope:** provision the key (T2.6); panel in puck mode calling
+  `/tenant/site/ai-chat` and applying the returned diffs; the 500-on-unset
+  becomes 503, and the entry point hides entirely when the key is absent.
+- **Acceptance:** tap works with key set; invisible without; never a dead
+  toast.
+
+### T6.3 Unified customer dashboard — umbrella
+- **Problem:** owner/staff surfaces are split across separate pages with
+  per-page guards; the unification work needs one ticket to hold the parts.
+- **Scope (sub-items):** T6.1 inventory editor; role-export adoption (T4.12-A
+  — note: the Sept 2026 decision removed the dead exports, `getRole` is
+  private behind `isStaff`; adoption means re-publicizing as THE nav-gating
+  mechanism); ServicesPage images (T4.11-A — Sept 2026 decision dropped the
+  unwired fields; A = build the picker against the media library);
+  customer-facing quiet-hours pricing (label discounted slots in the public
+  slot picker; discount logic already runs server-side).
+- **Acceptance:** each sub-item lands with its own commit; the umbrella closes
+  only when all four do.
+
+### T6.4 `expandSeries()` extraction — `🟡` (calendar correctness)
+- **Problem:** recurring-series expansion logic is DUPLICATED: the cron
+  (`expandAllSeries`, `server/cron/expandRecurring.ts:39`, with its own
+  `nextOccurrenceDate`/`ethiopianToGregorian`/`formatGregorian` at `:19-33`)
+  vs the endpoint (`expandRecurringSeries`, `src/api/tenant.ts:1800`) — in the
+  #1 timezone-edge-case domain (Ethiopian calendar + Addis UTC+3). A calendar
+  bug fixed in one copy silently lives on in the other.
+- **Scope:** extract ONE lib function (e.g. `server/lib/recurring.ts`);
+  endpoint + cron both call it; move the Ethiopian-calendar edge tests
+  (`ethiopian-calendar*.test.ts`) onto the lib.
+- **Acceptance:** zero duplicated expansion logic; both callers share one
+  implementation and one test surface.
+
+### T6.5 Abandonment outreach — `⛔ blocked on T1.1/T2.3`
+- **Problem:** pre-register abandonment (T4.9 beacons) and registered-but-stuck
+  tenants (T4.6 panel) are visible but nobody is contacted.
+- **Scope:** email/SMS "your site is 90% ready" outreach over the existing
+  notify adapter, seeded from T4.9/T4.6 data.
+- **Acceptance:** blocked until real delivery (T1.1/T2.3) — do not start.
+
+### T6.6 Queue-advance push notification — optional
+- **Problem:** consumers poll `/api/public/queue-status` (pull); an advance is
+  only seen on refresh.
+- **Scope (optional):** push on queue-advance through the NotificationAdapter
+  seam (Telegram deep link). Slots in without new infrastructure.
+- **Acceptance:** if ever built — consumer gets notified within seconds of the
+  advance tap; otherwise stays pull-based by design.
+
+---
+
+## VERIFICATION LOG (V1–V3 · checks only, Sept 2026)
+
+- **V1 — admin aggregates exclude demo+seed: PASS.** `/stats` (tenants,
+  suspended, bookings-via-join), `/tenants`, `/stuck-tenants` (`admin.ts:223`),
+  `/winback-leads` (`:379`) filter `is_demo` directly; `/funnel`
+  (`excludeDemoRows`, `:331-334`) and `/notification-stats` (`:165`) exclude
+  the full `getDemoTenantIds()` set. Proven by `admin-demo-exclusion.test.ts`
+  (delta-based) and `demo-tenant.test.ts`. Security events: NO platform-wide
+  aggregate read surface exists (only writes via `logSecurityEvent`) — nothing
+  to leak. Billing: the one platform-wide aggregate, `countFoundingCohort`
+  (`server/lib/billing.ts:134`), is money-gated (founding lock OR payments
+  row) — seed/demo rows have neither. *Note (optional hardening): add an
+  explicit `is_demo` filter to `countFoundingCohort` if seed ever grants
+  founding locks.*
+- **V2 — Turnstile fail-mode documented: PASS.** `server/lib/turnstile.ts`
+  header states the deliberate split: missing secret key = "Turnstile disabled
+  in this environment" (fail-open for dev, `:7-9`); provider transport failure
+  = "hard fail so we never silently accept a token under outage" (fail-closed,
+  `:58-59`). Both branches are decisions, not accidents.
+- **V3 — Admin.tsx surfaces + role gating: PASS (one minor gap).** Five boards
+  render (Stats, Funnel, StuckTenants, WinbackLeads, Tenants) — every board's
+  fetch maps to a real `/api/admin/*` route, and ALL admin routes sit behind
+  `requireAuth() + csrfProtection + adminWriteLimiter + requireSuperadmin()`
+  (`admin.ts:29-32`). Frontend pre-flight matches the API: 401 → `/login`,
+  403 → forbidden screen; the only writes (suspend/reactivate) match API
+  verbs. *Gap: `/admin/notification-stats` has an API but no UI card —
+  acceptable (internal evidence base), noted for the next admin-surface pass.*
+
+---
+
+## STANDING RULES (calendar + habits — not tickets; applies forever)
+
+- **Never run `server/seed.ts` against prod** (five fictional tenants + the
+  demo tenant). Mitigation landed in T4.5 (`is_demo` structural exclusion) —
+  the rule stays, because seed rows still pollute `/discover` density and
+  real-customer CRM views.
+- **Quarterly restore drill** (after T2.4): restore newest snapshot to a
+  scratch DB, run the app against it, record the result.
+- **Every UI string → both `am.json` AND `en.json, same commit`** — never
+  "Amharic later". This is Ritual.
+- **Ritual §R on every code task, forever** (i18n parity + gate run where
+  marked).
+- **Never-do list stays in agent context, forever:** no auto-renew on telebirr
+  rails (announce instead — T4.3/T4.4 stack); no cashback-to-wallet (DEAD per
+  council); no threshold-editing to open the loyalty gate (`docs/loyalty-opening.md`
+  is the only path); no new migration mechanism outside the idempotent pattern
+  in `src/db/migrations.ts`; do not edit superseded/dead files — delete them or
+  leave a DEAD FILE header.

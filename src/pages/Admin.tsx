@@ -103,6 +103,8 @@ export function Admin() {
       <div className="space-y-6">
         <StatsBoard />
         <FunnelBoard />
+        <StuckTenantsBoard />
+        <WinbackLeadsBoard />
         <TenantsBoard />
       </div>
     </Shell>
@@ -302,8 +304,222 @@ function StatsBoard() {
   );
 }
 
-function TenantsBoard() {
-  const [items, setItems] = useState<TenantRow[] | null>(null);
+/**
+ * StuckTenantsBoard (T4.6) — tenants registered >48h ago that never confirmed
+ * hours, sorted by trial-days-remaining ascending so the operator triages the
+ * most-urgent burn first. Read-only; the funnel data already existed, this is
+ * the missing operational surface.
+ */
+interface StuckTenant {
+  id: string;
+  name: string;
+  slug: string;
+  category: string | null;
+  registeredAt: number | null;
+  lastStep: string | null;
+  trialDaysLeft: number | null;
+  subStatus: string | null;
+}
+
+const STUCK_STEP_KEYS: Record<string, string> = {
+  site_generated: 'admin.stuck.step.siteGenerated',
+  hours_confirmed: 'admin.stuck.step.hoursConfirmed',
+  site_shared: 'admin.stuck.step.siteShared',
+  first_booking: 'admin.stuck.step.firstBooking',
+  first_invoice_paid: 'admin.stuck.step.firstInvoicePaid',
+};
+
+function StuckTenantsBoard() {
+  const { t } = useTranslation();
+  const [items, setItems] = useState<StuckTenant[] | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    authFetch('/api/admin/stuck-tenants')
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error('failed'))))
+      .then((rows: StuckTenant[]) => setItems(rows))
+      .catch(() => setErr('Failed to load stuck tenants.'));
+  }, []);
+
+  const fmtDate = (ts: number | null): string => (ts ? new Date(ts).toLocaleDateString() : '—');
+
+  return (
+    <section className="overflow-hidden rounded-xl border border-ink-rule bg-paper-bleached">
+      <header className="border-b border-ink-rule px-6 py-4">
+        <h2 className="text-base font-bold text-ink">{t('admin.stuck.title')}</h2>
+        <p className="text-xs text-ink-soft">{t('admin.stuck.subtitle')}</p>
+      </header>
+      {err ? (
+        <div className="px-6 py-4 text-sm text-signal">{err}</div>
+      ) : !items ? (
+        <div className="px-6 py-4 text-sm text-ink-soft">Loading…</div>
+      ) : items.length === 0 ? (
+        <div className="px-6 py-6 text-sm text-ink-soft">{t('admin.stuck.empty')}</div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-ink-rule bg-paper-raised text-left text-xs text-ink-soft">
+                <th className="px-6 py-3 font-medium">{t('admin.stuck.business')}</th>
+                <th className="px-6 py-3 font-medium">{t('admin.stuck.registered')}</th>
+                <th className="px-6 py-3 font-medium">{t('admin.stuck.lastStep')}</th>
+                <th className="px-6 py-3 font-medium">{t('admin.stuck.trialLeft')}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-ink-rule">
+              {items.map((row) => (
+                <tr key={row.id}>
+                  <td className="px-6 py-3">
+                    <div className="font-medium text-ink">{row.name}</div>
+                    <div className="text-xs text-ink-soft">{row.slug} · {row.category || '—'}</div>
+                  </td>
+                  <td className="px-6 py-3 text-ink-soft">{fmtDate(row.registeredAt)}</td>
+                  <td className="px-6 py-3 text-ink">
+                    {row.lastStep && STUCK_STEP_KEYS[row.lastStep]
+                      ? t(STUCK_STEP_KEYS[row.lastStep])
+                      : t('admin.stuck.none')}
+                  </td>
+                  <td className="px-6 py-3">
+                    {row.trialDaysLeft == null
+                      ? <span className="text-ink-soft">{t('admin.stuck.none')}</span>
+                      : (
+                        <span
+                          className={
+                            row.trialDaysLeft <= 3
+                              ? 'font-bold text-signal'
+                              : 'font-medium text-ink'
+                          }
+                        >
+                          {row.trialDaysLeft}d
+                        </span>
+                      )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+/**
+ * WinbackLeadsBoard (T4.8 v1) — price-seen-without-checkout merchants. Each
+ * row can receive a founder-discount promo through the existing blast
+ * machinery (promo_codes + notify adapter). Read-only segmentation + a
+ * deliberate one-tap action; the beacons themselves stay side-effect-free.
+ */
+interface WinbackLead {
+  id: string;
+  name: string;
+  slug: string;
+  category: string | null;
+  registeredAt: number | null;
+  priceSeenAt: number | null;
+  daysSincePriceSeen: number | null;
+  ownerPhoneMasked: string | null;
+}
+
+function WinbackLeadsBoard() {
+  const { t } = useTranslation();
+  const [items, setItems] = useState<WinbackLead[] | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [sending, setSending] = useState<string | null>(null);
+
+  const refresh = () => {
+    setErr(null);
+    authFetch('/api/admin/winback-leads')
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error('failed'))))
+      .then((rows: WinbackLead[]) => setItems(rows))
+      .catch(() => setErr(t('admin.winback.loadFailed')));
+  };
+  useEffect(() => { refresh(); }, [t]);
+
+  const sendOffer = async (lead: WinbackLead) => {
+    setSending(lead.id);
+    try {
+      const res = await authFetch(`/api/admin/winback-leads/${lead.id}/offer`, { method: 'POST' });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok || body.ok !== true) {
+        throw new Error(body?.error || 'Offer failed');
+      }
+      showToast(
+        t('admin.winback.sentTitle'),
+        t('admin.winback.sentBody', { code: body.code ?? '' }),
+      );
+      refresh();
+    } catch (err: any) {
+      showToast(t('admin.winback.failTitle'), err?.message || 'Please try again.', 'destructive');
+    } finally {
+      setSending(null);
+    }
+  };
+
+  const fmtDate = (ts: number | null): string => (ts ? new Date(ts).toLocaleDateString() : '—');
+
+  return (
+    <section className="overflow-hidden rounded-xl border border-ink-rule bg-paper-bleached">
+      <header className="border-b border-ink-rule px-6 py-4">
+        <h2 className="text-base font-bold text-ink">{t('admin.winback.title')}</h2>
+        <p className="text-xs text-ink-soft">{t('admin.winback.subtitle')}</p>
+      </header>
+      {err ? (
+        <div className="px-6 py-4 text-sm text-signal">{err}</div>
+      ) : !items ? (
+        <div className="px-6 py-4 text-sm text-ink-soft">Loading…</div>
+      ) : items.length === 0 ? (
+        <div className="px-6 py-6 text-sm text-ink-soft">{t('admin.winback.empty')}</div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-ink-rule bg-paper-raised text-left text-xs text-ink-soft">
+                <th className="px-6 py-3 font-medium">{t('admin.winback.business')}</th>
+                <th className="px-6 py-3 font-medium">{t('admin.winback.sawPricing')}</th>
+                <th className="px-6 py-3 font-medium">{t('admin.winback.phone')}</th>
+                <th className="px-6 py-3 font-medium">{t('admin.winback.action')}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-ink-rule">
+              {items.map((lead) => (
+                <tr key={lead.id}>
+                  <td className="px-6 py-3">
+                    <div className="font-medium text-ink">{lead.name}</div>
+                    <div className="text-xs text-ink-soft">{lead.slug} · {lead.category || '—'}</div>
+                  </td>
+                  <td className="px-6 py-3">
+                    <div className="text-ink">{fmtDate(lead.priceSeenAt)}</div>
+                    <div className="text-xs text-ink-soft">
+                      {lead.daysSincePriceSeen != null
+                        ? t('admin.winback.daysAgo', { days: lead.daysSincePriceSeen })
+                        : '—'}
+                    </div>
+                  </td>
+                  <td className="px-6 py-3 font-mono text-xs text-ink-soft">{lead.ownerPhoneMasked || '—'}</td>
+                  <td className="px-6 py-3">
+                    <Button
+                      size="sm"
+                      variant="default"
+                      disabled={sending === lead.id}
+                      onClick={() => sendOffer(lead)}
+                    >
+                      {sending === lead.id
+                        ? <Loader2 className="h-4 w-4 animate-spin" />
+                        : t('admin.winback.sendOffer')}
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function TenantsBoard() {  const [items, setItems] = useState<TenantRow[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [changing, setChanging] = useState<string | null>(null);
 

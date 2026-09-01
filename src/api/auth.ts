@@ -6,7 +6,7 @@ import { users, tenants, passwordResets, tenantSubscriptions, refreshTokenFamili
 import { eq, sql, and, desc } from 'drizzle-orm';
 import crypto from 'crypto';
 import { notify } from '../../server/lib/notifications';
-import { trackEvent } from '../../server/lib/analytics';
+import { trackEvent, type ActivationEvent } from '../../server/lib/analytics';
 import { applyTemplate } from '../../server/lib/mailTemplates';
 import { jwtSecret, refreshSecret, requireAuth } from './middleware/auth';
 import { csrfProtection } from './middleware/csrf';
@@ -129,6 +129,31 @@ router.post('/check-slug', async (req, res) => {
     res.json({ available: !existingTenant });
   } catch (error) {
     res.status(500).json({ error: 'Failed to check slug' });
+  }
+});
+
+// T4.9 — anonymous registration-step beacons. Pre-register abandonment (the
+// stretch before POST /register) is invisible today because check-slug calls
+// carry no identity; these fire-and-forget beacons bind each step to an
+// anonymous cookie id (egebeya_anon, issued client-side on first /register
+// visit) and land in activation_events with a NULL tenant_id.
+const REG_STEPS = ['reg_step_viewed', 'slug_checked', 'reg_details_submitted'] as const;
+
+router.post('/events/reg-step', authLimiter, async (req, res) => {
+  try {
+    const step = req.body?.step;
+    const anonId = typeof req.body?.anonId === 'string' ? req.body.anonId.trim().slice(0, 64) : null;
+    if (typeof step !== 'string' || !(REG_STEPS as readonly string[]).includes(step)) {
+      return res.status(400).json({ error: 'Unknown registration step' });
+    }
+    if (!anonId || !/^[A-Za-z0-9-]{8,64}$/.test(anonId)) {
+      return res.status(400).json({ error: 'anonId is required' });
+    }
+    trackEvent(null, step as ActivationEvent, { anonymousId: anonId });
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('[auth] reg-step beacon error:', (error as Error)?.message || error);
+    res.status(500).json({ error: 'Failed to record step' });
   }
 });
 
