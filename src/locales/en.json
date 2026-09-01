@@ -505,6 +505,7 @@
     "title": "My bookings",
     "signInPrompt": "No consumer session yet. Sign in with your phone number.",
     "signInLink": "Sign in · ይግቡ",
+    "unavailablePrompt": "Consumer sign-in isn't available yet. Please check back soon.",
     "punchCard": "Punch card",
     "visits": "visits",
     "rewardReady": "Reward ready — your next booking gets a discount!",

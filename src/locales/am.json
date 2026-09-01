@@ -505,6 +505,7 @@
     "title": "ቀጠሮዎችዎ",
     "signInPrompt": "የደንበኛ መለያዎ የለም። በስልክ ቁጥርዎ ይግቡ።",
     "signInLink": "ይግቡ · Sign in",
+    "unavailablePrompt": "የደንበኛ መግቢያ ገና አይገኝም። እባክዎ ትንሽ ቆይተው ይምለሱ።",
     "punchCard": "የበጎ አድራጎት ካርድ",
     "visits": "ጊዜያት",
     "rewardReady": "ሽልማትዎ ዝግጁ ነው — ቀጣይ ቀጠሮዎ ላይ ይቀንሳል!",
