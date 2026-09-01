@@ -37,6 +37,22 @@ export function EmpireChecklist() {
         const byStep = Object.fromEntries(
           (body.steps ?? []).map((s: any) => [s.step, s.done]),
         );
+
+        // photo: done when the tenant has uploaded media.
+        // firstBooking: done when the tenant has at least one booking.
+        // Both are derived from real data — never optimistically flipped.
+        const [mediaRes, bookingsRes] = await Promise.all([
+          authFetch('/api/tenant/media').catch(() => null),
+          authFetch('/api/bookings').catch(() => null),
+        ]);
+        if (cancelled) return;
+        const hasMedia = mediaRes?.ok
+          ? (await mediaRes.json().catch(() => [])).length > 0
+          : false;
+        const hasBooking = bookingsRes?.ok
+          ? (await bookingsRes.json().catch(() => [])).length > 0
+          : false;
+
         setSteps([
           {
             key: 'page',
@@ -59,15 +75,14 @@ export function EmpireChecklist() {
             label: 'Add a real photo of your shop · ፎቶ ያክሉ',
             hint: 'Real photos win customers',
             to: '/dashboard/media',
-            done: false, // instrumented via media count in a later pass
+            done: hasMedia,
           },
           {
             key: 'firstBooking',
             label: 'Receive your first booking · የመጀመሪያ ቀጠሮ',
             hint: 'Share your site to get there faster',
             to: '/dashboard/bookings',
-            // TODO(P3.5): flip from activation_events.first_booking once events land.
-            done: false,
+            done: hasBooking,
           },
         ]);
       } catch {
