@@ -183,8 +183,8 @@ function WebsiteBuilderInner() {
 
   const handleCodeClick = () => {
     if (!planState.isPro) {
-      // P5.4 G5: label, don't hide — the value-anchored sheet replaces the
-      // naked SubscribeModal on the free path.
+      // P5.4 G5: label, don't hide — the value-anchored pricing sheet
+      // opens on the free path.
       setVelvetOpen(true);
       return;
     }
@@ -817,32 +817,6 @@ function DisclaimerModal({
           </Button>
           <Button size="sm" onClick={onConfirm}>
             Yes, switch
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function SubscribeModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  if (!open) return null;
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center gap-2">
-        <Sparkles className="h-5 w-5 text-accent-secondary-deep" />
-        <h2 className="text-lg font-bold text-ink">Code Editor & AI are Pro features</h2>
-      </div>
-      <p className="mt-2 text-sm text-ink-soft">
-          Upgrade to the Pro plan to edit your site's raw code, publish custom HTML, and use the AI assistant.
-          Your visual editor remains available on every plan.
-        </p>
-        <div className="mt-5 flex justify-end gap-2">
-          <Button variant="outline" size="sm" onClick={onClose}>
-            Not now
-          </Button>
-          <Button size="sm" onClick={() => (window.location.href = '/dashboard/settings')}>
-            Manage plan
           </Button>
         </div>
       </div>
