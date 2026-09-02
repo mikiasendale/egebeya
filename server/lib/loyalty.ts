@@ -22,7 +22,7 @@ import crypto from 'crypto';
 import { db } from '../../src/db';
 import {
   loyaltyLedger, punchCards, customerStats, tenantSubscriptions,
-  plans, telegramLinks,
+  plans, telegramLinks, tenants,
 } from '../../src/db/schema';
 import { and, eq, sql } from 'drizzle-orm';
 import { normalizePhone } from '../../src/lib/phone';
@@ -61,21 +61,30 @@ export interface GateStatus {
 /**
  * Live gate read: env flag AND the north-star council threshold. The Telegram
  * opt-in rate is still computed and reported (advisory) but is NOT a blocking
- * condition — see docs/loyalty-opening.md for the recorded decision. Pure-ish
- * (DB reads); cheap enough to call on every loyalty touch.
+ * condition — see docs/loyalty-opening.md for the recorded decision.
+ *
+ * Demo/seed tenants (is_demo = true) are excluded from BOTH metrics — the
+ * same structural exclusion the admin aggregates use (T4.5), so the dev gate
+ * can never open on seed-inflated numbers and the prod gate cannot either.
+ * Pure-ish (DB reads); cheap enough to call on every loyalty touch.
  */
 export async function gateStatus(now = Date.now()): Promise<GateStatus> {
   const enabledFlag = (process.env.LOYALTY_ENABLED || '').trim().toLowerCase() === 'true';
   const reasons: string[] = [];
 
-  // Opt-in rate over customer_stats (advisory signal for the council).
-  const statRows = await db.select({ opted: customerStats.marketingOptIn }).from(customerStats).all();
+  // Opt-in rate over customer_stats, demo-excluded (advisory signal).
+  const statRows = await db
+    .select({ opted: customerStats.marketingOptIn })
+    .from(customerStats)
+    .innerJoin(tenants, eq(customerStats.tenantId, tenants.id))
+    .where(eq(tenants.isDemo, false))
+    .all();
   const total = statRows.length;
   const opted = statRows.filter((r) => r.opted).length;
   const optInRate = total === 0 ? null : opted / total;
 
   // North-star proxy over the trailing week (same definition as admin funnel:
-  // confirmed/completed bookings per billing-active tenant).
+  // confirmed/completed bookings per billing-active tenant). Demo-excluded.
   const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
   // Raw SQL through the libsql client (same duck-type as migrations.ts).
   const driver = (db as any).session?.client ?? (db as any).$client ?? db;
@@ -87,13 +96,17 @@ export async function gateStatus(now = Date.now()): Promise<GateStatus> {
     return [];
   };
   const bookingRows = await runSql(
-    `SELECT COUNT(*) AS n FROM appointments WHERE status IN ('confirmed','completed') AND start_time >= ?`,
+    `SELECT COUNT(*) AS n
+       FROM appointments a JOIN tenants t ON t.id = a.tenant_id
+      WHERE t.is_demo = 0 AND a.status IN ('confirmed','completed') AND a.start_time >= ?`,
     [weekAgo],
   );
   const tenantRows = await runSql(
     `SELECT COUNT(DISTINCT ts.tenant_id) AS n
-       FROM tenant_subscriptions ts JOIN plans p ON p.id = ts.plan_id
-      WHERE ts.status IN ('active','trial')`,
+       FROM tenant_subscriptions ts
+       JOIN plans p ON p.id = ts.plan_id
+       JOIN tenants t ON t.id = ts.tenant_id
+      WHERE t.is_demo = 0 AND ts.status IN ('active','trial')`,
   );
   const bookingsN = Number((bookingRows[0] as any)?.n ?? 0);
   const tenantsN = Number((tenantRows[0] as any)?.n ?? 0);
