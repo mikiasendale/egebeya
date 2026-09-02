@@ -47,11 +47,25 @@ describe('loyalty-lite engine (P5.1)', () => {
     delete process.env.LOYALTY_ENABLED;
   });
 
-  it('GATE: the engine obeys the live gate — no accrual while thresholds sit unmet', async () => {
-    // Shared dev DB: other fixtures may legitimately open the gate. The
-    // CONTRACT under test is that recordPunch always MATCHES the live gate.
+  it('GATE: open = enabledFlag && north-star >= 0.7; opt-in is reported but ADVISORY', async () => {
+    // Owner decision (recorded in docs/loyalty-opening.md) retired the
+    // Telegram opt-in condition from the ENFORCING boolean. gateStatus() must
+    // still compute/report optInRate for council visibility, but it must NOT
+    // appear as a gate-closing reason and must NOT flip the gate closed.
     const { recordPunch, gateStatus } = await import('../lib/loyalty');
     const gate = await gateStatus();
+
+    // (1) Advisory reporting: the rate is still surfaced.
+    expect(gate.optInRate === null || typeof gate.optInRate === 'number').toBe(true);
+    // (2) It is no longer a blocking condition — no opt-in reason is emitted.
+    const optInReason = gate.reasons.find((r) => r.startsWith('opt_in_rate'));
+    expect(optInReason).toBeUndefined();
+    // (3) The boolean keys off exactly TWO conditions: env flag + north-star.
+    const northStarMet = gate.northStar != null && gate.northStar >= 0.7;
+    expect(gate.open).toBe(gate.enabledFlag && northStarMet);
+
+    // Shared dev DB: other fixtures may legitimately open the gate. The
+    // CONTRACT under test is that recordPunch always MATCHES the live gate.
     const phone = `+25194${String(Math.floor(Math.random() * 1e8)).padStart(8, '0')}`;
     const result = await recordPunch({
       tenantId, consumerPhone: phone,

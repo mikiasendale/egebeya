@@ -2,12 +2,16 @@
  * Loyalty-lite punch card engine (P5.1).
  *
  * COUNCIL GATE, ENFORCED IN CODE (ROADMAP §0 ruling): the loyalty program
- * opens only when Telegram identity is proven (P3.3 opt-in ≥ 50% on
- * confirmations) AND the north-star ≥ 0.7. This dev environment has no real
- * traffic, so the feature ships DARK: `LOYALTY_ENABLED=false` by default,
- * and even when an operator flips it on, `gateStatus()` re-reads the live
- * metrics and refuses to accrue punches or redeem rewards while either
- * threshold is unmet. No prose compliance — the DB refuses.
+ * opens only when the north-star ≥ 0.7. The Telegram opt-in rate was the
+ * second condition but has been RETIRED from the enforcing boolean by owner
+ * decision (recorded in docs/loyalty-opening.md) — merchant issuance +
+ * booking-time redemption removed the Telegram dependency from the core
+ * loop. gateStatus() still COMPUTES and REPORTS optInRate so the council can
+ * watch it, but it no longer blocks the gate. This dev environment has no
+ * real traffic, so the feature ships DARK: `LOYALTY_ENABLED=false` by
+ * default, and even when an operator flips it on, `gateStatus()` re-reads
+ * the live metrics and refuses to accrue punches or redeem rewards while
+ * the north-star threshold is unmet. No prose compliance — the DB refuses.
  *
  * Money rule: a redeemed reward lowers the next Chapa charge amount BEFORE
  * initialize and is recorded in payments.meta — merchant-funded discount,
@@ -26,7 +30,7 @@ import { normalizePhone } from '../../src/lib/phone';
 export const LOYALTY_TARGET_DEFAULT = 5;
 /** North-star threshold from ROADMAP §1 (≥0.7 by Day 60). */
 export const NSM_THRESHOLD = 0.7;
-/** Telegram opt-in threshold from P5.1 gate (≥50%). */
+/** Telegram opt-in rate — ADVISORY only (retired from the enforcing boolean). */
 export const OPT_IN_THRESHOLD = 0.5;
 
 export interface RewardConfig {
@@ -47,27 +51,28 @@ export interface ConsumerCard {
 export interface GateStatus {
   open: boolean;
   enabledFlag: boolean;
+  /** ADVISORY (owner decision, docs/loyalty-opening.md): reported for council
+   *  visibility, no longer part of the enforcing boolean. */
   optInRate: number | null;
   northStar: number | null;
   reasons: string[];
 }
 
 /**
- * Live gate read: env flag AND both council thresholds. Pure-ish (DB reads);
- * cheap enough to call on every loyalty touch.
+ * Live gate read: env flag AND the north-star council threshold. The Telegram
+ * opt-in rate is still computed and reported (advisory) but is NOT a blocking
+ * condition — see docs/loyalty-opening.md for the recorded decision. Pure-ish
+ * (DB reads); cheap enough to call on every loyalty touch.
  */
 export async function gateStatus(now = Date.now()): Promise<GateStatus> {
   const enabledFlag = (process.env.LOYALTY_ENABLED || '').trim().toLowerCase() === 'true';
   const reasons: string[] = [];
 
-  // Opt-in rate over customer_stats (the same population confirmations go to).
+  // Opt-in rate over customer_stats (advisory signal for the council).
   const statRows = await db.select({ opted: customerStats.marketingOptIn }).from(customerStats).all();
   const total = statRows.length;
   const opted = statRows.filter((r) => r.opted).length;
   const optInRate = total === 0 ? null : opted / total;
-  if (optInRate == null || optInRate < OPT_IN_THRESHOLD) {
-    reasons.push(`opt_in_rate ${optInRate?.toFixed(2) ?? 'n/a'} < ${OPT_IN_THRESHOLD}`);
-  }
 
   // North-star proxy over the trailing week (same definition as admin funnel:
   // confirmed/completed bookings per billing-active tenant).
