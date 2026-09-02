@@ -6,6 +6,8 @@
  *   2. POST /api/tenant/promo-codes creates a valid code; rejects duplicates.
  *   3. POST /api/tenant/marketing/blast sends only to opted-in customers.
  *   4. PATCH /api/tenant/customers/:phone/marketing-opt-in updates consent.
+ *   5. V8 consent filter: a merchant_card-only consumer (loyalty-participation
+ *      consent, NEVER marketing consent) is excluded from the blast list.
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
@@ -13,13 +15,13 @@ import express from 'express';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 
 import apiRoutes from '../../src/api';
 import { db } from '../../src/db';
 import {
   tenants, users, services as servicesTable, staff, appointments,
-  tenantBusinessHours, customerStats, promoCodes,
+  tenantBusinessHours, customerStats, promoCodes, consumers, notificationLog,
 } from '../../src/db/schema';
 
 const JWT_SECRET = process.env.JWT_SECRET as string;
@@ -42,6 +44,7 @@ describe('CRM: Customers, Promo Codes, Marketing', () => {
   let token: string;
   let optInPhone: string;
   let optOutPhone: string;
+  let merchantCardPhone: string;
 
   beforeAll(async () => {
     tenantId = crypto.randomUUID();
@@ -51,6 +54,7 @@ describe('CRM: Customers, Promo Codes, Marketing', () => {
     const phone = `+251${String(Math.floor(Math.random() * 1e9)).padStart(9, '0')}`;
     optInPhone = `+251${String(Math.floor(Math.random() * 1e9)).padStart(9, '0')}`;
     optOutPhone = `+251${String(Math.floor(Math.random() * 1e9)).padStart(9, '0')}`;
+    merchantCardPhone = `+251${String(Math.floor(Math.random() * 1e9)).padStart(9, '0')}`;
 
     await db.insert(tenants).values({
       id: tenantId, name: 'CRM Test Salon', slug: `crm-${suffix}`,
@@ -83,6 +87,18 @@ describe('CRM: Customers, Promo Codes, Marketing', () => {
       visitCount: 1, totalSpendEtbCents: 5000, marketingOptIn: false, createdAt: now,
     });
 
+    // V8 consent basis: a merchant issued this customer a loyalty punch card.
+    // merchant_card consent is loyalty-participation ONLY (P3.7) — it must
+    // never become an SMS-marketing authorization. Simulate the realistic
+    // state: the card-holder later had a completed visit (customer_stats row)
+    // but never opted into marketing — the blast must still exclude them.
+    const { upsertConsumerByPhone } = await import('../../server/lib/consumers');
+    await upsertConsumerByPhone({ phone: merchantCardPhone, name: 'Card Holder', basis: 'merchant_card' });
+    await db.insert(customerStats).values({
+      tenantId, customerPhone: merchantCardPhone, customerName: 'Card Holder',
+      visitCount: 1, totalSpendEtbCents: 2500, marketingOptIn: false, createdAt: now,
+    });
+
     token = tokenFor(ownerId, tenantId);
   });
 
@@ -90,6 +106,7 @@ describe('CRM: Customers, Promo Codes, Marketing', () => {
     await db.delete(appointments).where(eq(appointments.tenantId, tenantId)).catch(() => {});
     await db.delete(promoCodes).where(eq(promoCodes.tenantId, tenantId)).catch(() => {});
     await db.delete(customerStats).where(eq(customerStats.tenantId, tenantId)).catch(() => {});
+    await db.delete(consumers).where(eq(consumers.phone, merchantCardPhone)).catch(() => {});
     await db.delete(tenantBusinessHours).where(eq(tenantBusinessHours.tenantId, tenantId)).catch(() => {});
     await db.delete(servicesTable).where(eq(servicesTable.tenantId, tenantId)).catch(() => {});
     await db.delete(staff).where(eq(staff.tenantId, tenantId)).catch(() => {});
@@ -178,6 +195,31 @@ describe('CRM: Customers, Promo Codes, Marketing', () => {
     expect(res.body.success).toBe(true);
     expect(res.body.sent).toBe(1); // only optInPhone
     expect(res.body.skipped).toBe(0);
+  });
+
+  it('V8: merchant_card-only customer is excluded from the blast recipient list', async () => {
+    // The card-holder has a customer_stats row (a completed visit happened)
+    // AND a consumer profile stamped at merchant-card issuance — but they
+    // NEVER opted into marketing. merchant_card consent authorizes loyalty
+    // participation ONLY; it must never place them on a marketing send list.
+    const res = await request(app)
+      .post('/api/tenant/marketing/blast')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ message: 'V8 consent filter check.' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    // Only one customer (optInPhone) had marketingOptIn=true; the merchant
+    // card-holder (marketingOptIn=false) was excluded from the recipient list.
+    // Delivery may fail in test (stub SMS) — recipients = sent + skipped.
+    const recipients = (res.body.sent || 0) + (res.body.skipped || 0);
+    expect(recipients).toBe(1);
+
+    // No SMS was ever dispatched to the merchant-card-holder's phone.
+    const logRows = await db.select().from(notificationLog)
+      .where(and(eq(notificationLog.tenantId, tenantId), eq(notificationLog.refId, merchantCardPhone)))
+      .all();
+    expect(logRows.length).toBe(0);
   });
 
   it('POST /marketing/blast rejects empty message', async () => {
