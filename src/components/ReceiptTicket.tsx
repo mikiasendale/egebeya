@@ -29,6 +29,8 @@ export interface ReceiptTicketProps {
   /** Same-day queue snapshot from the booking response. */
   queueInfo?: { position: number | null; etaMinutes: number } | null;
   telegramDeepLink?: string | null;
+  /** Channel availability from GET /api/public/telegram-config (T3.15). */
+  telegramEnabled?: boolean | null;
   bookingId?: string | null;
 }
 
@@ -43,6 +45,7 @@ export function ReceiptTicket({
   paymentStatus,
   queueInfo,
   telegramDeepLink,
+  telegramEnabled,
   bookingId,
 }: ReceiptTicketProps) {
   const { t } = useTranslation();
@@ -134,7 +137,7 @@ export function ReceiptTicket({
           </div>
         )}
 
-        {confirmed && telegramDeepLink && (
+        {confirmed && telegramDeepLink && telegramEnabled !== false && (
           <a
             href={telegramDeepLink}
             target="_blank"
@@ -146,6 +149,11 @@ export function ReceiptTicket({
           >
             {t('receipt.telegramCta')}
           </a>
+        )}
+        {confirmed && telegramEnabled === false && (
+          <p className="mt-6 text-sm text-ink-soft" data-testid="receipt-telegram-unavailable">
+            {t('receipt.telegramUnavailable')}
+          </p>
         )}
         <div className="mt-4 flex items-center gap-4">
           {/* F2: the track link lives ONLY next to the same-day take-a-number

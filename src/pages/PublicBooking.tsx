@@ -389,6 +389,7 @@ export function PublicBooking({ tenant, subdomain }: { tenant: any, subdomain: s
             paymentStatus={bookingResult?.paymentStatus}
             queueInfo={queueInfo}
             telegramDeepLink={telegramEnabled ? telegramDeepLink : null}
+            telegramEnabled={telegramEnabled}
             bookingId={bookingId}
           />
 

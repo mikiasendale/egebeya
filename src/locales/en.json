@@ -640,6 +640,7 @@
     }
   },
   "receipt": {
-    "telegramCta": "ማስታወሻ በ Telegram · Remind me there"
+    "telegramCta": "ማስታወሻ በ Telegram · Remind me there",
+    "telegramUnavailable": "Telegram reminders are not available yet. Please check back later."
   }
 }
