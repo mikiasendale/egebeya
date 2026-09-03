@@ -24,6 +24,7 @@ import {
   formatEthiopianDateCompact,
 } from '../../server/lib/timezone';
 import { rewriteUploadUrls } from '../../server/lib/mediaUrls';
+import { isTelegramConfigured } from '../../server/lib/telegram';
 import {
   isTurnstileConfigured,
   verifyTurnstileToken,
@@ -183,6 +184,13 @@ router.get('/discover', discoverLimiter, async (req, res) => {
 // secret key is configured.
 router.get('/turnstile-config', (_req, res) => {
   res.json({ siteKey: process.env.TURNSTILE_SITE_KEY?.trim() || null });
+});
+
+// Consumer-login availability. Lets the SPA hide/degrade the consumer OTP
+// entry gracefully while the Telegram bot is unprovisioned (same env-discovery
+// pattern as /turnstile-config).
+router.get('/telegram-config', (_req, res) => {
+  res.json({ enabled: isTelegramConfigured() });
 });
 
 /**

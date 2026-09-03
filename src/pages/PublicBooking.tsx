@@ -69,6 +69,7 @@ export function PublicBooking({ tenant, subdomain }: { tenant: any, subdomain: s
   // the take-a-number position + the single Telegram CTA deep link.
   const [queueInfo, setQueueInfo] = useState<{ position: number | null; etaMinutes: number } | null>(null);
   const [telegramDeepLink, setTelegramDeepLink] = useState<string | null>(null);
+  const [telegramEnabled, setTelegramEnabled] = useState<boolean | null>(null);
   // The customer name captured at submission time, threaded to the printed
   // receipt's success display. Set by handleSubmit.
   const [confirmedCustomerName, setConfirmedCustomerName] = useState('');
@@ -99,6 +100,14 @@ export function PublicBooking({ tenant, subdomain }: { tenant: any, subdomain: s
       .then((r) => (r.ok ? r.json() : { siteKey: null }))
       .then((data: { siteKey: string | null }) => setTurnstileSiteKey(data.siteKey))
       .catch(() => setTurnstileSiteKey(null));
+  }, []);
+
+  // T3.15 — gate the Telegram CTA on channel availability.
+  useEffect(() => {
+    fetch('/api/public/telegram-config')
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((data) => setTelegramEnabled(Boolean(data?.enabled)))
+      .catch(() => setTelegramEnabled(false));
   }, []);
 
   // Inject Cloudflare's Turnstile script once, only on the step that needs
@@ -379,7 +388,8 @@ export function PublicBooking({ tenant, subdomain }: { tenant: any, subdomain: s
             receiptText={receiptText}
             paymentStatus={bookingResult?.paymentStatus}
             queueInfo={queueInfo}
-            telegramDeepLink={telegramDeepLink}
+            telegramDeepLink={telegramEnabled ? telegramDeepLink : null}
+            telegramEnabled={telegramEnabled}
             bookingId={bookingId}
           />
 

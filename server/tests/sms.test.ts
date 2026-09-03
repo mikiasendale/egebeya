@@ -1,25 +1,41 @@
 /**
- * SMS delivery unit tests.
+ * SMS delivery unit tests (SMSEthiopia provider, T1.1).
  *
- * Feature B: SMS is the product's number-one anti-no-show feature.
+ * Contract under test:
+ *   - SMS_API_KEY unset  → honest { success: false } "unconfigured" result,
+ *     no fetch, no fabricated messageId.
+ *   - SMS_API_KEY set    → real POST to smsethiopia /api/v2/sms/send with the
+ *     KEY header and msisdn WITHOUT the leading "+"; the provider's REAL id
+ *     is returned on success.
+ *   - Provider refusal / HTTP error / network error → { success: false }
+ *     with the provider's error surfaced; sendSms NEVER throws on provider
+ *     failures and NEVER reports success for an unsent message.
+ *   - Malformed phones still throw BEFORE any network call (input validation
+ *     contract, unchanged).
+ *   - Every log line redacts the phone number.
  *
- * Covers:
- *   - Stub mode logs redacted output (no API key configured)
- *   - Missing API key does not throw
- *   - Malformed phone numbers are rejected before HTTP call
- *   - Ethiopian phone formats 0911…, 251911…, +251911… are normalized
- *   - Locale-aware templates work
+ * The provider transport is stubbed via global fetch — the request shape,
+ * auth header, and response parsing are exercised for real.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-describe('SMS delivery (Feature B)', () => {
+const fetchMock = vi.fn();
+
+describe('SMS delivery (SMSEthiopia provider)', () => {
   beforeEach(() => {
-    // Clear SMS_API_KEY so tests start in stub mode
+    vi.resetModules(); // server/lib/sms reads SMS_API_KEY at module load
     delete process.env.SMS_API_KEY;
+    vi.stubGlobal('fetch', fetchMock);
   });
 
-  describe('Stub mode (no API key)', () => {
-    it('logs redacted output and does not throw when SMS_API_KEY is absent', async () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    fetchMock.mockReset();
+  });
+
+  describe('Unconfigured mode (no API key)', () => {
+    it('returns honest failure — no fabricated success, no fetch, no messageId', async () => {
       const { sendSms } = await import('../lib/sms');
       const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
@@ -28,115 +44,134 @@ describe('SMS delivery (Feature B)', () => {
         text: 'Your appointment is confirmed for tomorrow at 10:00.',
       });
 
-      expect(result.success).toBe(true);
-      expect(result.messageId).toBe('stub-sms-id');
-      expect(consoleSpy).toHaveBeenCalled();
+      expect(result.success).toBe(false);
+      expect(result.messageId).toBeUndefined();
+      expect(String(result.error)).toMatch(/not configured|SMS_API_KEY/i);
+      expect(fetchMock).not.toHaveBeenCalled();
 
-      // Verify the stub log contains redacted phone
-      const logCall = consoleSpy.mock.calls[0];
-      const logStr = logCall.join(' ');
-      expect(logStr).toContain('[SMS STUB]');
-      expect(logStr).toContain('251911'); // first digits visible
-      expect(logStr).toContain('****');    // rest masked
-      expect(logStr).toContain('appointment'); // body visible
-
-      consoleSpy.mockRestore();
-    });
-
-    it('truncates body to 480 chars with ellipsis', async () => {
-      const { sendSms } = await import('../lib/sms');
-      const longBody = 'A'.repeat(500);
-      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-
-      await sendSms({ to: '+251911234567', text: longBody });
-
-      const logCall = consoleSpy.mock.calls[0];
-      const logStr = logCall.join(' ');
-      expect(logStr.length).toBeLessThanOrEqual(600); // 80 char preview + overhead
+      // The log states the message was NOT sent, with the phone redacted.
+      const logStr = consoleSpy.mock.calls.map((c) => c.join(' ')).join(' ');
+      expect(logStr).toContain('[SMS UNCONFIGURED]');
+      expect(logStr).toContain('NOT sent');
+      expect(logStr).toContain('251911');
+      expect(logStr).toContain('****');
 
       consoleSpy.mockRestore();
     });
   });
 
-  describe('Phone validation', () => {
-    it('rejects malformed phone before HTTP call', async () => {
-      const { sendSms } = await import('../lib/sms');
-
-      await expect(sendSms({
-        to: 'not-a-phone',
-        text: 'test',
-      })).rejects.toThrow(/Invalid Ethiopian phone/i);
+  describe('Provider call (API key set)', () => {
+    beforeEach(() => {
+      process.env.SMS_API_KEY = 'TESTKEY1234567890';
     });
 
-    it('rejects empty phone before HTTP call', async () => {
+    it('POSTs to smsethiopia v2 with KEY header and msisdn without "+"', async () => {
       const { sendSms } = await import('../lib/sms');
+      vi.spyOn(console, 'log').mockImplementation(() => {});
+      fetchMock.mockResolvedValue(new Response(JSON.stringify({
+        sent: true, id: '01JZX5M8Q3T5V0X8YW9RCB2K7D',
+        description: 'Accepted for delivery', segments: 1, status: 'ACCEPTED',
+      }), { status: 200 }));
 
-      await expect(sendSms({
-        to: '',
-        text: 'test',
-      })).rejects.toThrow(/Invalid Ethiopian phone/i);
-    });
-  });
+      const result = await sendSms({ to: '+251911234567', text: 'Hello' });
 
-  describe('Phone normalization', () => {
-    it('normalizes 0911… format via normalizePhone', async () => {
-      const { sendSms } = await import('../lib/sms');
-      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-
-      await sendSms({ to: '0911234567', text: 'test' });
-
-      expect(consoleSpy).toHaveBeenCalled();
-
-      consoleSpy.mockRestore();
-    });
-
-    it('normalizes 251911… format', async () => {
-      const { sendSms } = await import('../lib/sms');
-      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-
-      await sendSms({ to: '251911234567', text: 'test' });
-
-      expect(consoleSpy).toHaveBeenCalled();
-
-      consoleSpy.mockRestore();
-    });
-
-    it('normalizes +251911… format', async () => {
-      const { sendSms } = await import('../lib/sms');
-      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-
-      await sendSms({ to: '+251911234567', text: 'test' });
-
-      expect(consoleSpy).toHaveBeenCalled();
-
-      consoleSpy.mockRestore();
-    });
-  });
-
-  describe('Security event logging', () => {
-    it('logs security event on successful dispatch attempt', async () => {
-      // Import via dynamic import to get fresh state
-      const { sendSms } = await import('../lib/sms');
-      const { logSecurityEvent } = await import('../lib/securityLog');
-      const securitySpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-
-      // sendSms itself logs to console (stub mode)
-      const result = await sendSms({ to: '+251911234567', text: 'test' });
-      expect(result.success).toBe(true);
-
-      // Manually simulate security event logging (the cron does this)
-      logSecurityEvent({
-        type: 'reminder-sent-sms',
-        tenantId: 'test-tenant-id',
-        details: {
-          appointmentId: 'test-appt-id',
-          phonePrefix: '+251911****',
-        },
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+      expect(url).toBe('https://smsethiopia.com/api/v2/sms/send');
+      expect((init.headers as any)['KEY']).toBe('TESTKEY1234567890');
+      expect((init.headers as any)['Content-Type']).toBe('application/json');
+      expect(JSON.parse(String(init.body))).toEqual({
+        msisdn: '251911234567', text: 'Hello', // "+" stripped for the provider
       });
 
-      // Verify db insert was attempted (non-throwing)
-      // The logSecurityEvent function is fire-and-forget, never throws
-      securitySpy.mockRestore();
+      expect(result.success).toBe(true);
+      // The provider's REAL id — never a fabricated 'unconfigured-sms-id'.
+      expect(result.messageId).toBe('01JZX5M8Q3T5V0X8YW9RCB2K7D');
+    });
+
+    it('normalizes 0911… and 251911… inputs to bare 251 msisdn', async () => {
+      const { sendSms } = await import('../lib/sms');
+      vi.spyOn(console, 'log').mockImplementation(() => {});
+      fetchMock.mockResolvedValue(new Response(JSON.stringify({ sent: true, id: 'a' }), { status: 200 }));
+
+      await sendSms({ to: '0911234567', text: 'x' });
+      expect(JSON.parse(String(fetchMock.mock.calls[0][1].body)).msisdn).toBe('251911234567');
+
+      await sendSms({ to: '251911234567', text: 'x' });
+      expect(JSON.parse(String(fetchMock.mock.calls[1][1].body)).msisdn).toBe('251911234567');
+    });
+
+    it('provider refusal (sent !== true) → success:false with error_message, no throw', async () => {
+      const { sendSms } = await import('../lib/sms');
+      const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      fetchMock.mockResolvedValue(new Response(JSON.stringify({
+        sent: false, error_message: 'Error Code :: 10007 (recipient is not whitelisted)',
+      }), { status: 200 }));
+
+      const result = await sendSms({ to: '+251911234567', text: 'Hello' });
+
+      expect(result.success).toBe(false);
+      expect(result.messageId).toBeUndefined();
+      expect(String(result.error)).toContain('10007');
+      expect(errSpy).toHaveBeenCalled();
+    });
+
+    it('HTTP 500 → success:false with the provider error, no throw', async () => {
+      const { sendSms } = await import('../lib/sms');
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      fetchMock.mockResolvedValue(new Response(JSON.stringify({
+        error_message: 'internal error',
+      }), { status: 500 }));
+
+      const result = await sendSms({ to: '+251911234567', text: 'Hello' });
+
+      expect(result.success).toBe(false);
+      expect(String(result.error)).toContain('internal error');
+    });
+
+    it('network failure → success:false, no throw', async () => {
+      const { sendSms } = await import('../lib/sms');
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      fetchMock.mockRejectedValue(new Error('connect ECONNREFUSED'));
+
+      const result = await sendSms({ to: '+251911234567', text: 'Hello' });
+
+      expect(result.success).toBe(false);
+      expect(String(result.error)).toContain('ECONNREFUSED');
+    });
+
+    it('non-JSON response → success:false, no throw', async () => {
+      const { sendSms } = await import('../lib/sms');
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      fetchMock.mockResolvedValue(new Response('<html>gateway error</html>', { status: 502 }));
+
+      const result = await sendSms({ to: '+251911234567', text: 'Hello' });
+      expect(result.success).toBe(false);
+    });
+
+    it('truncates body to 480 chars before the provider call', async () => {
+      const { sendSms } = await import('../lib/sms');
+      vi.spyOn(console, 'log').mockImplementation(() => {});
+      fetchMock.mockResolvedValue(new Response(JSON.stringify({ sent: true, id: 'b' }), { status: 200 }));
+
+      await sendSms({ to: '+251911234567', text: 'A'.repeat(500) });
+
+      const sentText = JSON.parse(String(fetchMock.mock.calls[0][1].body)).text;
+      expect(sentText.length).toBeLessThanOrEqual(480);
+      expect(sentText.endsWith('…')).toBe(true);
+    });
+  });
+
+  describe('Phone validation (unchanged contract)', () => {
+    it('rejects malformed phone before any HTTP call', async () => {
+      const { sendSms } = await import('../lib/sms');
+      process.env.SMS_API_KEY = 'TESTKEY1234567890';
+
+      await expect(sendSms({ to: 'not-a-phone', text: 'test' }))
+        .rejects.toThrow(/Invalid Ethiopian phone/i);
+      await expect(sendSms({ to: '', text: 'test' }))
+        .rejects.toThrow(/Invalid Ethiopian phone/i);
+      expect(fetchMock).not.toHaveBeenCalled();
     });
   });
 });

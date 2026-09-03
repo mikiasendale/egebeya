@@ -12,12 +12,13 @@ import adminRoutes from './admin';
 import healthRoutes from './health';
 import aiChatRoutes from './ai-chat';
 import crmRoutes from './crm';
-import intentRoutes from './intent';
+import { intentPublicRouter, intentTenantRouter } from './intent';
 import apiKeysRoutes from './api-keys';
 import v1Routes from './v1';
 import telegramRoutes from './telegram';
 import consumerRoutes from './consumer';
-import queueRoutes, { queueOwnerRouter, queuePublicRouter } from './queue';
+import { queueOwnerRouter, queuePublicRouter } from './queue';
+import loyaltyRoutes from './loyalty';
 import { apiKeyLimiter } from '../../server/middleware/rateLimiter';
 import { dbHealthMiddleware } from '../db/health';
 
@@ -36,14 +37,17 @@ router.use('/auth', authRoutes);
 // queue), so it mounts BEFORE the owner-gated tenant router. It carries its
 // own any-role requireAuth + per-tenant scoping.
 router.use('/tenant/queue', queueOwnerRouter);
+// T4.2: merchant loyalty operations (gate-status read + card issuance) — its
+// own owner-gated router, mounted before the broad /tenant router catches it.
+router.use('/tenant/loyalty', loyaltyRoutes);
 router.use('/tenant', tenantRoutes);
 router.use('/tenant', proSiteRoutes);
 router.use('/tenant', siteSettingsRoutes);
 router.use('/tenant', siteGeneratorRoutes);
 router.use('/tenant', aiChatRoutes);
 router.use('/tenant', crmRoutes);
-router.use('/public', intentRoutes);
-router.use('/tenant', intentRoutes);
+router.use('/public', intentPublicRouter);
+router.use('/tenant', intentTenantRouter);
 router.use('/tenant/api-keys', apiKeysRoutes);
 router.use('/tenant/bookings', walkInRouter);
 router.use('/bookings', bookingsRoutes);

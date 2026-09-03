@@ -1,18 +1,35 @@
 /**
  * SMS delivery layer mirroring server/lib/mailer.ts.
  *
- * Reads `SMS_API_KEY` from environment. When the key is absent (dev/test),
- * logs a redacted stub to stderr and resolves without network I/O.
+ * Provider: SMSEthiopia (https://smsethiopia.com — API reference under
+ * #/api-reference). Contract:
+ *   POST https://smsethiopia.com/api/v2/sms/send
+ *   Headers: KEY: <SMS_API_KEY>, Content-Type: application/json
+ *   Body:    { "msisdn": "2519XXXXXXXXX", "text": "..." }   // no leading +
+ *   Success: { "sent": true, "id": "01JZX…", "description": "Accepted for
+ *              delivery", "segments": 1, "status": "ACCEPTED" }
+ *   Failure: non-2xx, or JSON with sent !== true and an error_message/code
+ *             (10007 recipient not whitelisted, 10006 sender ID pending, …).
  *
- * In production the operator is expected to configure an SMS provider
- * (e.g. Ethiopian-based SMS gateway like Afromessage or similar) and set
- * the key. The interface is intentionally narrow — `sendSms({ to, text })` —
- * so swapping the provider later only changes this file.
+ * The sender ID is campaign-scoped to the API key on the SMSEthiopia side —
+ * no "from" field is sent.
+ *
+ * Failure semantics (by design — failed sends are logged outcomes, never
+ * incidents): this function NEVER throws on provider errors and NEVER
+ * reports success for a message that did not reach a provider.
+ *   - SMS_API_KEY unset → { success: false } + UNCONFIGURED log (no fetch).
+ *   - Malformed phone   → throws BEFORE any network call (input validation,
+ *     unchanged contract; callers treat it as a programming/precondition
+ *     error, not a delivery outcome).
+ *
+ * Env: SMS_API_KEY (required for real sends; no other env vars).
  */
 
 import { normalizePhone } from '../../src/lib/phone';
 
 const API_KEY = (process.env.SMS_API_KEY || '').trim();
+const SMS_ETHIOPIA_SEND_URL = 'https://smsethiopia.com/api/v2/sms/send';
+const FETCH_TIMEOUT_MS = 15_000;
 
 function redactPhone(phone: string): string {
   // Show the country prefix and first 3 digits, mask the rest.
@@ -35,16 +52,16 @@ export interface SmsOptions {
 export interface SmsResult {
   success: boolean;
   messageId?: string;
+  error?: string;
 }
 
 /**
- * Send an SMS to an Ethiopian phone number.
- *
- * When SMS_API_KEY is absent (dev), logs a redacted stub and returns success.
- * When the key is configured, sends through the configured gateway.
+ * Send an SMS to an Ethiopian phone number through SMSEthiopia.
  *
  * Phone normalization happens via normalizePhone — malformed numbers are
- * rejected BEFORE any HTTP call.
+ * rejected BEFORE any HTTP call. Provider errors (HTTP, network, provider
+ * refusal) resolve to { success: false, error } — they never throw and they
+ * never masquerade as success.
  */
 export async function sendSms(options: SmsOptions): Promise<SmsResult> {
   // Normalize the phone first so we don't leak garbage to the provider.
@@ -60,44 +77,45 @@ export async function sendSms(options: SmsOptions): Promise<SmsResult> {
   // single-segment upper bound).
   const body = options.text.length > 480 ? options.text.slice(0, 477) + '…' : options.text;
 
+  // Honest unconfigured state: nothing was sent, so nothing may claim success.
   if (!API_KEY) {
-    console.log(`[SMS STUB] Would send SMS to: ${redactPhone(normalized)}, body: ${body.slice(0, 80)}`);
-    return { success: true, messageId: 'stub-sms-id' };
+    console.log(`[SMS UNCONFIGURED] SMS_API_KEY not set — message NOT sent to: ${redactPhone(normalized)}, body: ${body.slice(0, 80)}`);
+    return { success: false, error: 'SMS provider not configured (SMS_API_KEY unset)' };
   }
 
+  // SMSEthiopia expects the msisdn WITHOUT the leading "+".
+  const msisdn = normalized.replace(/^\+/, '');
+
   try {
-    // ── Provider-specific HTTP call ─────────────────────────────────
-    // Replace this block with your chosen SMS gateway's API call shape.
-    // The `API_KEY` is always available as the env-var precondition above.
-    //
-    // Example (Afromessage-style):
-    //   const res = await fetch('https://api.afromessage.com/v1/send', {
-    //     method: 'POST',
-    //     headers: {
-    //       'Authorization': `Bearer ${API_KEY}`,
-    //       'Content-Type': 'application/json',
-    //     },
-    //     body: JSON.stringify({
-    //       to: normalized,
-    //       message: body,
-    //       template: options.templateId,
-    //     }),
-    //   });
-    //   if (!res.ok) throw new Error(`SMS gateway returned ${res.status}`);
-    //   const data = await res.json();
-    //   return { success: true, messageId: data.messageId };
-    //
-    // For now we simulate the stub behavior in production so the cron
-    // doesn't fail, but the "stub" prefix is replaced with a clear
-    // "UNCONFIGURED" log so the operator sees the gap in production logs.
-    console.log('[SMS UNCONFIGURED] API key present but no provider implemented.', {
-      phoneRedacted: redactPhone(normalized),
-      bodyLen: body.length,
+    const res = await fetch(SMS_ETHIOPIA_SEND_URL, {
+      method: 'POST',
+      headers: {
+        'KEY': API_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ msisdn, text: body }),
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
-    return { success: true, messageId: 'unconfigured-sms-id' };
-  } catch (error) {
-    // Never log the raw phone number in the error.
-    console.error('[SMS] Delivery failed:', error);
-    throw error;
+
+    const data: any = await res.json().catch(() => null);
+
+    if (!res.ok) {
+      const providerError = data?.error_message || data?.description || `HTTP ${res.status}`;
+      console.error(`[SMS] Delivery failed for ${redactPhone(normalized)}: ${String(providerError).slice(0, 200)}`);
+      return { success: false, error: `sms_ethiopia_${String(providerError).slice(0, 120)}` };
+    }
+
+    if (data?.sent !== true || !data?.id) {
+      const providerError = data?.error_message || data?.description || 'provider refused the message';
+      console.error(`[SMS] Provider refused send for ${redactPhone(normalized)}: ${String(providerError).slice(0, 200)}`);
+      return { success: false, error: `sms_ethiopia_${String(providerError).slice(0, 120)}` };
+    }
+
+    console.log(`[SMS] Queued for ${redactPhone(normalized)} (id=${String(data.id).slice(0, 12)}…, status=${data.status ?? 'unknown'})`);
+    return { success: true, messageId: String(data.id) };
+  } catch (error: any) {
+    // Network/timeout/parse failure — an honest failed outcome, never a throw.
+    console.error(`[SMS] Delivery failed for ${redactPhone(normalized)}:`, error?.message || error);
+    return { success: false, error: error?.message ? String(error.message).slice(0, 120) : 'network error' };
   }
 }

@@ -5,12 +5,17 @@ import { CreditCard } from 'lucide-react';
 
 interface GracePeriodOverlayProps {
   subscriptionStatus: string | null;
+  /** T4.4 days until permanent loss (server-paid grace deadline). Optional —
+      the base message renders without it; the countdown line only when given. */
+  expiresCountdownDays?: number | null;
 }
 
-export function GracePeriodOverlay({ subscriptionStatus }: GracePeriodOverlayProps) {
+export function GracePeriodOverlay({ subscriptionStatus, expiresCountdownDays }: GracePeriodOverlayProps) {
   const { t } = useTranslation();
 
   if (subscriptionStatus !== 'grace') return null;
+
+  const showCountdown = typeof expiresCountdownDays === 'number' && expiresCountdownDays >= 0;
 
   return (
     <div
@@ -51,6 +56,22 @@ export function GracePeriodOverlay({ subscriptionStatus }: GracePeriodOverlayPro
         >
           {t('grace.message', "Don't lose your custom site and AI tools.")}
         </p>
+        {showCountdown && (
+          <p
+            className="text-sm font-semibold mb-5 px-3 py-2 rounded-[var(--rd-card)]"
+            style={{
+              fontFamily: 'var(--font-display)',
+              color: 'var(--color-accent-secondary-deep)',
+              backgroundColor: 'var(--color-accent-secondary)',
+            }}
+            data-testid="grace-countdown"
+          >
+            {t('grace.daysLeft', {
+              days: expiresCountdownDays,
+              defaultValue: 'Losing Pro access in {{days}} day(s)',
+            })}
+          </p>
+        )}
         <Link
           to="/dashboard/billing"
           className="inline-flex items-center justify-center px-6 py-3 w-full"

@@ -17,9 +17,10 @@
  */
 
 import { db } from './index';
-import { plans, tenantSubscriptions } from './schema';
-import { eq } from 'drizzle-orm';
+import { tenants, plans, tenantSubscriptions } from './schema';
+import { eq, inArray } from 'drizzle-orm';
 import { getOrCreatePlan } from '../../server/lib/plans';
+import { SEED_TENANT_SLUGS } from '../../server/lib/demoTenant';
 
 type TableInfo = { name: string; cid: number; type: string; notnull: 0 | 1; pk: number };
 
@@ -127,6 +128,7 @@ export async function ensureSchemaMigrations(): Promise<Record<string, string[]>
         category TEXT,
         is_listed INTEGER DEFAULT 1,
         is_suspended INTEGER NOT NULL DEFAULT 0,
+        is_demo INTEGER NOT NULL DEFAULT 0,
         settings TEXT,
         created_at INTEGER NOT NULL
       )`,
@@ -386,6 +388,11 @@ export async function ensureSchemaMigrations(): Promise<Record<string, string[]>
       table: 'tenants',
       column: 'is_suspended',
       sql: `ALTER TABLE tenants ADD COLUMN IF NOT EXISTS is_suspended INTEGER NOT NULL DEFAULT 0`,
+    },
+    {
+      table: 'tenants',
+      column: 'is_demo',
+      sql: `ALTER TABLE tenants ADD COLUMN is_demo INTEGER NOT NULL DEFAULT 0`,
     },
     {
       table: 'users',
@@ -953,6 +960,7 @@ export async function ensureSchemaMigrations(): Promise<Record<string, string[]>
   await normalizePlanRows();
   await backfillOnboardingCompletedFlag();
   await backfillAppointmentOpaqueIds();
+  await backfillDemoTenantFlags();
 
   return added;
 }
@@ -1001,6 +1009,21 @@ async function backfillOnboardingCompletedFlag(): Promise<void> {
     }
   } catch (err) {
     console.warn('[migrations] onboarding_completed backfill skipped:', (err as Error)?.message);
+  }
+}
+
+/**
+ * T4.5: flag the fictional/demo tenants that pre-date `is_demo`. The seed
+ * marks NEW rows; this reconciles rows seeded before the column existed (and
+ * any dev DB that ran an earlier `npm run seed`). Idempotent by slug match —
+ * running it twice changes nothing.
+ */
+async function backfillDemoTenantFlags(): Promise<void> {
+  try {
+    if (SEED_TENANT_SLUGS.length === 0) return;
+    await db.update(tenants).set({ isDemo: true }).where(inArray(tenants.slug, SEED_TENANT_SLUGS));
+  } catch (err) {
+    console.warn('[migrations] backfillDemoTenantFlags skipped:', (err as Error)?.message);
   }
 }
 

@@ -23,6 +23,36 @@ import { authFetch } from '../lib/api';
 export const PHONE_REGEX = /^\+251\d{9}$/;
 export const PHONE_ERROR_MESSAGE = 'Enter a valid Ethiopian phone number (+251XXXXXXXXX)';
 
+// ── T4.9 anonymous registration beacons ──────────────────────────────────
+// Pre-register abandonment was invisible: check-slug calls carry no identity.
+// Each step is bound to an anonymous cookie id issued on first /register
+// visit and posted to /api/auth/events/reg-step (activation_events, NULL
+// tenant). Fire-and-forget — a beacon must never block the flow.
+const ANON_COOKIE = 'egebeya_anon';
+
+function getAnonId(): string {
+  const m = document.cookie.match(/(?:^|; )egebeya_anon=([^;]+)/);
+  if (m?.[1]) return decodeURIComponent(m[1]);
+  const id = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `anon-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  document.cookie = `${ANON_COOKIE}=${encodeURIComponent(id)}; max-age=${60 * 60 * 24 * 365}; path=/; sameSite=lax`;
+  return id;
+}
+
+function fireRegStep(step: string): void {
+  try {
+    const anonId = getAnonId();
+    fetch('/api/auth/events/reg-step', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ step, anonId }),
+    }).catch(() => {});
+  } catch {
+    // beacon is best-effort — never break registration over analytics
+  }
+}
+
 const STRENGTH_LABELS = ['WEAK', 'FAIR', 'GOOD', 'STRONG', 'STRONG'];
 
 /** Four categories, ≥72px touch targets, Amharic-first labels. */
@@ -87,6 +117,8 @@ export function Register() {
   useEffect(() => {
     // Lazy-load zxcvbn so Screen 1 paints fast on 3G phones.
     import('zxcvbn').then((mod) => { zxcvbnRef.current = mod.default; }).catch(() => {});
+    // T4.9: a visit to /register is the first measurable pre-register step.
+    fireRegStep('reg_step_viewed');
     return () => { /* no timers held */ };
   }, []);
 
@@ -166,6 +198,8 @@ export function Register() {
   async function submitRegistration(chosenCategory: string) {
     setError('');
     setSubmitting(true);
+    // T4.9: the details are committed — the last pre-register step.
+    fireRegStep('reg_details_submitted');
     try {
       // Minimal payload — the server derives email/name/slug (P2.4 contract).
       const res = await fetch('/api/auth/register', {
@@ -429,6 +463,7 @@ export function Register() {
               required
               value={businessName}
               onChange={(e) => setBusinessName(e.target.value)}
+              onBlur={() => { if (businessName.trim()) fireRegStep('slug_checked'); }}
               placeholder="e.g. Lux Nails & Spa"
               autoComplete="organization"
               autoFocus

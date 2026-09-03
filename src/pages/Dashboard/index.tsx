@@ -23,6 +23,8 @@ import { MediaLibraryPage } from './MediaLibraryPage';
 import { Billing } from './Billing';
 import { authFetch } from '../../lib/api';
 import { useRole, isStaff } from '../../lib/auth';
+import { fetchSubscription, billingState } from '../../lib/subscription';
+import { GracePeriodOverlay } from '../../components/GracePeriodOverlay';
 import { StaffRedirect } from './StaffRedirect';
 import { BuilderModeProvider, useBuilderMode } from './BuilderModeContext';
 import { WalkInSheet } from './WalkInSheet';
@@ -33,7 +35,10 @@ import { VelvetRopeMore } from './VelvetRopeMore';
 import { MarketingDeck } from './MarketingDeck';
 import { InventoryPage } from './InventoryPage';
 
-const STAFF_NAV = [{ name: 'Bookings', path: '/dashboard/bookings', icon: Calendar }];
+const STAFF_NAV = [
+  { name: 'Bookings', path: '/dashboard/bookings', icon: Calendar },
+  { name: 'Queue', path: '/dashboard/queue', icon: Clock },
+];
 
 const ALL_NAV = [
   { name: 'Overview', path: '/dashboard', icon: Home },
@@ -135,6 +140,10 @@ function DashboardInner() {
   const [banner, setBanner] = useState<DashboardAppointment | null>(null);
   const [walkInOpen, setWalkInOpen] = useState(false);
   const [inventoryLowStock, setInventoryLowStock] = useState(false);
+  // T4.4: subscription state feeds the grace-period overlay (feed it from the
+  // same GET /api/tenant/subscription payload the Billing page reads).
+  const [graceStatus, setGraceStatus] = useState<string | null>(null);
+  const [graceDaysLeft, setGraceDaysLeft] = useState<number | null>(null);
   const lastIdsRef = useRef<Set<string>>(new Set());
   const firstPollRef = useRef(true);
 
@@ -184,6 +193,32 @@ function DashboardInner() {
         // settings is a nice-to-have for the banner — fail silently
       }
     })();
+    return () => { cancelled = true; };
+  }, [role]);
+
+  // T4.4: bind the grace overlay to live subscription state. A paid Pro row
+  // past endsAt but inside the window is 'grace'; anything else renders null
+  // (the component itself short-circuits on a non-'grace' status).
+  useEffect(() => {
+    if (role === 'staff') return;
+    let cancelled = false;
+    fetchSubscription()
+      .then((summary) => {
+        if (cancelled) return;
+        const state = billingState(summary);
+        setGraceStatus(state);
+        // The server's grace deadline drives the "expires in N days" line;
+        // the base card renders even when the deadline is unknown.
+        const billing = (summary as any)?.billing ?? {};
+        const deadline = billing.graceEndsAt ?? summary?.subscription?.endsAt ?? null;
+        if (state === 'grace' && typeof deadline === 'number') {
+          const days = Math.max(0, Math.ceil((deadline - Date.now()) / (24 * 60 * 60 * 1000)));
+          setGraceDaysLeft(days);
+        } else {
+          setGraceDaysLeft(null);
+        }
+      })
+      .catch(() => { if (!cancelled) { setGraceStatus(null); setGraceDaysLeft(null); } });
     return () => { cancelled = true; };
   }, [role]);
 
@@ -238,6 +273,7 @@ function DashboardInner() {
     if (location.pathname === '/dashboard' || location.pathname === '/dashboard/') return t('dashboard.home');
     if (location.pathname.startsWith('/dashboard/shop')) return t('dashboard.shop');
     if (location.pathname.startsWith('/dashboard/website-builder')) return t('dashboard.site');
+    if (location.pathname.startsWith('/dashboard/queue')) return t('queue.title');
     if (location.pathname.startsWith('/dashboard/bookings')) return t('nav.dashboard');
     return 'Egebeya';
   }, [location.pathname, t]);
@@ -342,7 +378,7 @@ function DashboardInner() {
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <Link
-                to="/settings"
+                to="/dashboard/settings"
                 data-testid="setup-banner-action"
                 className="bg-ink text-paper px-4 py-1.5 rounded-md text-sm font-medium hover:opacity-90 transition-opacity whitespace-nowrap"
               >
@@ -352,13 +388,14 @@ function DashboardInner() {
           </div>
         )}
 
-        <div className="flex-1 p-4 md:p-8 overflow-y-auto pb-28 md:pb-8">
+        <div className="flex-1 p-4 md:p-8 overflow-y-auto pb-28 md:pb-8 relative">
           {/* P2.5 "Finish your empire" checklist — driven by provision flags. */}
           {role !== 'staff' && <EmpireChecklist />}
           <DashboardDataContext.Provider value={dashboard}>
             <Routes>
               <Route path="/" element={<OverviewOrRedirect isMobile={isMobile} />} />
               <Route path="/bookings" element={<Bookings />} />
+              <Route path="/queue" element={<QueueConsole />} />
               <Route path="/services" element={<ServicesPage />} />
               <Route path="/staff" element={<StaffPage />} />
               <Route path="/shop" element={<ShopPage />} />
@@ -378,6 +415,11 @@ function DashboardInner() {
               <Route path="*" element={<Navigate to="/dashboard/bookings" replace />} />
             </Routes>
           </DashboardDataContext.Provider>
+
+          {/* T4.4 anti-surprise: during the post-expiry grace window the
+              already-built overlay is bound to live subscription state. It
+              reads as an announcement, never a nag — one tap to Billing. */}
+          <GracePeriodOverlay subscriptionStatus={graceStatus} expiresCountdownDays={graceDaysLeft} />
         </div>
       </main>
 

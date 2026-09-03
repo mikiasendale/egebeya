@@ -27,6 +27,7 @@ import {
 import {
   DEMO_TENANT_SLUG,
   getDemoTenantId,
+  getDemoTenantIds,
   __resetDemoTenantCache,
 } from '../../server/lib/demoTenant';
 
@@ -68,11 +69,15 @@ describe('demo tenant exclusions (P2.5 C3)', () => {
         slug: DEMO_TENANT_SLUG,
         category: 'Salon',
         isListed: true, // deliberately listed — still must be filtered out
+        isDemo: true,   // T4.5: structural exclusion flag
         settings: { onboarding: { confirmedHours: true }, onboarding_completed: true },
         createdAt: Date.now(),
       });
       createdDemoTenant = true;
     }
+    // T4.5: regardless of adopt-or-create, the fixture demo tenant must carry
+    // the structural flag so the exclusion contract is exercised via is_demo.
+    await db.update(tenants).set({ isDemo: true }).where(eq(tenants.id, demoId)).catch(() => {});
     createdTenants.push(demoId);
 
     // A real listed tenant for contrast.
@@ -229,15 +234,15 @@ describe('demo tenant exclusions (P2.5 C3)', () => {
     expect(res.status).toBe(200);
 
     // Shared test DB: other suites leave customers behind. Compute the
-    // EXPECTED totals directly from the DB excluding the demo tenant and
+    // EXPECTED totals directly from the DB excluding every is_demo tenant and
     // require the endpoint to match exactly — a demo leak shifts both.
-    const demoId = await getDemoTenantId();
+    const demoIds = await getDemoTenantIds();
     const allRows = await db.select({
       tenantId: customerStats.tenantId,
       marketingOptIn: customerStats.marketingOptIn,
     }).from(customerStats).all();
-    const expectedTotal = allRows.filter((r) => r.tenantId !== demoId).length;
-    const expectedOptedIn = allRows.filter((r) => r.tenantId !== demoId && (r.marketingOptIn === true)).length;
+    const expectedTotal = allRows.filter((r) => !demoIds.has(r.tenantId)).length;
+    const expectedOptedIn = allRows.filter((r) => !demoIds.has(r.tenantId) && (r.marketingOptIn === true)).length;
 
     expect(res.body.optIn.totalCustomers).toBe(expectedTotal);
     expect(res.body.optIn.optedIn).toBe(expectedOptedIn);

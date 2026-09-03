@@ -27,17 +27,16 @@ import { authFetch } from '../../lib/api';
 import { showToast } from '../../components/ui/toast-helper';
 import { StaffRedirect } from './StaffRedirect';
 
-// Matches GET /api/tenant/services response. The spec describes `imageUrl?`
-// while the backend column is `imagePath`; we keep both available so the
-// type is tolerant of either shape returned by the API.
+// Matches GET /api/tenant/services response. No image fields: the interface
+// once declared imageUrl/imagePath that no form ever sent and nothing ever
+// rendered — a type lie that invited dead wiring. Image picker is ticketed
+// into the unified-dashboard roadmap (T4.11 decision B).
 export interface Service {
   id: string;
   name: string;
   durationMinutes: number;
   price: number; // stored in ETB cents on the server
   active: boolean;
-  imageUrl?: string | null;
-  imagePath?: string | null;
 }
 
 interface ServiceFormValues {

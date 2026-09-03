@@ -1,15 +1,18 @@
 # Egebeya (እገበያ) Bookings
 
-A multi-tenant SaaS platform for service-based businesses in Ethiopia to manage online bookings, build websites visually with Puck (or via an AI code assistant), and handle payments. Includes an Ethiopian-calendar-aware booking engine, customer-health CRM, win-back automations, and a local buying-intent engine.
+A multi-tenant SaaS platform for service-based businesses in Ethiopia to manage online bookings, build websites visually with Puck (or via an AI code assistant), and handle payments. Includes an Ethiopian-calendar-aware booking engine, a Queue-Buster live queue, loyalty punch cards behind a metrics gate, customer-health CRM, win-back automations, and a local buying-intent engine.
 
 ## Features
 
 - **Multi-tenant Architecture:** One platform, unlimited businesses with subdomains or custom domains.
 - **Visual Website Builder:** Uses Measured Puck for drag-and-drop landing pages, plus an AI Code Mode (Sandpack + OpenRouter) for full-code sites.
-- **Booking Management:** Real-time slot availability, staff assignment, reminders (email live; SMS channel stubbed pending provider choice), no-show deposits, recurring series, walk-in and group bookings.
+- **Booking Management:** Real-time slot availability, staff assignment, reminders (email + SMS via SMSEthiopia, Telegram channel), no-show deposits, recurring series, walk-in and group bookings.
+- **Queue-Buster:** Merchant console (one-tap advance, owner or staff) + consumer status page at `/q/:token` — three-state public board, initials-only privacy.
+- **Loyalty Punch Cards:** Append-only ledger + per-tenant card cache; punches accrue on completed visits, redemption lowers the next Chapa charge (merchant-funded discount, never money movement). Ships behind a council gate — see `docs/loyalty-opening.md`.
+- **Quiet-Hours Discount:** Day-part discount toggle with a per-tenant fill-rate payoff card (Settings).
 - **Ethiopian Calendar Support:** Native support for the Ethiopian calendar format (Sene 1 = Sept 8), Addis Ababa timezone.
-- **Payments:** Telebirr / Chapa integration for upfront deposits and Pro subscription checkout (30-day cycles, webhook-verified activation; renewal/dunning hardening in progress — see EXECUTION_PLAN.md).
-- **Customer Health & Win-Back CRM:** Per-customer health tags, risk scoring, automated win-back sequences for Pro tenants.
+- **Payments:** Telebirr / Chapa integration for upfront deposits and Pro subscription checkout (30-day cycles, webhook-verified activation, T-7 expiry countdown + grace-period overlay — no auto-renew on telebirr rails, renewal is announced instead).
+- **Customer Health & Win-Back CRM:** Per-customer health tags, risk scoring, automated win-back sequences for Pro tenants; admin ops panels for stuck tenants and price-seen win-back leads.
 - **Local Buying-Intent Engine:** Anonymized /discover signals aggregated into demand pulses; Pro tenants get proactive SMS alerts.
 
 ## Tech Stack
@@ -45,6 +48,10 @@ A multi-tenant SaaS platform for service-based businesses in Ethiopia to manage 
    ```bash
    npm run seed
    ```
+   ⚠️ **Never run the seed against a production database** — it creates five
+   fictional tenant rows + the `demo` tenant. They are flagged `is_demo` and
+   excluded from admin aggregates, but they would still pollute `/discover`
+   density and real customer views.
 5. Start the dev server:
    ```bash
    npm run dev
@@ -52,7 +59,7 @@ A multi-tenant SaaS platform for service-based businesses in Ethiopia to manage 
 
 The platform will run on `http://localhost:3000`.
 
-> **Note on schema:** The app self-provisions its full schema on boot — `src/db/migrations.ts` runs idempotent `CREATE TABLE IF NOT EXISTS` for all 27 tables followed by additive `ALTER TABLE` migrations. No `drizzle-kit push` is required for either a fresh local DB or a fresh Turso DB.
+> **Note on schema:** The app self-provisions its full schema on boot — `src/db/migrations.ts` runs idempotent `CREATE TABLE IF NOT EXISTS` for all 38 tables followed by additive `ALTER TABLE` migrations. No `drizzle-kit push` is required for either a fresh local DB or a fresh Turso DB.
 
 ### Useful Commands
 
@@ -61,12 +68,14 @@ The platform will run on `http://localhost:3000`.
 | `npm run dev` | Dev server (Vite HMR + Express) |
 | `npm run build` | Build client (`vite build`) + server bundle (`dist-server/server.cjs`) |
 | `npm start` | Run the production server bundle |
-| `npm run lint` | Typecheck (`tsc --noEmit`) |
+| `npm run lint` | Typecheck (`tsc --noEmit`) + motion-law scan |
 | `npm test` | Run the Vitest suite |
-| `npm run seed` | Seed demo tenant + plans |
+| `npm run seed` | Seed demo tenant + plans (⚠️ local/dev only — see warning above) |
 | `npm run send-reminders` | Run the SMS reminder cron once |
 | `npm run expand-recurring` | Expand recurring series once |
 | `npm run downgrade-expired` | Downgrade lapsed Pro tenants once |
+| `npm run billing:reminders` | Run owner renewal reminders (dunning) once |
+| `npm run settlements:report` | Run settlement reconciliation once |
 | `npm run winback-automations` | Run the win-back sequence once |
 | `npm run aggregate-intent` | Aggregate buying intent once |
 
@@ -84,6 +93,29 @@ Check `.env.example` for the full list. The critical ones:
 | `DATABASE_AUTH_TOKEN` | Prod only | Turso auth token, required when `DATABASE_URL` is set |
 | `APP_URL` | Prod | Canonical URL of the deployment |
 | `ALLOW_UNVERIFIED_PAYMENTS` | Temporary | `true` lets the server boot without Chapa keys while an account is still unverified |
+| `SMS_API_KEY` | Prod | SMSEthiopia API key — real SMS delivery (OTP, reminders, win-back). See [SMS Provider](#sms-provider-smsethiopia) |
+| `TELEGRAM_BOT_TOKEN` | Optional | Enables the Telegram channel (booking deep-link opt-in, Telegram confirmations, consumer OTP login) |
+| `TELEGRAM_WEBHOOK_SECRET` | With bot | Secret token Telegram echoes on the webhook (required when the bot is configured) |
+| `TELEGRAM_BOT_USERNAME` | With bot | Bot username without `@` — builds the "ማስታወሻ በ Telegram" deep links |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` | Prod | SMTP credentials. ⚠️ Unset = the mailer logs instead of sending and reports `sent` — password-reset email will NOT deliver. Always set in production |
+| `TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` | Optional | Cloudflare Turnstile bot-check on the public booking form (skipped when unset) |
+| `LOYALTY_ENABLED` | Optional | Loyalty punch-card engine gate. Even when `true`, live council thresholds (opt-in rate ≥ 0.5, north-star ≥ 0.7) still refuse while unmet. Production flips this only after real gates pass — see `docs/loyalty-opening.md` |
+| `OPENROUTER_API_KEY` | Pro feature | AI Assistant (Code Mode) in the Website Builder — 500s without it |
+| `OPS_BACKUP_UPLOAD_CMD` | Recommended | Off-host backup hook, e.g. `rclone copy {} remote:egebeya-backups` (`{}` = snapshot path). Unset = snapshots stay on-host only |
+
+### SMS Provider (SMSEthiopia)
+
+Real SMS delivery (registration OTP, password resets via SMS, appointment reminders, win-back) goes through [SMSEthiopia](https://smsethiopia.com) (`server/lib/sms.ts`):
+
+- **Auth:** the key is sent as a `KEY` HTTP header — set `SMS_API_KEY` in `.env` (dev) and the Render environment (prod).
+- **Sender ID:** bound to the key's campaign on the SMSEthiopia side — no `from` field is sent.
+- **Honest failures:** an unset key, a provider refusal, or a network error returns `success: false` and lands in `notification_log` as `failed`. Nothing is ever reported "sent" unless the provider accepted the message.
+- **Starter-campaign gotcha:** the free/default campaign can only deliver to numbers **whitelisted in the SMSEthiopia dashboard** — un-whitelisted recipients fail with `DEFAULT_CAMPAIGN_RECIPIENT_NOT_WHITELISTED` (error code 10007). Verify your own number in their dashboard for testing, and purchase a paid package for production volume.
+- **Delivery status:** message ids returned by `sendSms` (stored as the `messageId` in notification outcomes) can be checked against `GET /api/v2/sms/{id}` on the provider for delivery records.
+
+### AI Provider (OpenRouter)
+
+The Website Builder's Code-Mode AI Assistant calls OpenRouter with `OPENROUTER_API_KEY` (`src/api/ai-chat.ts`). Get a key at https://openrouter.ai/keys. Without it the Pro AI panel returns "AI service is not configured on this server."
 
 ---
 
@@ -120,7 +152,7 @@ Set these **environment variables** in the Render dashboard (or via the blueprin
 
 ### 3. In-Process Cron Jobs
 
-No external crontab is needed — `server.ts` schedules 5 jobs with `node-cron` at boot (skipped when `NODE_ENV=test`):
+No external crontab is needed — `server.ts` schedules 7 jobs with `node-cron` at boot (skipped when `NODE_ENV=test`):
 
 | Job | Schedule (UTC) | What it does |
 |-----|----------------|--------------|
@@ -128,7 +160,9 @@ No external crontab is needed — `server.ts` schedules 5 jobs with `node-cron` 
 | Win-back automations | `0 23 * * *` | Win-back SMS for lapsed Pro customers (02:00 Addis) |
 | Recurring expansion | `0 3 * * *` | Expands recurring appointment series |
 | Downgrade expired | `5 3 * * *` | Reverts lapsed Pro subscriptions to Free |
+| Settlement reconciliation | `0 4 * * *` | Flags stale payment/invoice settlement states for manual review |
 | Intent aggregation | `0 */2 * * *` | Groups /discover signals into demand pulses |
+| Billing reminders | `0 9 * * *` | Owner renewal reminders / dunning before downgradeExpired acts |
 
 The same jobs can still be run once manually via their `npm run` scripts (see above).
 
@@ -159,9 +193,15 @@ Documenting the exact problems solved during the Render launch so future deploys
 ## Testing
 
 ```bash
-npm run test      # full Vitest suite (439 tests across 53 files)
-npm run lint      # tsc --noEmit typecheck
+npm run test      # full Vitest suite (718 tests across 120 files; 715 passing)
+npm run lint      # tsc --noEmit typecheck + motion-law scan
 ```
+
+**Known failures (pre-existing, verified at commit `3e364c9` — none are regressions):**
+
+- `HoursGate.test.tsx` — asserts a banner `href` of `/settings` where the app correctly renders `/dashboard/settings`.
+- `crm.test.ts` "marketing/blast sends only to opted-in" — the fixture phone (`+251500…`) is rejected by SMSEthiopia's live format check (`Invalid MSISDN`); the assertion needs a stubbed provider or a `+2519…` fixture.
+- `security-hardening.test.ts` F.4 — passes only when the mailer stubs (no real SMTP in env); a machine `.env` with real Brevo credentials makes the send attempt network delivery.
 
 ### Backend test notes
 
@@ -170,7 +210,7 @@ npm run lint      # tsc --noEmit typecheck
   git checkout -- sqlite.db
   ```
 - Vitest globals are **off** — each test file must import `afterEach` / `cleanup` explicitly.
-- Notable suites: `server/tests/booking-concurrency.test.ts` (BEGIN IMMEDIATE write-lock serialization), `server/tests/winback-cron.test.ts`, `server/tests/intent.test.ts`, `server/tests/customer-health.test.ts`, plus `src/pages/__tests__` component tests.
+- Notable suites: `server/tests/booking-concurrency.test.ts` (BEGIN IMMEDIATE write-lock serialization), `server/tests/chain-*.test.ts` (real-app cross-API chains: payments→loyalty, queue, onboarding), `server/tests/loyalty*.test.ts` (gate + punch + redemption + merchant issuance), `server/tests/admin-demo-exclusion.test.ts` (is_demo aggregates), `server/tests/winback-cron.test.ts`, `server/tests/intent.test.ts`, `server/tests/customer-health.test.ts`, plus `src/pages/__tests__` component tests.
 
 ---
 
@@ -179,11 +219,14 @@ npm run lint      # tsc --noEmit typecheck
 ```
 server.ts                  Express app + static serving + node-cron scheduling
 src/db/index.ts            Dual-environment Drizzle client (Turso vs local SQLite)
-src/db/schema.ts           All 27 Drizzle tables
+src/db/schema.ts           All 38 Drizzle tables
 src/db/migrations.ts       Idempotent boot-time schema bootstrap + ALTERs
-src/api/                   Express route modules (crm, bookings, public, intent, …)
+src/db/tenantRepo.ts       Light tenant-scoped query helpers (adopt deliberately)
+src/api/                   Express route modules (crm, bookings, loyalty, admin, intent, …)
+server/lib/                Domain engines (loyalty gate, queue, billing, settlements, demo-tenant exclusion, …)
 server/cron/               One-off cron runners (sendReminders, winback, intent, …)
-src/pages/                 React pages (Landing, Discover, Dashboard, PublicTenantSite, …)
+docs/                      Runbooks (e.g. docs/loyalty-opening.md) + repo map
+src/pages/                 React pages (Landing, Discover, Dashboard, Admin, PublicTenantSite, …)
 src/components/            Shared React components
 render.yaml                Render.com blueprint
 drizzle.config.ts          Drizzle Kit config (used for future SQL generation)
@@ -212,4 +255,3 @@ snapshot (or point `DATABASE_URL=file:<snapshot>` at it), start the app —
 `migrations.ts` is idempotent and finishes any schema drift on boot.
 Verify first with `sqlite3 <snapshot> "PRAGMA integrity_check; SELECT count(*) FROM tenants;"`.
 Run `npm run ops:check` daily; it exits nonzero on disk/DB-size/BUSY/cron/budget breaches.
-```

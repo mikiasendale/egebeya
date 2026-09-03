@@ -71,6 +71,8 @@ export function ConsumerBookings() {
   const { t } = useTranslation();
   const [card, setCard] = useState<LoyaltyCard | null>(null);
   const [authed, setAuthed] = useState<boolean | null>(null);
+  // null = availability unknown — default to showing the normal sign-in block.
+  const [telegramEnabled, setTelegramEnabled] = useState<boolean | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem('consumerToken');
@@ -86,20 +88,36 @@ export function ConsumerBookings() {
       .catch(() => setCard(null));
   }, []);
 
+  useEffect(() => {
+    fetch('/api/public/telegram-config')
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error('failed'))))
+      .then((data) => setTelegramEnabled(Boolean(data?.enabled)))
+      .catch(() => setTelegramEnabled(null));
+  }, []);
+
   return (
     <main className="min-h-screen px-5 py-12" style={{ backgroundColor: 'var(--color-paper)' }} data-testid="consumer-bookings">
       <div className="mx-auto max-w-md">
         <h1 className="text-2xl font-bold text-ink mb-6">{t('consumerBookings.title')}</h1>
 
         {authed === false ? (
-          <div className="bg-paper-bleached border border-ink-rule rounded-rd p-6">
-            <p className="text-sm text-ink-soft">
-              {t('consumerBookings.signInPrompt')}
-            </p>
-            <Link to="/login" className="mt-3 inline-block text-sm underline underline-offset-2" style={{ color: 'var(--color-link)' }}>
-              {t('consumerBookings.signInLink')}
-            </Link>
-          </div>
+          telegramEnabled === false ? (
+            // Telegram unprovisioned — say so instead of offering a dead end.
+            <div className="bg-paper-bleached border border-ink-rule rounded-rd p-6" data-testid="consumer-login-unavailable">
+              <p className="text-sm text-ink-soft">
+                {t('consumerBookings.unavailablePrompt')}
+              </p>
+            </div>
+          ) : (
+            <div className="bg-paper-bleached border border-ink-rule rounded-rd p-6">
+              <p className="text-sm text-ink-soft">
+                {t('consumerBookings.signInPrompt')}
+              </p>
+              <Link to="/login" className="mt-3 inline-block text-sm underline underline-offset-2" style={{ color: 'var(--color-link)' }}>
+                {t('consumerBookings.signInLink')}
+              </Link>
+            </div>
+          )
         ) : !card ? (
           <p className="text-sm text-ink-soft font-receipt">{t('common.loading')}…</p>
         ) : (

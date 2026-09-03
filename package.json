@@ -23,7 +23,8 @@
     "aggregate-intent": "tsx server/cron/aggregateIntent.ts",
     "backup": "tsx scripts/backup-db.ts",
     "ops:check": "tsx scripts/ops-check.ts",
-    "grant-trial": "tsx scripts/grant-trial.ts"
+    "grant-trial": "tsx scripts/grant-trial.ts",
+    "cleanup:orphans": "tsx server/cleanup-orphans.ts"
   },
   "dependencies": {
     "@ai-sdk/react": "^4.0.54",

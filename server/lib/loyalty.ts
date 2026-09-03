@@ -2,12 +2,16 @@
  * Loyalty-lite punch card engine (P5.1).
  *
  * COUNCIL GATE, ENFORCED IN CODE (ROADMAP §0 ruling): the loyalty program
- * opens only when Telegram identity is proven (P3.3 opt-in ≥ 50% on
- * confirmations) AND the north-star ≥ 0.7. This dev environment has no real
- * traffic, so the feature ships DARK: `LOYALTY_ENABLED=false` by default,
- * and even when an operator flips it on, `gateStatus()` re-reads the live
- * metrics and refuses to accrue punches or redeem rewards while either
- * threshold is unmet. No prose compliance — the DB refuses.
+ * opens only when the north-star ≥ 0.7. The Telegram opt-in rate was the
+ * second condition but has been RETIRED from the enforcing boolean by owner
+ * decision (recorded in docs/loyalty-opening.md) — merchant issuance +
+ * booking-time redemption removed the Telegram dependency from the core
+ * loop. gateStatus() still COMPUTES and REPORTS optInRate so the council can
+ * watch it, but it no longer blocks the gate. This dev environment has no
+ * real traffic, so the feature ships DARK: `LOYALTY_ENABLED=false` by
+ * default, and even when an operator flips it on, `gateStatus()` re-reads
+ * the live metrics and refuses to accrue punches or redeem rewards while
+ * the north-star threshold is unmet. No prose compliance — the DB refuses.
  *
  * Money rule: a redeemed reward lowers the next Chapa charge amount BEFORE
  * initialize and is recorded in payments.meta — merchant-funded discount,
@@ -18,7 +22,7 @@ import crypto from 'crypto';
 import { db } from '../../src/db';
 import {
   loyaltyLedger, punchCards, customerStats, tenantSubscriptions,
-  plans, telegramLinks,
+  plans, telegramLinks, tenants,
 } from '../../src/db/schema';
 import { and, eq, sql } from 'drizzle-orm';
 import { normalizePhone } from '../../src/lib/phone';
@@ -26,7 +30,7 @@ import { normalizePhone } from '../../src/lib/phone';
 export const LOYALTY_TARGET_DEFAULT = 5;
 /** North-star threshold from ROADMAP §1 (≥0.7 by Day 60). */
 export const NSM_THRESHOLD = 0.7;
-/** Telegram opt-in threshold from P5.1 gate (≥50%). */
+/** Telegram opt-in rate — ADVISORY only (retired from the enforcing boolean). */
 export const OPT_IN_THRESHOLD = 0.5;
 
 export interface RewardConfig {
@@ -47,30 +51,40 @@ export interface ConsumerCard {
 export interface GateStatus {
   open: boolean;
   enabledFlag: boolean;
+  /** ADVISORY (owner decision, docs/loyalty-opening.md): reported for council
+   *  visibility, no longer part of the enforcing boolean. */
   optInRate: number | null;
   northStar: number | null;
   reasons: string[];
 }
 
 /**
- * Live gate read: env flag AND both council thresholds. Pure-ish (DB reads);
- * cheap enough to call on every loyalty touch.
+ * Live gate read: env flag AND the north-star council threshold. The Telegram
+ * opt-in rate is still computed and reported (advisory) but is NOT a blocking
+ * condition — see docs/loyalty-opening.md for the recorded decision.
+ *
+ * Demo/seed tenants (is_demo = true) are excluded from BOTH metrics — the
+ * same structural exclusion the admin aggregates use (T4.5), so the dev gate
+ * can never open on seed-inflated numbers and the prod gate cannot either.
+ * Pure-ish (DB reads); cheap enough to call on every loyalty touch.
  */
 export async function gateStatus(now = Date.now()): Promise<GateStatus> {
   const enabledFlag = (process.env.LOYALTY_ENABLED || '').trim().toLowerCase() === 'true';
   const reasons: string[] = [];
 
-  // Opt-in rate over customer_stats (the same population confirmations go to).
-  const statRows = await db.select({ opted: customerStats.marketingOptIn }).from(customerStats).all();
+  // Opt-in rate over customer_stats, demo-excluded (advisory signal).
+  const statRows = await db
+    .select({ opted: customerStats.marketingOptIn })
+    .from(customerStats)
+    .innerJoin(tenants, eq(customerStats.tenantId, tenants.id))
+    .where(eq(tenants.isDemo, false))
+    .all();
   const total = statRows.length;
   const opted = statRows.filter((r) => r.opted).length;
   const optInRate = total === 0 ? null : opted / total;
-  if (optInRate == null || optInRate < OPT_IN_THRESHOLD) {
-    reasons.push(`opt_in_rate ${optInRate?.toFixed(2) ?? 'n/a'} < ${OPT_IN_THRESHOLD}`);
-  }
 
   // North-star proxy over the trailing week (same definition as admin funnel:
-  // confirmed/completed bookings per billing-active tenant).
+  // confirmed/completed bookings per billing-active tenant). Demo-excluded.
   const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
   // Raw SQL through the libsql client (same duck-type as migrations.ts).
   const driver = (db as any).session?.client ?? (db as any).$client ?? db;
@@ -82,13 +96,17 @@ export async function gateStatus(now = Date.now()): Promise<GateStatus> {
     return [];
   };
   const bookingRows = await runSql(
-    `SELECT COUNT(*) AS n FROM appointments WHERE status IN ('confirmed','completed') AND start_time >= ?`,
+    `SELECT COUNT(*) AS n
+       FROM appointments a JOIN tenants t ON t.id = a.tenant_id
+      WHERE t.is_demo = 0 AND a.status IN ('confirmed','completed') AND a.start_time >= ?`,
     [weekAgo],
   );
   const tenantRows = await runSql(
     `SELECT COUNT(DISTINCT ts.tenant_id) AS n
-       FROM tenant_subscriptions ts JOIN plans p ON p.id = ts.plan_id
-      WHERE ts.status IN ('active','trial')`,
+       FROM tenant_subscriptions ts
+       JOIN plans p ON p.id = ts.plan_id
+       JOIN tenants t ON t.id = ts.tenant_id
+      WHERE t.is_demo = 0 AND ts.status IN ('active','trial')`,
   );
   const bookingsN = Number((bookingRows[0] as any)?.n ?? 0);
   const tenantsN = Number((tenantRows[0] as any)?.n ?? 0);
@@ -222,6 +240,31 @@ export async function getCardForConsumer(tenantId: string, consumerPhone: string
     rewardConfig: (card?.rewardConfig as RewardConfig | null) ?? { type: 'percent', value: 10 },
     gateOpen: gate.open,
   };
+}
+
+/**
+ * Merchant manual card issuance (T4.2). Gate-first, engine-only.
+ *
+ * A clerk hands a physical punch card to a customer by phone without waiting
+ * for consumer Telegram opt-in — but ONLY through the engine's own API, and
+ * ONLY while the council gate is open. With the gate closed the card row is
+ * never created: a card written into a dead feature is ghost data nothing in
+ * the booking flow consumes (pendingRewardDiscount / consumeReward both
+ * short-circuit on !gate.open), so we refuse instead of accreting orphans.
+ * Issuing reuses getCardForConsumer, so the ledger stays truth, the card
+ * cache is sync'd, and punches are recomputed from appended rows — never a
+ * hand-rolled punch_cards insert that could bypass the engine's ledger math.
+ */
+export async function issueCard(input: {
+  tenantId: string;
+  consumerPhone: string;
+}): Promise<{ issued: boolean; gateOpen: boolean; card: ConsumerCard | null }> {
+  const gate = await gateStatus();
+  if (!gate.open) {
+    return { issued: false, gateOpen: false, card: null };
+  }
+  const card = await getCardForConsumer(input.tenantId, input.consumerPhone);
+  return { issued: true, gateOpen: true, card };
 }
 
 /**

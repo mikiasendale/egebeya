@@ -1,1 +1,0 @@
-const Database=require('better-sqlite3'); const db=new Database('sqlite.db'); console.log('plans:', JSON.stringify(db.prepare('PRAGMA table_info(plans)').all())); console.log('subs:', JSON.stringify(db.prepare('PRAGMA table_info(tenant_subscriptions)').all())); console.log('plan rows:', JSON.stringify(db.prepare('SELECT * FROM plans').all()));

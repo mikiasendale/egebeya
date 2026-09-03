@@ -160,7 +160,11 @@ describe('trackEvent emitter (P3.5)', () => {
     expect(ACTIVATION_EVENTS).toContain('site_generated');
     expect(ACTIVATION_EVENTS).toContain('checkout_abandoned');
     expect(ACTIVATION_EVENTS).toContain('quiet_hours_booking'); // P5.6 fill-rate feed
-    expect(ACTIVATION_EVENTS.length).toBe(10);
+    expect(ACTIVATION_EVENTS).toContain('winback_offer_sent'); // T4.8 offer idempotency
+    expect(ACTIVATION_EVENTS).toContain('reg_step_viewed'); // T4.9 pre-register beacons
+    expect(ACTIVATION_EVENTS).toContain('slug_checked');
+    expect(ACTIVATION_EVENTS).toContain('reg_details_submitted');
+    expect(ACTIVATION_EVENTS.length).toBe(14);
   });
 });
 

@@ -113,5 +113,3 @@ export async function authFetch(
     throw new Error('Session expired');
   }
 }
-
-export const apiFetch = authFetch;

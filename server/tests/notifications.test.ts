@@ -20,6 +20,12 @@ vi.mock('../../server/lib/mailer', async (importOriginal) => {
   };
 });
 
+// The SMS provider transport is external infrastructure — mock it the same
+// way mailer is mocked so adapter tests never depend on SMS_API_KEY.
+vi.mock('../../server/lib/sms', async () => ({
+  sendSms: vi.fn(async () => ({ success: true, messageId: 'sms-mock-1' })),
+}));
+
 import { db } from '../../src/db';
 import { notificationLog } from '../../src/db/schema';
 import { eq } from 'drizzle-orm';

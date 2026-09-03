@@ -8,6 +8,10 @@ export const tenants = sqliteTable('tenants', {
   category: text('category'), // salon, clinic, pharmacy, spa, other
   isListed: integer('is_listed', { mode: 'boolean' }).default(true),
   isSuspended: integer('is_suspended', { mode: 'boolean' }).default(false),
+  // T4.5: structurally excluded from admin aggregates. Seeded fictional
+  // tenants (seed.ts) + the demo slug tenant carry true so they never flatter
+  // platform metrics; /discover listing behavior is unchanged.
+  isDemo: integer('is_demo', { mode: 'boolean' }).default(false),
   settings: text('settings', { mode: 'json' }),
   // P1.1 founding-rate ladder: unexpired lock (UTC ms) = this tenant keeps
   // its locked price for 12 months regardless of plans-row edits.

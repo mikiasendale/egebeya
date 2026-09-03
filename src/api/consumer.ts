@@ -20,7 +20,7 @@ import { eq } from 'drizzle-orm';
 import { normalizePhone } from '../lib/phone';
 import { generateOtp, verifyOtp } from '../../server/lib/otp';
 import { upsertConsumerByPhone } from '../../server/lib/consumers';
-import { getTelegramLinkByPhone } from '../../server/lib/telegram';
+import { getTelegramLinkByPhone, isTelegramConfigured } from '../../server/lib/telegram';
 import { logSecurityEvent, ipFromRequest } from '../../server/lib/securityLog';
 import { jwtSecret } from './middleware/auth';
 import { requireConsumerAuth } from './middleware/consumerAuth';
@@ -47,6 +47,23 @@ const VerifySchema = z.object({
  */
 router.post('/request-code', consumerLimiter, async (req, res) => {
   try {
+    // Provisioning and deploys are not atomic: if the bot env is unset the
+    // honest answer is a clean 503, NOT a raw 502 that reads as "broken" to
+    // users and uptime monitors.
+    if (!isTelegramConfigured()) {
+      logSecurityEvent({
+        type: 'consumer_code_requested',
+        ip: ipFromRequest(req),
+        result: 'failure',
+        details: { reason: 'telegram_unprovisioned' },
+      });
+      return res.status(503).json({
+        error: 'Consumer login is not available yet. Please check back soon.',
+        reason: 'telegram_unprovisioned',
+        code: 'TELEGRAM_UNPROVISIONED',
+      });
+    }
+
     const parsed = PhoneSchema.safeParse(req.body ?? {});
     if (!parsed.success) {
       return res.status(400).json({ error: 'A valid phone number is required' });

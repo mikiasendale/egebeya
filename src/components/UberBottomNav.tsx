@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Store, Globe, Calendar, UserPlus, Package, Users, RefreshCw } from 'lucide-react';
+import { Home, Store, Globe, Calendar, UserPlus, Package, Users, RefreshCw, Clock } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { prefersReducedMotionOrLowMem, SOLID_PAPER_BACKGROUND } from '../lib/motionGuard';
 
@@ -59,7 +59,10 @@ export function UberBottomNav({ role, walkInEnabled, onWalkIn, inventoryLowStock
   const rafRef = useRef<number>(0);
 
   const tabs: Tab[] = role === 'staff'
-    ? [{ key: 'bookings', to: '/dashboard/bookings', icon: Calendar, label: t('nav.dashboard') }]
+    ? [
+      { key: 'bookings', to: '/dashboard/bookings', icon: Calendar, label: t('nav.dashboard') },
+      { key: 'queue', to: '/dashboard/queue', icon: Clock, label: t('queue.title') },
+    ]
     : [
       { key: 'home', to: '/dashboard', icon: Home, label: t('dashboard.home') },
       { key: 'shop', to: '/dashboard/shop', icon: Store, label: t('dashboard.shop') },
@@ -76,6 +79,7 @@ export function UberBottomNav({ role, walkInEnabled, onWalkIn, inventoryLowStock
     if (location.pathname.startsWith('/dashboard/automations')) return 'automations';
     if (location.pathname.startsWith('/dashboard/inventory')) return 'inventory';
     if (location.pathname.startsWith('/dashboard/website-builder')) return 'site';
+    if (location.pathname.startsWith('/dashboard/queue')) return 'queue';
     if (location.pathname.startsWith('/dashboard/bookings')) return 'bookings';
     return 'home';
   })();

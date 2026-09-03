@@ -19,6 +19,8 @@ import { runOnce as runWinback } from './server/cron/runWinbackAutomations';
 import { expandAllSeries } from './server/cron/expandRecurring';
 import { runOnce as runDowngradeExpired } from './server/cron/downgradeExpired';
 import { runOnce as runAggregateIntent } from './server/cron/aggregateIntent';
+import { runOnce as runSettlementReconciliation } from './server/cron/settlementReconciliation';
+import { runOnce as runBillingReminders } from './server/cron/billingReminders';
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
@@ -277,6 +279,21 @@ async function startServer() {
       }
     });
 
+    // Settlement reconciliation — daily at 04:00 UTC, deliberately AFTER
+    // downgradeExpired (03:05) so settlement statuses refresh against
+    // post-downgrade state.
+    cron.schedule('0 4 * * *', async () => {
+      console.log('[CRON] Running settlement reconciliation...');
+      try {
+        const { stalePayments, staleInvoices } = await runSettlementReconciliation();
+        if (stalePayments > 0 || staleInvoices > 0) {
+          console.warn(`[CRON] Settlement reconciliation: ${stalePayments} stale payment(s), ${staleInvoices} stale invoice(s) — manual review needed`);
+        }
+      } catch (e) {
+        console.error('[CRON] Settlement reconciliation failed:', e);
+      }
+    });
+
     // Buying intent aggregation — every 2 hours.
     cron.schedule('0 */2 * * *', async () => {
       console.log('[CRON] Aggregating buying intent...');
@@ -287,7 +304,19 @@ async function startServer() {
       }
     });
 
-    console.log('[CRON] 5 cron jobs scheduled (reminders, winback, expand, downgrade, intent)');
+    // Billing renewal reminders / dunning — daily at 09:00 UTC (noon Addis).
+    // Owners must get a warning before downgradeExpired silently reverts
+    // their plan; delivery rides the NotificationAdapter (email today).
+    cron.schedule('0 9 * * *', async () => {
+      console.log('[CRON] Running billing reminders...');
+      try {
+        await runBillingReminders();
+      } catch (e) {
+        console.error('[CRON] Billing reminders failed:', e);
+      }
+    });
+
+    console.log('[CRON] 7 cron jobs scheduled (reminders, winback, expand, downgrade, settlements, intent, billing-reminders)');
   }
 
   app.listen(PORT, HOST, () => {

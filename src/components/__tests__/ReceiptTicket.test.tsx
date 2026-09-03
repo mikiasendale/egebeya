@@ -99,6 +99,22 @@ describe('ReceiptTicket (P4.4)', () => {
     expect(vibrateSpy).toHaveBeenCalledWith(18);
   });
 
+  it('T3.15: the Telegram CTA is hidden when the channel is unavailable', () => {
+    // Deep link present server-side, but the telegram-config endpoint reports
+    // the channel disabled — no dead button on a real receipt.
+    const { rerender } = render(
+      <ReceiptTicket {...baseProps({ telegramDeepLink: 'https://t.me/egebeya_test_bot?start=abc', telegramEnabled: false, bookingId: 'opq' })} />,
+    );
+    expect(screen.queryByTestId('receipt-telegram-cta')).toBeNull();
+    expect(screen.getByTestId('receipt-telegram-unavailable').textContent).toBeTruthy();
+
+    // Explicitly enabled (or config still loading — default) keeps the CTA.
+    rerender(
+      <ReceiptTicket {...baseProps({ telegramDeepLink: 'https://t.me/egebeya_test_bot?start=abc', telegramEnabled: true, bookingId: 'opq' })} />,
+    );
+    expect(screen.getByTestId('receipt-telegram-cta')).toBeTruthy();
+  });
+
   it('CTA is THE single button; secondary exits are quiet links', () => {
     render(<ReceiptTicket {...baseProps({ telegramDeepLink: 'https://t.me/x?start=abc', bookingId: 'opq' })} />);
     const buttons = document.querySelectorAll('button');

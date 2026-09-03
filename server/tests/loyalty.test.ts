@@ -14,13 +14,17 @@ import crypto from 'crypto';
 import { eq, and } from 'drizzle-orm';
 
 import { db } from '../../src/db';
-import { tenants, users, loyaltyLedger, punchCards } from '../../src/db/schema';
+import {
+  tenants, users, loyaltyLedger, punchCards, customerStats, appointments,
+  plans, tenantSubscriptions, staff as staffTable, services as servicesTable,
+} from '../../src/db/schema';
 import bcrypt from 'bcryptjs';
 
 const PHONE = `+25191${String(Math.floor(Math.random() * 1e8)).padStart(8, '0')}`; // punch-math test only
 
 describe('loyalty-lite engine (P5.1)', () => {
   let tenantId = '';
+  let demoTenantId = '';
 
   beforeAll(async () => {
     tenantId = crypto.randomUUID();
@@ -44,14 +48,33 @@ describe('loyalty-lite engine (P5.1)', () => {
     await db.delete(punchCards).where(eq(punchCards.tenantId, tenantId)).catch(() => {});
     await db.delete(users).where(eq(users.tenantId, tenantId)).catch(() => {});
     await db.delete(tenants).where(eq(tenants.id, tenantId)).catch(() => {});
+    if (demoTenantId) {
+      await db.delete(customerStats).where(eq(customerStats.tenantId, demoTenantId)).catch(() => {});
+      await db.delete(tenantSubscriptions).where(eq(tenantSubscriptions.tenantId, demoTenantId)).catch(() => {});
+      await db.delete(tenants).where(eq(tenants.id, demoTenantId)).catch(() => {});
+    }
     delete process.env.LOYALTY_ENABLED;
   });
 
-  it('GATE: the engine obeys the live gate — no accrual while thresholds sit unmet', async () => {
-    // Shared dev DB: other fixtures may legitimately open the gate. The
-    // CONTRACT under test is that recordPunch always MATCHES the live gate.
+  it('GATE: open = enabledFlag && north-star >= 0.7; opt-in is reported but ADVISORY', async () => {
+    // Owner decision (recorded in docs/loyalty-opening.md) retired the
+    // Telegram opt-in condition from the ENFORCING boolean. gateStatus() must
+    // still compute/report optInRate for council visibility, but it must NOT
+    // appear as a gate-closing reason and must NOT flip the gate closed.
     const { recordPunch, gateStatus } = await import('../lib/loyalty');
     const gate = await gateStatus();
+
+    // (1) Advisory reporting: the rate is still surfaced.
+    expect(gate.optInRate === null || typeof gate.optInRate === 'number').toBe(true);
+    // (2) It is no longer a blocking condition — no opt-in reason is emitted.
+    const optInReason = gate.reasons.find((r) => r.startsWith('opt_in_rate'));
+    expect(optInReason).toBeUndefined();
+    // (3) The boolean keys off exactly TWO conditions: env flag + north-star.
+    const northStarMet = gate.northStar != null && gate.northStar >= 0.7;
+    expect(gate.open).toBe(gate.enabledFlag && northStarMet);
+
+    // Shared dev DB: other fixtures may legitimately open the gate. The
+    // CONTRACT under test is that recordPunch always MATCHES the live gate.
     const phone = `+25194${String(Math.floor(Math.random() * 1e8)).padStart(8, '0')}`;
     const result = await recordPunch({
       tenantId, consumerPhone: phone,
@@ -64,6 +87,88 @@ describe('loyalty-lite engine (P5.1)', () => {
         .where(and(eq(punchCards.tenantId, tenantId), eq(punchCards.consumerPhone, phone))).get();
       expect(rows ?? null).toBeNull(); // no FK-bearing residue on dark program
     }
+  });
+
+  it('GATE: metrics are demo-excluded — a demo tenant cannot inflate the gate', async () => {
+    // A demo/seed tenant (is_demo = true) seeded with dominating opt-ins and
+    // bookings must NOT move the gate's metrics (same T4.5 pattern as the
+    // admin aggregates — the dev gate must never open on seed-inflated numbers).
+    demoTenantId = crypto.randomUUID();
+    await db.insert(tenants).values({
+      id: demoTenantId, name: 'Demo Filler', slug: `demo-filler-${Date.now()}`,
+      category: 'Salon', isDemo: true, settings: {}, createdAt: Date.now(),
+    });
+    const proPlan = await db.select().from(plans).where(eq(plans.name, 'pro')).get();
+    await db.insert(tenantSubscriptions).values({
+      id: crypto.randomUUID(), tenantId: demoTenantId, planId: proPlan!.id,
+      status: 'active', startsAt: Date.now() - 24 * 60 * 60 * 1000,
+    }).onConflictDoNothing();
+    const demoStaff = crypto.randomUUID();
+    const demoService = crypto.randomUUID();
+    await db.insert(staffTable).values({
+      id: demoStaff, tenantId: demoTenantId, name: 'Demo Stylist', active: true,
+    }).catch(() => {});
+    await db.insert(servicesTable).values({
+      id: demoService, tenantId: demoTenantId, name: 'Demo Service',
+      durationMinutes: 30, price: 1000, active: true,
+    }).catch(() => {});
+
+    // Dominating demo customers: all opted-in.
+    const demoPhones: string[] = [];
+    for (let i = 0; i < 500; i++) {
+      const phone = `+25187${String(i).padStart(8, '0')}`;
+      demoPhones.push(phone);
+      await db.insert(customerStats).values({
+        tenantId: demoTenantId, customerPhone: phone, customerName: `Demo ${i}`,
+        marketingOptIn: true, visitCount: 1, createdAt: Date.now(),
+      }).catch(() => {});
+    }
+    // Dominating demo booking this week.
+    await db.insert(appointments).values({
+      id: crypto.randomUUID(), tenantId: demoTenantId,
+      customerName: 'Demo Visitor', customerPhone: demoPhones[0],
+      staffId: demoStaff, serviceId: demoService,
+      startTime: Date.now() - 3 * 24 * 60 * 60 * 1000,
+      endTime: Date.now() - 3 * 24 * 60 * 60 * 1000 + 1800_000,
+      status: 'confirmed', opaqueId: crypto.randomBytes(16).toString('hex'),
+    }).catch(() => {});
+
+    const { gateStatus } = await import('../lib/loyalty');
+    const gate = await gateStatus();
+
+    // Sanity: the demo rows exist and are flagged, so the assertion is real.
+    const demoStatRows = await db.select().from(customerStats)
+      .where(eq(customerStats.tenantId, demoTenantId)).all();
+    expect(demoStatRows.length).toBeGreaterThanOrEqual(500);
+
+    // Expected metrics computed from the DB excluding ALL demo tenants
+    // (same join shape gateStatus uses).
+    const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const driver = (db as any).session?.client ?? (db as any).$client;
+    const countRows = async (sqlText: string, args: unknown[] = []): Promise<number> => {
+      const res = await driver.execute({ sql: sqlText, args });
+      return Number(res.rows?.[0]?.n ?? 0);
+    };
+    const total = await countRows(
+      `SELECT COUNT(*) AS n FROM customer_stats cs JOIN tenants t ON t.id = cs.tenant_id WHERE t.is_demo = 0`);
+    const opted = await countRows(
+      `SELECT COUNT(*) AS n FROM customer_stats cs JOIN tenants t ON t.id = cs.tenant_id WHERE t.is_demo = 0 AND cs.marketing_opt_in = 1`);
+    const expectedOptIn = total === 0 ? null : opted / total;
+    const bookingsWithoutDemo = await countRows(
+      `SELECT COUNT(*) AS n FROM appointments a JOIN tenants t ON t.id = a.tenant_id
+        WHERE t.is_demo = 0 AND a.status IN ('confirmed','completed') AND a.start_time >= ?`,
+      [weekAgo],
+    );
+    const tenantsWithoutDemo = await countRows(
+      `SELECT COUNT(DISTINCT ts.tenant_id) AS n FROM tenant_subscriptions ts
+        JOIN tenants t ON t.id = ts.tenant_id
+        WHERE t.is_demo = 0 AND ts.status IN ('active','trial')`,
+    );
+    const expectedNorthStar = tenantsWithoutDemo === 0 ? null : bookingsWithoutDemo / tenantsWithoutDemo;
+
+    expect(gate.optInRate).toBe(expectedOptIn);
+    expect(gate.northStar).toBe(expectedNorthStar);
+    void demoPhones;
   });
 
   it('APPEND-ONLY: ledger UPDATE and DELETE are rejected at the storage layer', async () => {

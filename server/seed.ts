@@ -312,7 +312,7 @@ async function seed() {
     if (existing) {
       // Ensure it's listed and has a category so /discover surfaces it.
       await db.update(tenants)
-        .set({ isListed: true, category: t.category, name: t.name })
+        .set({ isListed: true, category: t.category, name: t.name, isDemo: true })
         .where(eq(tenants.id, existing.id));
       continue;
     }
@@ -322,6 +322,7 @@ async function seed() {
       slug: t.slug,
       category: t.category,
       isListed: true,
+      isDemo: true,
       createdAt: Date.now(),
     });
   }
@@ -344,6 +345,7 @@ async function seed() {
       slug: 'demo',
       category: 'Salon',
       isListed: true,
+      isDemo: true,
       settings: {
         calendar_display: 'gregorian',
         onboarding_completed: true,
