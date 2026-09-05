@@ -319,8 +319,21 @@ router.post('/register', authLimiter, async (req, res) => {
     const refreshJti = crypto.randomUUID();
     await db.update(users).set({ refreshTokenId: refreshJti }).where(eq(users.id, userId));
 
+    // F-1: registration seeds the user's FIRST refresh-token family (the
+    // register path previously minted a jti but never created a family row,
+    // so a fresh registrant's first /auth/refresh always 403'd).
+    const familyId = crypto.randomUUID();
+    await db.insert(refreshTokenFamilies).values({
+      id: familyId,
+      userId,
+      parentJti: refreshJti,
+      childJti: refreshJti,
+      createdAt: Date.now(),
+      lastUsedAt: Date.now(),
+    });
+
     const token = jwt.sign({ userId, tenantId, role: 'owner', tokenVersion }, jwtSecret(), { expiresIn: '15m' });
-    const refreshToken = jwt.sign({ userId, tenantId, tokenVersion, jti: refreshJti }, refreshSecret(), { expiresIn: '7d' });
+    const refreshToken = jwt.sign({ userId, tenantId, tokenVersion, jti: refreshJti, fam: familyId }, refreshSecret(), { expiresIn: '7d' });
     setAuthCookies(res, token, refreshToken);
 
     res.json({
@@ -358,11 +371,13 @@ router.post('/login', authLimiter, async (req, res) => {
   const tenant = user.tenantId ? await db.select().from(tenants).where(eq(tenants.id, user.tenantId)).get() : null;
   const tokenVersion = (user as any).tokenVersion ?? 0;
   const isSuperadmin = !!(user as any).isSuperadmin;
-  // Start a new refresh-token family for this device/session.
+  // Start a new refresh-token family for this device/session. The family id
+  // rides in the refresh JWT (`fam`) so /auth/refresh targets THIS family.
   const parentJti = crypto.randomUUID();
   const childJti = crypto.randomUUID();
+  const familyId = crypto.randomUUID();
   await db.insert(refreshTokenFamilies).values({
-   id: crypto.randomUUID(),
+   id: familyId,
    userId: user.id,
    parentJti,
    childJti,
@@ -370,7 +385,7 @@ router.post('/login', authLimiter, async (req, res) => {
    lastUsedAt: Date.now(),
   });
   const token = jwt.sign({ userId: user.id, tenantId: user.tenantId, role: user.role, tokenVersion }, jwtSecret(), { expiresIn: '15m' });
-  const refreshToken = jwt.sign({ userId: user.id, tenantId: user.tenantId, tokenVersion, jti: childJti }, refreshSecret(), { expiresIn: '7d' });
+  const refreshToken = jwt.sign({ userId: user.id, tenantId: user.tenantId, tokenVersion, jti: childJti, fam: familyId }, refreshSecret(), { expiresIn: '7d' });
   setAuthCookies(res, token, refreshToken);
   res.json({
    message: 'Login successful',
@@ -402,18 +417,31 @@ router.post('/login', authLimiter, async (req, res) => {
    if (typeof payload.tokenVersion !== 'number' || payload.tokenVersion !== (user as any).tokenVersion) {
    return res.status(403).json({ error: 'Refresh token has been revoked' });
   }
-  // Family-based rotation: match the presented child JTI against the
-  // current active family. Rotate on success; revoke the whole family on
-  // mismatch (replay/forgery).
+  // Family-based rotation (F-1 approach (a)): the refresh JWT carries a `fam`
+  // claim — the id of ITS OWN refresh_token_families row — so each device
+  // refreshes against its own family and multi-device sessions coexist.
+  // Legacy cookies minted before `fam` existed carry no claim; they fall back
+  // to the newest active family (latest-wins) until they naturally expire.
+  // Rotate on success; revoke the whole family on mismatch (replay/forgery).
   const presentedChild = typeof payload.jti === 'string' ? payload.jti : '';
-  const family = await db.select()
-   .from(refreshTokenFamilies)
-   .where(and(
-    eq(refreshTokenFamilies.userId, user.id),
-    sql`${refreshTokenFamilies.revokedAt} IS NULL`,
-   ))
-   .orderBy(desc(refreshTokenFamilies.createdAt))
-   .get();
+  const presentedFam = typeof payload.fam === 'string' ? payload.fam : '';
+  const family = await (presentedFam
+    ? db.select()
+      .from(refreshTokenFamilies)
+      .where(and(
+        eq(refreshTokenFamilies.id, presentedFam),
+        eq(refreshTokenFamilies.userId, user.id),
+        sql`${refreshTokenFamilies.revokedAt} IS NULL`,
+      ))
+      .get()
+    : db.select()
+      .from(refreshTokenFamilies)
+      .where(and(
+        eq(refreshTokenFamilies.userId, user.id),
+        sql`${refreshTokenFamilies.revokedAt} IS NULL`,
+      ))
+      .orderBy(desc(refreshTokenFamilies.createdAt))
+      .get());
   if (!family || !presentedChild) {
    await db.update(users).set({ tokenVersion: sql`token_version + 1` }).where(eq(users.id, user.id));
    return res.status(403).json({ error: 'Refresh token invalid' });
@@ -429,7 +457,7 @@ router.post('/login', authLimiter, async (req, res) => {
    .where(eq(refreshTokenFamilies.id, family.id));
   const tokenVersion = (user as any).tokenVersion ?? 0;
   const newToken = jwt.sign({ userId: user.id, tenantId: user.tenantId, role: user.role, tokenVersion }, jwtSecret(), { expiresIn: '15m' });
-  const newRefresh = jwt.sign({ userId: user.id, tenantId: user.tenantId, tokenVersion, jti: newChildJti }, refreshSecret(), { expiresIn: '7d' });
+  const newRefresh = jwt.sign({ userId: user.id, tenantId: user.tenantId, tokenVersion, jti: newChildJti, fam: family.id }, refreshSecret(), { expiresIn: '7d' });
   setAuthCookies(res, newToken, newRefresh);
   res.json({ success: true });
  });
@@ -755,8 +783,19 @@ router.post('/verify-otp', otpLimiter, async (req, res) => {
       const refreshJti = crypto.randomUUID();
       await db.update(users).set({ refreshTokenId: refreshJti }).where(eq(users.id, userId));
 
+      // F-1: seed the first refresh-token family (same as /register).
+      const otpFamilyId = crypto.randomUUID();
+      await db.insert(refreshTokenFamilies).values({
+        id: otpFamilyId,
+        userId,
+        parentJti: refreshJti,
+        childJti: refreshJti,
+        createdAt: Date.now(),
+        lastUsedAt: Date.now(),
+      });
+
       const token = jwt.sign({ userId, tenantId, role: 'owner', tokenVersion }, jwtSecret(), { expiresIn: '15m' });
-      const refreshToken = jwt.sign({ userId, tenantId, tokenVersion, jti: refreshJti }, refreshSecret(), { expiresIn: '7d' });
+      const refreshToken = jwt.sign({ userId, tenantId, tokenVersion, jti: refreshJti, fam: otpFamilyId }, refreshSecret(), { expiresIn: '7d' });
       setAuthCookies(res, token, refreshToken);
 
       return res.json({
