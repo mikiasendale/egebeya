@@ -33,6 +33,7 @@ import fs from 'fs';
 import path from 'path';
 import { requirePlanLimit, requireActiveSubscription } from '../../server/middleware/planLimits';
 import { createCheckout, generateTxRef } from '../../server/lib/chapa';
+import { deleteTenantAccount } from '../../server/lib/accountDeletion';
 import {
   PRO_PLAN_PRICE_BIRR,
   GRACE_PERIOD_MS,
@@ -2340,6 +2341,68 @@ router.get('/export/csv', async (req, res) => {
     if (!res.headersSent) {
       res.status(500).json({ error: 'Failed to export CSV' });
     }
+  }
+});
+
+/**
+ * POST /api/tenant/account/deletion — owner-only self-serve account deletion
+ * (Apple 5.1.1(v) / GDPR Art. 17 / Wayfinder #12 decision matrix).
+ *
+ * Owner types the business name to confirm. Everything runs in ONE
+ * transaction (server/lib/accountDeletion.ts): subscription closed with no
+ * refund of prepaid days, site unpublished + custom-domain record cleared
+ * (tenant row reduced to an anonymous shell that anchors the retained money
+ * records), staff deleted with the tenant, bookings anonymized, money records
+ * (payments/invoices) retained for PLC bookkeeping with identity stripped.
+ * Site-generation artifacts on disk are removed best-effort outside the
+ * transaction (file I/O in a txn would hold it open).
+ */
+router.post('/account/deletion', async (req, res) => {
+  const { tenantId } = (req as any).user;
+  try {
+    const confirmName = String(req.body?.confirmName ?? '').trim();
+    if (!confirmName) {
+      return res.status(400).json({ error: 'Type your business name to confirm deletion.' });
+    }
+    const tenant = await db.select().from(tenants).where(eq(tenants.id, tenantId)).get();
+    if (!tenant) return res.status(404).json({ error: 'Tenant not found' });
+    if (confirmName !== tenant.name.trim()) {
+      logSecurityEvent({
+        type: 'tenant_account_deleted',
+        tenantId,
+        ip: ipFromRequest(req),
+        result: 'failure',
+        details: { reason: 'confirm_name_mismatch' },
+      });
+      return res.status(400).json({ error: 'Business name does not match. Type it exactly as shown on this page to confirm.' });
+    }
+
+    const counts = await db.transaction(async (tx) => deleteTenantAccount(tx, tenantId));
+
+    // Best-effort artifact cleanup, never throws into the response path.
+    try {
+      fs.rmSync(path.join(process.cwd(), 'storage', 'pro-builds', tenantId), { recursive: true, force: true });
+    } catch (cleanupErr: any) {
+      console.error('[account-deletion] pro-build cleanup:', cleanupErr?.message);
+    }
+
+    logSecurityEvent({
+      type: 'tenant_account_deleted',
+      tenantId,
+      ip: ipFromRequest(req),
+      result: 'success',
+      details: { counts },
+    });
+
+    res.json({
+      ok: true,
+      ackEn: 'Your account has been deleted. Payment records were retained where accounting law requires; all identity data was removed.',
+      ackAm: 'መለያዎ ተሰርዟል። በሂሳብ ሕግ መሠረት የሚቆዩ የክፍያ መዝገቦች እንደ ማንነት ያለ መረጃ ቀርተዋል፤ ሌላው መረጃዎ ሁሉ ተሰርዟል።',
+      counts,
+    });
+  } catch (error: any) {
+    console.error('[account-deletion] error:', error?.message || error);
+    res.status(500).json({ error: 'Account deletion failed. Nothing was changed — please try again or contact support@egebeya.et.' });
   }
 });
 export default router;

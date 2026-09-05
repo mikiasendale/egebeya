@@ -17,6 +17,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { authFetch } from '../lib/api';
+import { showToast } from '../components/ui/toast-helper';
 
 interface LoyaltyCard {
   punches: number;
@@ -73,6 +74,7 @@ export function ConsumerBookings() {
   const [authed, setAuthed] = useState<boolean | null>(null);
   // null = availability unknown — default to showing the normal sign-in block.
   const [telegramEnabled, setTelegramEnabled] = useState<boolean | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('consumerToken');
@@ -94,6 +96,31 @@ export function ConsumerBookings() {
       .then((data) => setTelegramEnabled(Boolean(data?.enabled)))
       .catch(() => setTelegramEnabled(null));
   }, []);
+
+  // Wayfinder #12/#17 — self-serve immediate consumer deletion. One confirm,
+  // one POST; the server does the rest in a single transaction. On success
+  // the token is dead and the local shell is cleared.
+  const handleDeleteAccount = async (): Promise<void> => {
+    if (deleting) return;
+    if (!window.confirm(t('consumerBookings.deleteConfirm'))) return;
+    setDeleting(true);
+    try {
+      const r = await authFetch('/api/consumer/account/deletion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirm: true }),
+      });
+      if (!r.ok) throw new Error('failed');
+      try { localStorage.removeItem('consumerToken'); localStorage.removeItem('tenantId'); } catch { /* never throws */ }
+      setAuthed(false);
+      setCard(null);
+      showToast(t('consumerBookings.deleteDone'), '', 'destructive');
+    } catch {
+      showToast(t('consumerBookings.deleteFailed'), '', 'destructive');
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   return (
     <main className="min-h-screen px-5 py-12" style={{ backgroundColor: 'var(--color-paper)' }} data-testid="consumer-bookings">
@@ -143,6 +170,20 @@ export function ConsumerBookings() {
               </div>
             </div>
           </section>
+        )}
+
+        {authed === true && (
+          <div className="mt-8 text-center" data-testid="consumer-delete-account">
+            <button
+              type="button"
+              onClick={() => void handleDeleteAccount()}
+              disabled={deleting}
+              className="text-xs underline underline-offset-2 disabled:opacity-50"
+              style={{ color: 'var(--color-ink-soft)' }}
+            >
+              {deleting ? t('consumerBookings.deleting') : t('consumerBookings.deleteAccount')}
+            </button>
+          </div>
         )}
       </div>
     </main>

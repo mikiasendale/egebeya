@@ -25,6 +25,7 @@ import { logSecurityEvent, ipFromRequest } from '../../server/lib/securityLog';
 import { jwtSecret } from './middleware/auth';
 import { requireConsumerAuth } from './middleware/consumerAuth';
 import { consumerLimiter } from '../../server/middleware/rateLimiter';
+import { deleteConsumerAccount } from '../../server/lib/accountDeletion';
 
 const router = Router();
 
@@ -253,6 +254,51 @@ router.post('/data-deletion', consumerLimiter, async (req, res) => {
   } catch (err: any) {
     console.error('[consumer] data-deletion error:', err?.message || err);
     return res.status(500).json({ error: 'Failed to record deletion request' });
+  }
+});
+
+/**
+ * POST /api/consumer/account/deletion — self-serve immediate account
+ * deletion for the AUTHENTICATED consumer (Wayfinder #12, decision Q5).
+ *
+ * Additive to the unauthenticated /data-deletion intake above (which stays as
+ * the fallback for lost access and keeps its 30-day manual runbook). Here the
+ * consumer confirms and the deletion matrix runs inline in ONE transaction:
+ * bookings anonymized across every tenant, per-tenant customer stats
+ * anonymized in place (PK shape kept), punch cards destroyed, OTP codes and
+ * telegram-link phone identity anonymized, the consumer row deleted. The
+ * loyalty_ledger rows are append-only at the storage layer and remain,
+ * keyed by the anonymized token (documented limitation, see accountDeletion.ts).
+ * The 30-day promise is kept as an upper bound, not needed on this path.
+ */
+router.post('/account/deletion', consumerLimiter, requireConsumerAuth(), async (req, res) => {
+  const authed = (req as any).consumer as { consumerId: string; phone: string };
+  try {
+    if (req.body?.confirm !== true) {
+      return res.status(400).json({ error: 'Confirmation required to delete your account.' });
+    }
+
+    const counts = await db.transaction(async (tx) => deleteConsumerAccount(tx, authed.consumerId));
+
+    logSecurityEvent({
+      type: 'data_deletion_request',
+      ip: ipFromRequest(req),
+      result: 'success',
+      details: { requestId: `self-serve:${authed.consumerId.slice(0, 8)}`, selfServe: true, counts },
+    });
+
+    // Consumer JWTs are aud:'consumer' short-lived tokens with no refresh
+    // family — the identity row is gone, so any later call 401s on the fresh
+    // consumer lookup. Nothing to revoke server-side.
+    return res.status(200).json({
+      ok: true,
+      ackAm: 'መለያዎ ተሰርዟል። እናመሰግናለን።',
+      ackEn: 'Your account has been deleted. Thank you for using Egebeya.',
+      counts,
+    });
+  } catch (err: any) {
+    console.error('[consumer] account-deletion error:', err?.message || err);
+    return res.status(500).json({ error: 'Account deletion failed. Nothing was changed — please try again.' });
   }
 });
 

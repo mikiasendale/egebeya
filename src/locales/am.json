@@ -364,12 +364,12 @@
       "cycleMonthly": "ወርሃዊ",
       "cycleQuarterly": "3 ወር (5% ቅናሽ)",
       "cycleAnnual": "ዓመታዊ · 10 ለ 12",
-    "cycleNote": "በየጊዜው ወደ አስተማማኝ Chapa ክፍያ ይላካሉ። በማንኛውም ጊዜ ማቆም ይችላሉ።",
-    "totalToday": "ዛሬ ክፍል · Total today",
-    "countdownTitle": "የPro እቅድዎ በቅርቡ ያልቃል",
-    "countdownBody": "ጣቢያዎን፣ የAI መሳሪያዎችንና የPro ጥቅሞችን ያለማቋረጥ ለማስቀጠል በሚቀጥሉት {{days}} ቀን(ዋት) ውስጥ ያድሱ።",
-    "countdownAction": "ዳግም ይመዝገቡ · Re-subscribe"
-  },
+      "cycleNote": "በየጊዜው ወደ አስተማማኝ Chapa ክፍያ ይላካሉ። በማንኛውም ጊዜ ማቆም ይችላሉ።",
+      "totalToday": "ዛሬ ክፍል · Total today",
+      "countdownTitle": "የPro እቅድዎ በቅርቡ ያልቃል",
+      "countdownBody": "ጣቢያዎን፣ የAI መሳሪያዎችንና የPro ጥቅሞችን ያለማቋረጥ ለማስቀጠል በሚቀጥሉት {{days}} ቀን(ዋት) ውስጥ ያድሱ።",
+      "countdownAction": "ዳግም ይመዝገቡ · Re-subscribe"
+    },
     "funnel": {
       "title": "የንቁትነት ላኩ (Funnel)",
       "subtitle": "ሳምንታዊ የመቀየር መጠን + north-star",
@@ -495,6 +495,21 @@
         "body": "ከ{{total}} ቀጠሮዎች {{inWindow}} ቱ በቅናሽ ሰዓት ውስጥ ገብተዋል።",
         "failed": "ስታቲስቲክሱን ማምጣት አልተቻለም።"
       }
+    },
+    "deleteAccount": {
+      "title": "የአደጋ ጊዜ — መለያ መሰረዝ",
+      "body": "መለያዎን መሰረዝ ቋሚ ነው። ይሄ ነው የሚሆነው፦",
+      "effectSite": "ድረ-ገጽዎ ወዲያውኑ ይዘጋል፤ የተጠቀሙት ብጁ አድራሻ (domain) ይፈታል።",
+      "effectStaff": "የሠራኞች መለያዎች ከእርስዎ መለያ ጋር አብረው ይሰረዛሉ።",
+      "effectNoRefund": "የተከፈሉ ቀናት አይመለሱም።",
+      "effectMoneyRecords": "የክፍያ እና የ invoice መዝገቦች የኢትዮጵያ የሂሳብ ሕግ ሲጠይቅ ይቆያሉ — ነገር ግን ሁሉም የማንነት መረጃ ከዚያ ይወገዳል።",
+      "confirmLabel": "ለማረጋገጥ የንግድ ስምዎን በትክክል ይጻፉ፦",
+      "confirmPlaceholder": "የንግድ ስምዎ",
+      "button": "መለያዎን ለዘላለም ይሰርዙ",
+      "deleting": "በመሰረዝ ላይ…",
+      "failed": "መለያ መሰረዝ አልተሳካም። እባክዎ እንደገና ይሞክሩ።",
+      "networkError": "የኔትወርክ ችግር። ምንም አልተሰረዘም — እባክዎ እንደገና ይሞክሩ።",
+      "success": "መለያ ተሰርዟል"
     }
   },
   "common": {
@@ -599,7 +614,12 @@
     "punchCard": "የበጎ አድራጎት ካርድ",
     "visits": "ጊዜያት",
     "rewardReady": "ሽልማትዎ ዝግጁ ነው — ቀጣይ ቀጠሮዎ ላይ ይቀንሳል!",
-    "rewardHint": "ለሚቀጥለው ሽልማት {{remaining}} ጊዜ ይቀረዋል።"
+    "rewardHint": "ለሚቀጥለው ሽልማት {{remaining}} ጊዜ ይቀረዋል።",
+    "deleteAccount": "መለያዎን እና መረጃዎን ይሰርዙ",
+    "deleteConfirm": "ይሄ መለያዎን፣ ቀጠሮዎችዎን እና punch cardዎችዎን በሁሉም ንግዶች ለዘላለም ይሰርዛል። መመለስ አይቻልም። ይቀጥሉ?",
+    "deleting": "በመሰረዝ ላይ…",
+    "deleteDone": "መለያዎ ተሰርዟል። እናመሰግናለን።",
+    "deleteFailed": "መለያ መሰረዝ አልተሳካም። ምንም አልተቀየረም — እባክዎ እንደገና ይሞክሩ።"
   },
   "blockGallery": {
     "title": "የገጽዎ ክፍሎች",

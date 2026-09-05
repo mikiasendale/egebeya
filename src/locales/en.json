@@ -364,12 +364,12 @@
       "cycleMonthly": "Monthly",
       "cycleQuarterly": "Quarterly (5% off)",
       "cycleAnnual": "Annual · 10-for-12",
-    "cycleNote": "You'll be redirected to a secure Chapa checkout. Cancel anytime.",
-    "totalToday": "Total today",
-    "countdownTitle": "Your Pro plan expires soon",
-    "countdownBody": "Renew in the next {{days}} day(s) to keep your site, AI tools, and Pro features without interruption.",
-    "countdownAction": "Re-subscribe · ዳግም ይመዝገቡ"
-  },
+      "cycleNote": "You'll be redirected to a secure Chapa checkout. Cancel anytime.",
+      "totalToday": "Total today",
+      "countdownTitle": "Your Pro plan expires soon",
+      "countdownBody": "Renew in the next {{days}} day(s) to keep your site, AI tools, and Pro features without interruption.",
+      "countdownAction": "Re-subscribe · ዳግም ይመዝገቡ"
+    },
     "funnel": {
       "title": "Activation funnel",
       "subtitle": "Weekly stage conversion + north-star",
@@ -495,6 +495,21 @@
         "body": "{{inWindow}} of {{total}} bookings landed in the discounted window.",
         "failed": "Couldn't load quiet-hours stats."
       }
+    },
+    "deleteAccount": {
+      "title": "Danger Zone — Delete Account",
+      "body": "Deleting your account is permanent. This is what happens:",
+      "effectSite": "Your site is unpublished immediately and any custom domain is released.",
+      "effectStaff": "All staff accounts are deleted with your account.",
+      "effectNoRefund": "Any paid subscription days are not refunded.",
+      "effectMoneyRecords": "Payment and invoice records are retained where Ethiopian accounting law requires — with all identity data removed.",
+      "confirmLabel": "Type your business name exactly to confirm:",
+      "confirmPlaceholder": "Your business name",
+      "button": "Permanently delete my account",
+      "deleting": "Deleting…",
+      "failed": "Account deletion failed. Please try again.",
+      "networkError": "Network error. Nothing was deleted — please try again.",
+      "success": "Account deleted"
     }
   },
   "common": {
@@ -599,7 +614,12 @@
     "punchCard": "Punch card",
     "visits": "visits",
     "rewardReady": "Reward ready — your next booking gets a discount!",
-    "rewardHint": "{{remaining}} more visits until your next reward."
+    "rewardHint": "{{remaining}} more visits until your next reward.",
+    "deleteAccount": "Delete my account and data",
+    "deleteConfirm": "This permanently deletes your account, bookings and punch cards across all businesses. This cannot be undone. Continue?",
+    "deleting": "Deleting…",
+    "deleteDone": "Your account has been deleted. Thank you for using Egebeya.",
+    "deleteFailed": "Account deletion failed. Nothing was changed — please try again."
   },
   "blockGallery": {
     "title": "Your page blocks",

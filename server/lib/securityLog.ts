@@ -39,6 +39,7 @@ export type SecurityEventType =
   | 'plan_gate_denied'
   | 'webhook_idempotent_duplicate'
   | 'data_deletion_request'
+  | 'tenant_account_deleted'
   | 'reminder-sent-sms'
   | 'billing_reminder_sent'
   | 'telegram_start_no_payload'

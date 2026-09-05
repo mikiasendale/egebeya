@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { CreditCard, Shield, Clock, Loader2, Zap } from 'lucide-react';
+import { CreditCard, Shield, Clock, Loader2, Zap, AlertTriangle } from 'lucide-react';
 import { authFetch } from '../../lib/api';
 import { showToast } from '../../components/ui/toast-helper';
 import { StaffRedirect } from './StaffRedirect';
@@ -77,6 +77,11 @@ export function Settings() {
   const [domainInput, setDomainInput] = useState('');
   const [savedDomain, setSavedDomain] = useState<string | null>(null);
   const [domainSaving, setDomainSaving] = useState(false);
+
+  // Wayfinder #12/#17 — account deletion state.
+  const [deleteConfirmName, setDeleteConfirmName] = useState('');
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -285,6 +290,34 @@ export function Settings() {
       setQuietError(t('settings.quietHours.networkError'));
     } finally {
       setQuietSaving(false);
+    }
+  };
+
+  // Wayfinder #12/#17 — owner self-serve deletion. Confirm-by-typed-name, then
+  // one POST. On success the session is dead (users row deleted server-side);
+  // hard-navigate home. Server errors surface verbatim — the server owns the
+  // wording for the confirm-mismatch case.
+  const handleDeleteAccount = async (): Promise<void> => {
+    setDeleteError(null);
+    setDeletingAccount(true);
+    try {
+      const r = await authFetch('/api/tenant/account/deletion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirmName: deleteConfirmName.trim() }),
+      });
+      const body = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        setDeleteError(body?.error || t('settings.deleteAccount.failed'));
+        return;
+      }
+      showToast(t('settings.deleteAccount.success'), body?.ackEn || '');
+      try { localStorage.clear(); } catch { /* private mode etc. — never throws */ }
+      window.location.assign('/');
+    } catch {
+      setDeleteError(t('settings.deleteAccount.networkError'));
+    } finally {
+      setDeletingAccount(false);
     }
   };
 
@@ -721,6 +754,56 @@ export function Settings() {
               lift drives adoption of the discount they configured. */}
           <QuietHoursPayoffCard enabled={quietEnabled} />
         </section>
+
+        {/* Wayfinder #12/#17 — self-serve account deletion (Apple 5.1.1(v),
+            GDPR Art. 17). Owner types the business name to confirm. */}
+        <section
+          className="p-6 rounded-lg shadow-sm border"
+          style={{ borderColor: '#dc2626', backgroundColor: 'var(--color-paper-bleached)' }}
+          data-testid="delete-account-section"
+        >
+          <h2 className="text-xl font-bold mb-2 flex items-center" style={{ color: '#dc2626' }}>
+            <AlertTriangle className="mr-2" size={24} /> {t('settings.deleteAccount.title')}
+          </h2>
+          <p className="text-sm text-ink-soft mb-4">{t('settings.deleteAccount.body')}</p>
+          <ul className="text-sm text-ink-soft list-disc pl-5 mb-4 space-y-1">
+            <li>{t('settings.deleteAccount.effectSite')}</li>
+            <li>{t('settings.deleteAccount.effectStaff')}</li>
+            <li>{t('settings.deleteAccount.effectNoRefund')}</li>
+            <li>{t('settings.deleteAccount.effectMoneyRecords')}</li>
+          </ul>
+          <label className="block text-sm font-medium mb-1" htmlFor="delete-account-confirm">
+            {t('settings.deleteAccount.confirmLabel')}
+          </label>
+          <input
+            id="delete-account-confirm"
+            type="text"
+            value={deleteConfirmName}
+            onChange={(e) => { setDeleteConfirmName(e.target.value); setDeleteError(null); }}
+            placeholder={t('settings.deleteAccount.confirmPlaceholder')}
+            className="w-full max-w-md border rounded-md px-3 py-2 text-sm bg-white"
+            data-testid="delete-account-confirm"
+            autoComplete="off"
+          />
+          {deleteError && (
+            <p className="mt-2 text-sm" style={{ color: '#dc2626' }} role="alert" data-testid="delete-account-error">
+              {deleteError}
+            </p>
+          )}
+          <div className="mt-4">
+            <button
+              type="button"
+              onClick={() => void handleDeleteAccount()}
+              disabled={deletingAccount || deleteConfirmName.trim().length === 0}
+              data-testid="delete-account-button"
+              className="text-white px-4 py-2 rounded-md font-medium text-sm hover:opacity-90 disabled:opacity-50 inline-flex items-center gap-2"
+              style={{ backgroundColor: '#dc2626' }}
+            >
+              {deletingAccount && <Loader2 className="h-4 w-4 animate-spin" />}
+              {deletingAccount ? t('settings.deleteAccount.deleting') : t('settings.deleteAccount.button')}
+            </button>
+          </div>
+        </section>
      </div>
     </StaffRedirect>
   );
@@ -731,8 +814,7 @@ export function Settings() {
  * discount: over the trailing 30 days, what share of confirmed/completed
  * bookings landed inside the discounted window. Honest null states — no
  * bookings yet, toggle off, or not enough data — never a fabricated number.
- */
-interface QuietStats {
+ */interface QuietStats {
   enabled: boolean;
   windowDays: number;
   totalBookings: number;
