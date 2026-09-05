@@ -312,21 +312,28 @@ export async function consumeReward(input: {
     .where(and(eq(punchCards.tenantId, input.tenantId), eq(punchCards.consumerPhone, phone))).get();
   if (!card || card.punches < card.target) return false;
 
-  try {
-    await db.insert(loyaltyLedger).values({
-      id: crypto.randomUUID(),
-      tenantId: input.tenantId,
-      consumerPhone: phone,
-      pointsDelta: -card.target,
-      reason: 'redemption',
-      refType: input.refType ?? 'booking',
-      refId: input.refId ?? crypto.randomUUID(),
-      createdAt: Date.now(),
-    });
-  } catch (err: any) {
-    if (!String(err?.message || '').includes('UNIQUE')) throw err;
-    return false; // this ref already consumed a reward
-  }
+  const refType = input.refType ?? 'booking';
+  const refId = input.refId ?? crypto.randomUUID();
+
+  // S-12: the redemption insert is ATOMIC with the maturity check — the
+  // ledger sum is re-read inside the same INSERT…SELECT, so two concurrent
+  // bookings (different ref ids, both previewing the same matured reward)
+  // cannot both consume it. SQLite serializes writers, so the second
+  // statement sees the first's redemption row and its WHERE fails
+  // (changes = 0 → no reward). The unique (tenant, phone, reason, ref)
+  // index remains the belt for same-ref replays.
+  const redemptionId = crypto.randomUUID();
+  const claim = await db.run(sql`
+    INSERT INTO loyalty_ledger (id, tenant_id, consumer_phone, points_delta, reason, ref_type, ref_id, created_at)
+    SELECT ${redemptionId}, ${input.tenantId}, ${phone}, ${-card.target}, 'redemption', ${refType}, ${refId}, ${Date.now()}
+    WHERE (
+      SELECT COALESCE(SUM(points_delta), 0) FROM loyalty_ledger
+      WHERE tenant_id = ${input.tenantId} AND consumer_phone = ${phone}
+    ) >= ${card.target}
+  `);
+  const changed = Number((claim as any)?.changes ?? (claim as any)?.rowsAffected ?? 0);
+  if (changed === 0) return false; // reward already consumed by a concurrent redemption
+
   await refreshCard(input.tenantId, phone);
   return true;
 }

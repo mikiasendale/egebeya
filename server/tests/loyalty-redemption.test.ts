@@ -112,7 +112,7 @@ const LEGACY = PHONE;
       await driver.execute({
         sql: `INSERT OR IGNORE INTO loyalty_ledger (id, tenant_id, consumer_phone, points_delta, reason, ref_type, ref_id, created_at)
               VALUES (?, ?, ?, 1, 'visit', 'appointment', ?, ?)`,
-        args: [crypto.randomUUID(), tenantId, PHONE, 'appointment', `e2e-visit-${i}-${crypto.randomUUID()}`, Date.now()],
+        args: [crypto.randomUUID(), tenantId, PHONE, `e2e-visit-${i}-${crypto.randomUUID()}`, Date.now()],
       });
     }
     await db.insert(punchCards).values({
@@ -133,6 +133,7 @@ const LEGACY = PHONE;
     await db.delete(appointments).where(eq(appointments.tenantId, tenantId)).catch(() => {});
     await db.delete(payments).where(eq(payments.tenantId, tenantId)).catch(() => {});
     await db.delete(punchCards).where(eq(punchCards.tenantId, tenantId)).catch(() => {});
+    await db.delete(loyaltyLedger).where(eq(loyaltyLedger.tenantId, tenantId)).catch(() => {});
     await db.delete(customerStats).where(eq(customerStats.tenantId, tenantId)).catch(() => {});
     await db.delete(servicesTable).where(eq(servicesTable.id, svcId)).catch(() => {});
     await db.delete(staff).where(eq(staff.id, staffId)).catch(() => {});
