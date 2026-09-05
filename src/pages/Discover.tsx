@@ -120,6 +120,7 @@ export function Discover() {
               value={search}
               onChange={function (e) { setSearch(e.target.value); }}
               placeholder="Search for a business or service..."
+              aria-label="Search for a business or service"
               className="flex-1 px-6 py-3 outline-none text-ink rounded-l-full"
               style={{ fontFamily: 'var(--font-body)' }}
             />
@@ -135,6 +136,7 @@ export function Discover() {
               value={cityFilter}
               onChange={function (e) { setCityFilter(e.target.value); }}
               placeholder="Filter city…"
+              aria-label="Filter by city"
               className="px-4 py-2 rounded-full text-sm text-ink outline-none bg-paper-bleached border border-ink-rule"
               style={{ fontFamily: 'var(--font-body)' }}
             />

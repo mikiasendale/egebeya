@@ -23,6 +23,7 @@ const ResetPassword = lazy(() => import('./pages/ResetPassword').then(m => ({ de
 const NotFound = lazy(() => import('./pages/NotFound').then(m => ({ default: m.NotFound })));
 const Admin = lazy(() => import('./pages/Admin').then(m => ({ default: m.Admin })));
 const Privacy = lazy(() => import('./pages/Privacy').then(m => ({ default: m.Privacy })));
+const Accessibility = lazy(() => import('./pages/Accessibility').then(m => ({ default: m.Accessibility })));
 const Terms = lazy(() => import('./pages/Terms').then(m => ({ default: m.Terms })));
 const EmbedBooking = lazy(() => import('./pages/EmbedBooking').then(m => ({ default: m.EmbedBooking })));
 const QueueStatus = lazy(() => import('./pages/QueueStatus').then(m => ({ default: m.QueueStatus })));
@@ -141,6 +142,7 @@ export function MainDomainRoutes() {
       <Route path="/dashboard/*" element={<Dashboard />} />
       <Route path="/privacy" element={<Privacy />} />
       <Route path="/terms" element={<Terms />} />
+      <Route path="/accessibility" element={<Accessibility />} />
       <Route path="/404" element={<NotFound />} />
       <Route path="*" element={<NotFound />} />
     </Routes>

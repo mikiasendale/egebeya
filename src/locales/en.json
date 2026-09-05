@@ -175,7 +175,10 @@
     "languageAmharic": "በዓማርኛ",
     "copyright": "Addis Ababa, Ethiopia",
     "depositClears": "DEPOSIT CLEARS",
-    "noShowSolved": "no-show is no-answer solved"
+    "noShowSolved": "no-show is no-answer solved",
+    "privacy": "Privacy · ግላዊነት",
+    "terms": "Terms · ውሎች",
+    "accessibility": "Accessibility · ተደራሽነት"
   },
   "booking": {
     "takeNumber": "Take a number.",
@@ -713,5 +716,35 @@
     "blockLabel": "Block this business",
     "blockDone": "This business is now hidden from your Discover results.",
     "blockFailed": "Could not block the business. Please try again."
+  },
+  "accessibility": {
+    "back": "Back to Egebeya",
+    "title": "Accessibility Statement",
+    "updated": "Last updated",
+    "basis": "Published under the EU Accessibility Act microenterprise exemption",
+    "sections": [
+      {
+        "heading": "1. Scope",
+        "body": "This statement covers egebeya.et and the customer-facing booking flows it hosts for businesses (service selection, booking, and the Discover directory). Accessibility is how we make sure every customer — including those using screen readers, larger text, or keyboard-only navigation — can find and book a business."
+      },
+      {
+        "heading": "2. Our standard",
+        "body": "We aim to meet WCAG 2.1 Level AA, the standard referenced by EN 301 549 (the European harmonised accessibility standard). We design touch-first for small Android phones on slow connections, and we keep the customer-facing booking flow reachable without an account."
+      },
+      {
+        "heading": "3. How we are doing",
+        "body": "We are partially conformant: most of the customer-facing flows meet the standard, and we are working through the remainder. Known areas we are improving: some interactive controls in the website builder are not yet fully labelled for screen readers (the builder is the owner's tool; the public booking flow is prioritised)."
+      },
+      {
+        "heading": "4. Basis for limited obligations",
+        "body": "Egebeya is a microenterprise under Article 4(5) of Directive (EU) 2019/882 (fewer than 10 employees and turnover or balance sheet not exceeding €2 million), so the directive's accessibility obligations do not currently apply to our services. We publish this statement anyway and keep working on accessibility as good practice. If we grow past those thresholds, we will re-assess and update this statement."
+      },
+      {
+        "heading": "5. Tell us about a barrier",
+        "body": "If you hit a barrier using egebeya — anything you cannot read, reach, or operate — tell us and we will fix it. We treat accessibility reports as priority feedback, not support tickets."
+      }
+    ],
+    "contactHeading": "6. Contact",
+    "contactBody": "Report a barrier or request help at"
   }
 }

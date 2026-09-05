@@ -121,6 +121,14 @@ export function Footer() {
             <span style={{ color: 'var(--color-telebirr)' }}>{t('footer.depositClears')}</span> · {t('footer.noShowSolved')}
           </p>
         </div>
+        <div
+          className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2"
+          style={{ borderTop: '1px solid var(--color-counter-rule)', paddingTop: 16, marginTop: 12 }}
+        >
+          <FooterLink href="/privacy" textSize="0.7rem">{t('footer.privacy')}</FooterLink>
+          <FooterLink href="/terms" textSize="0.7rem">{t('footer.terms')}</FooterLink>
+          <FooterLink href="/accessibility" textSize="0.7rem">{t('footer.accessibility')}</FooterLink>
+        </div>
       </div>
     </footer>
   );

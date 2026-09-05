@@ -629,6 +629,8 @@ export function PublicBooking({ tenant, subdomain }: { tenant: any, subdomain: s
                                 key={time}
                                 type="button"
                                 onClick={() => { setSelectedTime(time); setStep(4); }}
+                                aria-pressed={selectedTime === time}
+                                aria-label={`${t('booking.at')} ${time}${quiet ? ` · ${t('quietHoursBadge.label', { percent: qh!.percent })}` : ''}`}
                                 data-testid={`slot-${quiet ? 'quiet' : 'full'}-${time}`}
                                 className="relative w-full text-center hover:bg-[var(--color-telebirr)] hover:text-[var(--color-paper-bleached)] transition-colors duration-200"
                                 style={{
@@ -686,8 +688,9 @@ export function PublicBooking({ tenant, subdomain }: { tenant: any, subdomain: s
 
                   <form onSubmit={handleSubmit(onSubmit)} className="mt-4 space-y-4">
                     <div>
-                      <label className="block text-xs uppercase" style={page.monoSoft}>{t('booking.fullName')}</label>
+                      <label htmlFor="bk-customer-name" className="block text-xs uppercase" style={page.monoSoft}>{t('booking.fullName')}</label>
                       <input
+                        id="bk-customer-name"
                         {...register('customer_name')}
                         className="mt-1 block w-full receipt-input"
                         style={{ borderBottom: '1px dashed var(--color-ink-rule-dashed)' }}
@@ -697,8 +700,9 @@ export function PublicBooking({ tenant, subdomain }: { tenant: any, subdomain: s
                       )}
                     </div>
                     <div>
-                      <label className="block text-xs uppercase" style={page.monoSoft}>{t('booking.phone')}</label>
+                      <label htmlFor="bk-customer-phone" className="block text-xs uppercase" style={page.monoSoft}>{t('booking.phone')}</label>
                       <input
+                        id="bk-customer-phone"
                         type="tel"
                         {...register('customer_phone')}
                         placeholder={t('booking.phonePlaceholder')}
@@ -713,8 +717,9 @@ export function PublicBooking({ tenant, subdomain }: { tenant: any, subdomain: s
                       </p>
                     </div>
                     <div>
-                      <label className="block text-xs uppercase" style={page.monoSoft}>{t('booking.email')}</label>
+                      <label htmlFor="bk-customer-email" className="block text-xs uppercase" style={page.monoSoft}>{t('booking.email')}</label>
                       <input
+                        id="bk-customer-email"
                         type="email"
                         {...register('customer_email')}
                         className="mt-1 block w-full receipt-input"
