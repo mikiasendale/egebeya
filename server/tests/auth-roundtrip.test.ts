@@ -288,9 +288,11 @@ describe('Auth roundtrip + protected-route middleware', () => {
     // 3) Issue a fresh password-reset token in the DB.
     await db.delete(passwordResets).where(eq(passwordResets.userId, userId));
     const pwtoken = crypto.randomUUID();
+    // S-2: rows hold the SHA-256 hash; the API looks up by hash.
+    const pwtokenHash = crypto.createHash('sha256').update(pwtoken, 'utf8').digest('hex');
     await db.insert(passwordResets).values({
       id: crypto.randomUUID(),
-      token: pwtoken,
+      token: pwtokenHash,
       userId,
       expiresAt: Date.now() + 15 * 60 * 1000,
     });
