@@ -32,6 +32,7 @@ Verified-green but uncommitted work does not exist. Every task ends: test, money
 
 
 ## Always do
+- Read docs/REPO_MAP.md to get general understanding of the repo.
 - Every UI string in BOTH am.json AND en.json, same commit.
 - Migrations idempotent; guarded plain ADD COLUMN (libsql silently swallows IF NOT EXISTS).
 - Any consumer-facing Telegram UI must consume GET /api/public/telegram-config first.
