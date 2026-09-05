@@ -13,6 +13,9 @@ type EnvCheck = {
   /** Plain equality reject for NON-secret flags (no fingerprint needed). */
   rejectIfEquals?: string[];
   prodOnly?: boolean;
+  /** Reject-only check: absence is the SAFE state and must not abort boot
+   *  (e.g. ENABLE_TEST_ENDPOINTS — unset means the debug surface stays unmounted). */
+  optional?: boolean;
 };
 
 const sha256 = (value: string): string =>
@@ -49,10 +52,12 @@ const checks: EnvCheck[] = [
     // S-6: /api/test/* exposes an authenticated mail-send surface. It is
     // mounted only when this flag is exactly 'true' (src/api/index.ts) —
     // production must refuse to boot with it on, so a copy-pasted .env can
-    // never ship the debug surface.
+    // never ship the debug surface. Unset (the default) is SAFE and must
+    // NOT abort boot — hence optional: true.
     read: () => process.env.ENABLE_TEST_ENDPOINTS?.trim() || null,
     rejectIfEquals: ['true'],
     prodOnly: true,
+    optional: true,
   },
 ];
 
@@ -86,7 +91,9 @@ export function validateProductionEnv(): void {
       continue;
     }
     if (!value) {
-      failures.push(`${c.name} is not set`);
+      // Required secrets must be set; optional (reject-only) checks pass
+      // when unset — that is their safe default.
+      if (!c.optional) failures.push(`${c.name} is not set`);
       continue;
     }
     if (c.rejectFingerprints && c.rejectFingerprints.includes(sha256(value))) {
