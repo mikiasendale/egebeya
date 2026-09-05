@@ -2,25 +2,34 @@
  * Production boot-time env validation. Called from server.ts before the server
  * listens so a missing/known-insecure critical secret aborts startup.
  */
+import crypto from 'crypto';
 
 type EnvCheck = {
   name: string;
   read: () => string | null;
-  rejectIfEquals?: string[];
+  /** SHA-256 fingerprints of known-leaked values (never store the values themselves —
+   *  the literals were once committed to a public repo; see C-2 in the 2026-09-05 audit). */
+  rejectFingerprints?: string[];
   prodOnly?: boolean;
 };
+
+const sha256 = (value: string): string =>
+  crypto.createHash('sha256').update(value, 'utf8').digest('hex');
 
 const checks: EnvCheck[] = [
   {
     name: 'CHAPA_SECRET_KEY',
     read: () => process.env.CHAPA_SECRET_KEY?.trim() || null,
-    rejectIfEquals: ['***REMOVED***'],
+    // Fingerprint of the leaked Chapa TEST key (purged from git history 2026-09-05).
+    // Deliberately retained after rotation: it permanently rejects the dead credential.
+    rejectFingerprints: ['ad53e50f65fee14be26cf55b2b8553057b233d8a377d45ba8f54900ae3a6f862'],
     prodOnly: true,
   },
   {
     name: 'CHAPA_WEBHOOK_SECRET',
     read: () => process.env.CHAPA_WEBHOOK_SECRET?.trim() || null,
-    rejectIfEquals: ['***REMOVED***'],
+    // Fingerprint of the leaked webhook secret (purged from git history 2026-09-05).
+    rejectFingerprints: ['b8ca32036623a993f3f0452d7bb8aedaf28115c1cece953358fab7ee14ab1bb8'],
     prodOnly: true,
   },
   {
@@ -64,8 +73,8 @@ export function validateProductionEnv(): void {
       failures.push(`${c.name} is not set`);
       continue;
     }
-    if (c.rejectIfEquals && c.rejectIfEquals.includes(value)) {
-      failures.push(`${c.name} is set to a known-insecure default (rotate it)`);
+    if (c.rejectFingerprints && c.rejectFingerprints.includes(sha256(value))) {
+      failures.push(`${c.name} matches a leaked credential fingerprint (rotate it)`);
     }
   }
 
