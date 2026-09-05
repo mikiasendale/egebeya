@@ -553,3 +553,13 @@ export const consumerBlocks = sqliteTable('consumer_blocks', {
 }, (table) => ([
   uniqueIndex('consumer_blocks_pair_unique').on(table.consumerId, table.tenantId),
 ]));
+
+export const aiUsage = sqliteTable('ai_usage', {
+  id: text('id').primaryKey(),
+  tenantId: text('tenant_id').references(() => tenants.id).notNull(),
+  day: text('day').notNull(), // YYYY-MM-DD
+  count: integer('count').notNull().default(0),
+  createdAt: integer('created_at').notNull(),
+}, (table) => ([
+  uniqueIndex('ai_usage_tenant_day_unique').on(table.tenantId, table.day),
+]));

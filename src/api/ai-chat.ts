@@ -22,8 +22,8 @@
 
 import { Router } from 'express';
 import { db } from '../db';
-import { securityEvents, tenants } from '../db/schema';
-import { eq } from 'drizzle-orm';
+import { securityEvents, tenants, aiUsage } from '../db/schema';
+import { eq, and, sql } from 'drizzle-orm';
 import crypto from 'crypto';
 import { requireAuth } from './middleware/auth';
 import { csrfProtection } from './middleware/csrf';
@@ -37,36 +37,27 @@ router.use(requireAuth({ roles: ['owner'] }));
 router.use(csrfProtection);
 
 /**
- * Per-tenant in-memory request counter for daily AI-request rate limiting.
- * Resets every 24h (midnight UTC). Stored as Map<tenantId, dateStr count>.
- *
- * This is a single-process cache. If the app ever scales horizontally the
- * limiter must move to a shared store (DB / Redis). For the current monolith
- * it's sufficient.
+ * Per-tenant daily AI-request rate limiter, persisted in the ai_usage
+ * SQLite table (tenant_id + day, UNIQUE). Counter increments atomically
+ * via upsert so concurrent requests are serialized correctly.
  */
 const DAILY_AI_LIMIT = 20;
-const dailyCounters = new Map<string, { date: string; count: number }>();
 
-function checkAiRateLimit(tenantId: string): { ok: boolean; remaining: number } {
-  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-  const entry = dailyCounters.get(tenantId);
-  if (!entry || entry.date !== today) {
-    dailyCounters.set(tenantId, { date: today, count: 0 });
-    return { ok: true, remaining: DAILY_AI_LIMIT };
-  }
-  if (entry.count >= DAILY_AI_LIMIT) {
-    return { ok: false, remaining: 0 };
-  }
-  return { ok: true, remaining: DAILY_AI_LIMIT - entry.count };
+async function checkAiRateLimit(tenantId: string): Promise<{ ok: boolean; remaining: number }> {
+  const today = new Date().toISOString().slice(0, 10);
+  const row = await db.select().from(aiUsage).where(and(eq(aiUsage.tenantId, tenantId), eq(aiUsage.day, today))).get();
+  const count = row ? row.count : 0;
+  if (count >= DAILY_AI_LIMIT) return { ok: false, remaining: 0 };
+  return { ok: true, remaining: DAILY_AI_LIMIT - count };
 }
 
-function incrementAiCount(tenantId: string): void {
+async function incrementAiCount(tenantId: string): Promise<void> {
   const today = new Date().toISOString().slice(0, 10);
-  const entry = dailyCounters.get(tenantId);
-  if (!entry || entry.date !== today) {
-    dailyCounters.set(tenantId, { date: today, count: 1 });
+  const existing = await db.select().from(aiUsage).where(and(eq(aiUsage.tenantId, tenantId), eq(aiUsage.day, today))).get();
+  if (existing) {
+    await db.update(aiUsage).set({ count: existing.count + 1 }).where(eq(aiUsage.id, existing.id));
   } else {
-    entry.count++;
+    await db.insert(aiUsage).values({ id: crypto.randomUUID(), tenantId, day: today, count: 1, createdAt: Date.now() });
   }
 }
 
@@ -150,8 +141,9 @@ router.post('/site/ai-chat', async (req, res) => {
   const plan = await requireProPlan(req, res);
   if (!plan) return;
 
-  // 2. Rate limit
-  const { ok: withinLimit, remaining } = checkAiRateLimit(tenantId);
+  // 2. Rate limit — increment BEFORE the upstream call so that every attempt
+  //    that passes consent + plan gates counts, regardless of provider outcome.
+  const { ok: withinLimit, remaining } = await checkAiRateLimit(tenantId);
   if (!withinLimit) {
     return res.status(429).json({
       error: `AI request limit reached (${DAILY_AI_LIMIT}/day). Try again tomorrow.`,
@@ -159,6 +151,7 @@ router.post('/site/ai-chat', async (req, res) => {
       remaining: 0,
     });
   }
+  await incrementAiCount(tenantId);
 
   // 3. Validate body — v4 AI SDK sends { messages: [...], indexHtml, styleCss, scriptJs }
   //    Extract the last user message from the messages array.
@@ -269,8 +262,7 @@ Make sure to escape any special characters properly in the JSON.`;
       }
     }
 
-    // 9. Increment counter and log
-    incrementAiCount(tenantId);
+    // 9. Log usage (counter already incremented before the upstream call)
     logAiUsage(tenantId, req.ip || null, modelId);
 
     // 10. Respond

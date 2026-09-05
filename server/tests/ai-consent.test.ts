@@ -11,9 +11,10 @@ import request from 'supertest';
 import express from 'express';
 import apiRoutes from '../../src/api';
 import { db } from '../../src/db';
-import { tenants, users, tenantSubscriptions, plans } from '../../src/db/schema';
-import { eq } from 'drizzle-orm';
+import { tenants, users, tenantSubscriptions, plans, aiUsage } from '../../src/db/schema';
+import { eq, and } from 'drizzle-orm';
 import { cookieValue } from './helpers';
+import crypto from 'crypto';
 
 const app = express();
 app.use(express.json());
@@ -119,5 +120,99 @@ describe('AI consent gate (POST /api/tenant/ai/consent)', () => {
     expect(get.status).toBe(401);
     const post = await request(app).post('/api/tenant/ai/consent').send({ accept: true });
     expect(post.status).toBe(401);
+  });
+});
+
+/**
+ * S-7 — persistent AI daily limiter (replaces the in-memory Map).
+ *
+ * Counters live in the ai_usage SQLite table (UNIQUE tenant_id + day),
+ * so they survive restarts and are correct across processes.
+ */
+describe('AI daily limiter (S-7)', () => {
+  const limiterSuffix = Date.now();
+  const limiterOwnerPhone = `+251${String(Math.floor(Math.random() * 1e9)).padStart(9, '0')}`;
+  const limiterOwnerEmail = `ai-lim-${limiterSuffix}@egebeya.test`;
+  const limiterSlug = `ai-lim-${limiterSuffix}`;
+  let limiterToken = '';
+  let limiterTenantId = '';
+
+  afterAll(async () => {
+    if (limiterTenantId) {
+      await db.delete(aiUsage).where(eq(aiUsage.tenantId, limiterTenantId)).catch(() => {});
+      await db.delete(tenantSubscriptions).where(eq(tenantSubscriptions.tenantId, limiterTenantId)).catch(() => {});
+      await db.delete(users).where(eq(users.tenantId, limiterTenantId)).catch(() => {});
+      await db.delete(tenants).where(eq(tenants.id, limiterTenantId)).catch(() => {});
+    }
+  });
+
+  it('creates a Pro tenant with consent', async () => {
+    const res = await request(app).post('/api/auth/register').send({
+      name: 'AI Limiter Tester',
+      phone: limiterOwnerPhone,
+      password: 'SecurePass456!',
+      businessName: 'AI Limiter Biz',
+      slug: limiterSlug,
+      email: limiterOwnerEmail,
+      consent: true,
+    });
+    expect(res.status).toBe(200);
+    limiterToken = cookieValue(res, 'accessToken') ?? '';
+    limiterTenantId = res.body.tenant.id;
+    expect(limiterToken).toBeTruthy();
+    // Upgrade to Pro (register seeds a Free subscription).
+    const proPlan = await db.select().from(plans).where(eq(plans.name, 'pro')).get();
+    await db.update(tenantSubscriptions).set({ planId: proPlan!.id, status: 'active', startsAt: Date.now() - 86400_000 })
+      .where(eq(tenantSubscriptions.tenantId, limiterTenantId));
+    await db.insert(users).values({
+      id: crypto.randomUUID(), tenantId: limiterTenantId, name: 'Owner',
+      phone: limiterOwnerPhone, email: limiterOwnerEmail,
+      passwordHash: await require('bcryptjs').hash('SecurePass456!', 10),
+      role: 'owner', createdAt: Date.now(),
+    }).onConflictDoNothing();
+    // Verify Pro is active.
+    const sub = await db.select().from(tenantSubscriptions).where(eq(tenantSubscriptions.tenantId, limiterTenantId)).get();
+    const plan = await db.select().from(plans).where(eq(plans.id, sub!.planId)).get();
+    expect(plan!.name).toBe('pro');
+    // Record tenant-level AI consent (register only sets user consentGivenAt).
+    const consentRes = await request(app).post('/api/tenant/ai/consent')
+      .set('Authorization', `Bearer ${limiterToken}`)
+      .send({ accept: true });
+    expect(consentRes.status).toBe(200);
+  });
+
+  it('allows up to DAILY_AI_LIMIT (20) requests', async () => {
+    const body = { messages: [{ role: 'user', parts: [{ text: 'hello' }] }] };
+    // Drain any pre-existing counter for today.
+    const today = new Date().toISOString().slice(0, 10);
+    await db.delete(aiUsage).where(and(eq(aiUsage.tenantId, limiterTenantId), eq(aiUsage.day, today))).catch(() => {});
+    for (let i = 0; i < 20; i++) {
+      const res = await request(app).post('/api/tenant/site/ai-chat')
+        .set('Authorization', `Bearer ${limiterToken}`)
+        .send(body);
+      expect([200, 403, 502]).toContain(res.status);
+    }
+    // 21st should be rate-limited.
+    const res = await request(app).post('/api/tenant/site/ai-chat')
+      .set('Authorization', `Bearer ${limiterToken}`)
+      .send(body);
+    expect(res.status).toBe(429);
+    expect(res.body.code).toBe('AI_RATE_LIMITED');
+  });
+
+  it('counter persists in ai_usage table', async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const row = await db.select().from(aiUsage).where(and(eq(aiUsage.tenantId, limiterTenantId), eq(aiUsage.day, today))).get();
+    expect(row).toBeTruthy();
+    expect(row!.count).toBe(20);
+  });
+
+  it('429 response shape includes remaining: 0', async () => {
+    const res = await request(app).post('/api/tenant/site/ai-chat')
+      .set('Authorization', `Bearer ${limiterToken}`)
+      .send({ messages: [{ role: 'user', parts: [{ text: 'hello' }] }] });
+    expect(res.status).toBe(429);
+    expect(res.body.remaining).toBe(0);
+    expect(res.body.error).toContain('20/day');
   });
 });

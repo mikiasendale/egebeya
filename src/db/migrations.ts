@@ -982,6 +982,16 @@ export async function ensureSchemaMigrations(): Promise<Record<string, string[]>
       column: 'pair_unique',
       sql: `CREATE UNIQUE INDEX IF NOT EXISTS consumer_blocks_pair_unique ON consumer_blocks(consumer_id, tenant_id)`,
     },
+    {
+      table: 'ai_usage',
+      column: 'id',
+      sql: `CREATE TABLE IF NOT EXISTS ai_usage (id TEXT PRIMARY KEY, tenant_id TEXT REFERENCES tenants(id) NOT NULL, day TEXT NOT NULL, count INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL)`,
+    },
+    {
+      table: 'ai_usage',
+      column: 'tenant_day_unique',
+      sql: `CREATE UNIQUE INDEX IF NOT EXISTS ai_usage_tenant_day_unique ON ai_usage(tenant_id, day)`,
+    },
   ];
   for (const m of migrations) {
     try {
