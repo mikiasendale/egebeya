@@ -83,7 +83,7 @@ function validatePassword(password: string): PasswordValidationResult {
 
 const router = Router();
 
-const RESERVED_SLUGS = ['www', 'api', 'admin', 'app', 'mail', 'ftp', 'static', 'cdn', 'blog', 'support', 'help', 'dashboard'];
+const RESERVED_SLUGS = ['www', 'api', 'admin', 'app', 'mail', 'ftp', 'static', 'cdn', 'blog', 'support', 'help', 'dashboard', 'booking', 'auth', 'secure', 'staging', 'payments'];
 
 // ---- httpOnly-cookie session helpers ----
 const ACCESS_COOKIE = 'accessToken';
