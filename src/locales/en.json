@@ -411,9 +411,29 @@
       {
         "heading": "5. Data Deletion Rights",
         "body": "You may request deletion of your data at any time via POST /api/consumer/data-deletion (or by emailing support@egebeya.et). Requests are logged and acknowledged immediately, and fulfilled within 30 days."
+      },
+      {
+        "heading": "6. Service Providers",
+        "body": "We share data only with the processors who run the service for us, each limited to its purpose: Chapa (payment processing — when a business pays for a subscription, Chapa receives the owner's name, email and phone number), Ethio Telecom (hosting infrastructure), Google Gemini (generating business descriptions from the name, category and services you enter), and OpenRouter with Claude (the AI assistant inside the website builder, which processes your existing site content when you use it). None of these providers may use your data for their own purposes."
+      },
+      {
+        "heading": "7. Data Retention",
+        "body": "Identity data is kept only while your account is active. When deletion is fulfilled (within 30 days of your request), identity fields are erased and booking records are anonymized. Payment and invoice records are retained where Ethiopian accounting law requires, but with identity fields removed. Loyalty records are destroyed together with your data."
+      },
+      {
+        "heading": "8. International Data Transfers",
+        "body": "Your data may be processed by the processors above outside Ethiopia. We rely on each processor's data-protection commitments when data leaves Ethiopia."
+      },
+      {
+        "heading": "9. California Privacy Rights",
+        "body": "If you are a California resident, you have the right to know, correct, and delete your personal information. We do not sell or share personal information as those terms are defined by the CCPA/CPRA, so no \"Do Not Sell or Share\" link is required. If our practices ever change, we will update this policy and honor Global Privacy Control opt-out signals before any sale or sharing begins."
+      },
+      {
+        "heading": "10. Who This Policy Covers",
+        "body": "Egebeya is directed to users in Ethiopia. If you use the service from the European Union, the United Kingdom, or the United States, the rights in this policy apply to you regardless of your location."
       }
     ],
-    "contactHeading": "6. Contact",
+    "contactHeading": "11. Contact",
     "contactBody": "Questions about this policy? Reach us at"
   },
   "terms": {
