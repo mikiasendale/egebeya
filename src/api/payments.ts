@@ -136,11 +136,32 @@ router.post('/webhook', webhookLimiter, async (req, res) => {
     // holds the SQLite write lock open.
     let verifiedStatus: string = (status as string) || 'pending';
     let verificationRaw: any = null;
+    let amountMismatch = false;
     try {
       const verification = await verifyPayment(tx_ref);
       verificationRaw = verification.raw ?? null;
       if (verification.status === 'success' || verification.status === 'completed') {
         verifiedStatus = 'completed';
+
+        // S-10: assert the PROVIDER-verified amount against our money record.
+        // Chapa reports amount in whole ETB (major units) with an unreliable
+        // JSON type (number in docs samples, string per SDK types/webhook
+        // payloads) — coerce with Number() and compare in birr at 2-decimal
+        // tolerance. payments.amount is stored in ETB cents. A mismatch means
+        // the charge that actually cleared is not the charge we recorded: do
+        // NOT apply any status effects; ack 200 as an idempotent no-op so
+        // Chapa stops retrying, and leave a security_events trail.
+        const verifiedAmountRaw = verificationRaw?.data?.amount ?? verificationRaw?.amount;
+        const verifiedAmountNum = Number(verifiedAmountRaw);
+        if (Number.isFinite(verifiedAmountNum) && verifiedAmountNum > 0) {
+          const expectedBirr = payment.amount / 100;
+          const delta = Math.abs(verifiedAmountNum - expectedBirr);
+          if (delta > 0.005) {
+            amountMismatch = true;
+          }
+        }
+        // An unusable/absent amount field (provider quirk) preserves current
+        // behavior — status-only — rather than failing every webhook.
       } else if (verification.status === 'failed') {
         verifiedStatus = 'failed';
       }
@@ -151,6 +172,16 @@ router.post('/webhook', webhookLimiter, async (req, res) => {
       } else if (status === 'failed') {
         verifiedStatus = 'failed';
       }
+    }
+
+    if (amountMismatch) {
+      logSecurityEvent({
+        type: 'webhook_amount_mismatch',
+        tenantId: payment.tenantId ?? undefined,
+        ip: ipFromRequest(req),
+        details: { txRef: tx_ref, paymentId: payment.id },
+      });
+      return res.json({ success: true, ignored: 'amount_mismatch' });
     }
 
     // P1.7 collected-vs-invoiced: a completed charge is NOT yet settled cash —

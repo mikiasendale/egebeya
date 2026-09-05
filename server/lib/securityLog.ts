@@ -33,6 +33,7 @@ import crypto from 'crypto';
 export type SecurityEventType =
   | 'failed_login'
   | 'webhook_signature_rejected'
+  | 'webhook_amount_mismatch'
   | 'rate_limit'
   | 'cross_tenant_attempt'
   | 'suspended_tenant_request'
