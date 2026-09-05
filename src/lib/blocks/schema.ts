@@ -16,7 +16,7 @@ export const BLOCK_SCHEMA_VERSION = 1;
 export const CANONICAL_TYPES = [
   'hero', 'about', 'services', 'gallery', 'hours', 'location',
   'testimonials', 'social-links', 'booking-form', 'contact',
-  'deposit-policy', 'custom-html',
+  'deposit-policy',
 ] as const;
 
 export type BlockType = (typeof CANONICAL_TYPES)[number];
@@ -82,11 +82,6 @@ const PROP_SCHEMAS: Record<BlockType, z.ZodTypeAny> = {
     percent: z.number().min(0).max(100).optional(),
     required: z.boolean().optional(),
   }).loose(),
-  // Raw HTML from the merchant is stored verbatim here but MUST be sanitized
-  // by the renderer before insertion into the DOM.
-  'custom-html': z.object({
-    html: z.string().max(50_000).default(''),
-  }).loose(),
 };
 
 const blockSchema = z.object({
@@ -130,11 +125,13 @@ export function migrateBlockDoc(input: unknown): BlockDoc {
   return {
     version: typeof raw.version === 'number' ? raw.version : BLOCK_SCHEMA_VERSION,
     root: (raw.root && typeof raw.root === 'object') ? raw.root : {},
-    content: content.map((b: any) => ({
-      type: b?.type,
-      props: (b?.props && typeof b.props === 'object') ? b.props : {},
-      data: (b?.data && typeof b.data === 'object') ? b.data : {},
-    })),
+    content: content
+      .map((b: any) => ({
+        type: b?.type,
+        props: (b?.props && typeof b.props === 'object') ? b.props : {},
+        data: (b?.data && typeof b.data === 'object') ? b.data : {},
+      }))
+      .filter((b: any) => b.type !== 'custom-html'),
   };
 }
 

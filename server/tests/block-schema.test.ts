@@ -56,7 +56,7 @@ describe('block schema contract (P2.1)', () => {
     }
   });
 
-  it('accepts every canonical type incl. new deposit-policy and custom-html blocks', () => {
+  it('accepts every canonical type incl. deposit-policy blocks', () => {
     const doc = {
       version: BLOCK_SCHEMA_VERSION,
       root: {},
@@ -64,11 +64,29 @@ describe('block schema contract (P2.1)', () => {
     };
     const result = validateBlockDoc(doc);
     // All canonical types must pass validation with empty default props —
-    // except custom-html/deposit-policy which have typed optional fields that
-    // all carry defaults.
+    // deposit-policy has typed optional fields that all carry defaults.
     if (!result.ok) {
       throw new Error('expected ok, got issues: ' + JSON.stringify(result.issues));
     }
+    expect(result.ok).toBe(true);
+  });
+
+  it('strips custom-html blocks on migrate and rejects them as canonical', () => {
+    const doc = {
+      version: BLOCK_SCHEMA_VERSION,
+      root: {},
+      content: [
+        { type: 'hero', props: {}, data: {} },
+        { type: 'custom-html', props: { html: '<script>alert(1)</script>' }, data: {} },
+      ],
+    };
+    const migrated = migrateBlockDoc(doc);
+    const content = migrated.content as Array<{ type: string }>;
+    expect(content.filter((b) => b.type === 'custom-html')).toHaveLength(0);
+    expect(content.some((b) => b.type === 'hero')).toBe(true);
+    // After migration, validateBlockDoc runs migrate again (idempotent) so
+    // the stripped doc passes validation.
+    const result = validateBlockDoc(doc);
     expect(result.ok).toBe(true);
   });
 

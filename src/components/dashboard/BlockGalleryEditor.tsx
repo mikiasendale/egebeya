@@ -36,7 +36,6 @@ export const BLOCK_LABELS: Record<string, { am: string; en: string }> = {
   'booking-form': { am: 'የቀጠሮ ቅጽ', en: 'Booking form' },
   contact: { am: 'አግኙን', en: 'Contact' },
   'deposit-policy': { am: 'የቅድመ ክፍያ ሁኔታ', en: 'Deposit policy' },
-  'custom-html': { am: 'የተቀመጠ ኮድ', en: 'Custom HTML' },
 };
 
 interface GalleryDoc {
