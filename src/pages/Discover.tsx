@@ -1,6 +1,7 @@
 ﻿import React, { useEffect, useRef, useState } from 'react';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
+import { ReportBlockLinks } from '../components/ReportBlockLinks';
 
 type DiscoverBusiness = {
   id: string;
@@ -209,7 +210,8 @@ export function Discover() {
                 ? `${window.location.origin}/${business.slug}/book`
                 : `http://${business.slug}.egebeya.et`;
               return (
-                <a key={business.id} href={href} className="block group">
+                <div key={business.id} className="group">
+                  <a href={href} className="block">
                   <div className="bg-paper-bleached rounded-2xl overflow-hidden border border-ink-rule group-hover:opacity-90 transition-all transform group-hover:-translate-y-1">
                     <div className="h-48 overflow-hidden relative">
                       {business.heroImage ? (
@@ -252,7 +254,10 @@ export function Discover() {
                       </div>
                     </div>
                   </div>
-                </a>
+                  </a>
+                  {/* Wayfinder #19 — notice-and-action footer (Apple 1.2, DSA Art 16) */}
+                  <ReportBlockLinks tenantId={business.id} />
+                </div>
               );
             })}
           </div>

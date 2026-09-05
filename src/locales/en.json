@@ -695,5 +695,23 @@
     "successTitle": "AI features enabled",
     "failedTitle": "Could not save consent",
     "failedBody": "Please try again in a moment."
+  },
+  "trust": {
+    "reportLabel": "Report",
+    "reportTitle": "Report this business",
+    "reportReason": "Why are you reporting it?",
+    "reasonSpam": "Spam or misleading listing",
+    "reasonFraud": "Fraud or scam",
+    "reasonInappropriate": "Inappropriate content",
+    "reasonImpersonation": "Pretending to be someone else",
+    "reasonOther": "Other",
+    "reportDetails": "Anything else we should know? (optional)",
+    "reportSubmit": "Send report",
+    "reportSending": "Sending…",
+    "reportDone": "Thank you. Our team reviews reports within 7 days and removes content that violates our terms.",
+    "reportFailed": "Could not send the report. Please try again.",
+    "blockLabel": "Block this business",
+    "blockDone": "This business is now hidden from your Discover results.",
+    "blockFailed": "Could not block the business. Please try again."
   }
 }

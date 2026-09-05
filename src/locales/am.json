@@ -695,5 +695,23 @@
     "successTitle": "AI አገልግሎቶች ተከፍተዋል",
     "failedTitle": "ምርጫዎ ማስቀመጥ አልተቻለም",
     "failedBody": "እባክዎ ተመልሰው ይሞክሩ።"
+  },
+  "trust": {
+    "reportLabel": "አሳውቅ",
+    "reportTitle": "ይህን ንግድ አሳውቅ",
+    "reportReason": "ለምን እነዚህን እያሳወቁ ናቸው?",
+    "reasonSpam": "የተሳሳተ ወይም የሚያታልል መግለጫ",
+    "reasonFraud": "ማታለል ወይም እጥፍ ማጣት",
+    "reasonInappropriate": "የማይመች ይዘት",
+    "reasonImpersonation": "ሌላ ሰው ሆኖ መውጣት",
+    "reasonOther": "ሌላ",
+    "reportDetails": "ሌላ ማወቅ ያለብን ነገር አለ? (አማራጭ)",
+    "reportSubmit": "አሳወቅ ላክ",
+    "reportSending": "በመላክ ላይ…",
+    "reportDone": "እናመሰግናለን። ቡድናችን ውሳኔ በ7 ቀናት ውስጥ ያገኛል፤ በውሎቻችን የሚስማማ ይዘት ካለ ይነሳል።",
+    "reportFailed": "ማሳወቂያው ማስላክ አልተቻለም። እባክዎ እንደገና ይሞክሩ።",
+    "blockLabel": "ይህን ንግድ አግድ",
+    "blockDone": "ይህ ንግድ ከ Discover ዝርዝርዎ ተደብቋል።",
+    "blockFailed": "ማገድ አልተቻለም። እባክዎ እንደገና ይሞክሩ።"
   }
 }

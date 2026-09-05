@@ -1,14 +1,16 @@
 import { Router } from 'express';
 import { db } from '../db';
-import { tenants, services, staff, staffServices, staffAvailability, appointments, tenantBusinessHours, tenantClosures, pages, payments, users, siteConfig, customerStats, promoCodes, appointmentServices, recurringSeries } from '../db/schema';
+import { tenants, services, staff, staffServices, staffAvailability, appointments, tenantBusinessHours, tenantClosures, pages, payments, users, siteConfig, customerStats, promoCodes, appointmentServices, recurringSeries, consumerBlocks } from '../db/schema';
 import { eq, and, inArray, gte, lt, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import crypto from 'crypto';
+import jwt from 'jsonwebtoken';
 import { searchIntent } from '../db/schema';
 import fs from 'fs';
 import path from 'path';
 import { applyTemplate } from '../../server/lib/mailTemplates';
 import { logSecurityEvent, ipFromRequest } from '../../server/lib/securityLog';
+import { jwtSecret } from './middleware/auth';
 import {
   initiateDirectCharge,
   authorizeDirectCharge,
@@ -69,6 +71,33 @@ router.get('/discover', discoverLimiter, async (req, res) => {
     // server/lib/demoTenant.ts (single source of truth, also used by the
     // analytics exclusions).
     conditions.push(sql`tenants.slug != ${DEMO_TENANT_SLUG}`);
+
+    // Wayfinder #19 (Q3a): a consumer's blocked merchants are a PERSONAL
+    // filter — excluded only when the caller presents a consumer token.
+    // Signed-out discovery is unaffected.
+    let blockedTenantIds: string[] = [];
+    const consumerToken = (req as any).cookies?.accessToken
+      || (req.headers.authorization?.startsWith('Bearer ')
+        ? req.headers.authorization.slice(7)
+        : null);
+    if (consumerToken) {
+      try {
+        const payload: any = jwt.verify(consumerToken, jwtSecret(), { audience: 'consumer' });
+        if (payload?.consumerId) {
+          const blocked = await db.select({ tenantId: consumerBlocks.tenantId })
+            .from(consumerBlocks)
+            .where(eq(consumerBlocks.consumerId, payload.consumerId))
+            .all();
+          blockedTenantIds = blocked.map((b) => b.tenantId);
+        }
+      } catch {
+        // Not a valid consumer token (merchant browsing, signed-out with a
+        // stale header) — ignore and show the unfiltered directory.
+      }
+    }
+    if (blockedTenantIds.length > 0) {
+      conditions.push(sql`tenants.id NOT IN (${sql.join(blockedTenantIds.map((id) => sql`${id}`), sql`, `)})`);
+    }
 
     if (category && typeof category === 'string' && category.trim()) {
       conditions.push(eq(tenants.category, category.trim().toLowerCase()));

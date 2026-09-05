@@ -40,6 +40,8 @@ export type SecurityEventType =
   | 'webhook_idempotent_duplicate'
   | 'data_deletion_request'
   | 'tenant_account_deleted'
+  | 'content_report_filed'
+  | 'consumer_blocked_merchant'
   | 'reminder-sent-sms'
   | 'billing_reminder_sent'
   | 'telegram_start_no_payload'

@@ -17,6 +17,7 @@ import apiKeysRoutes from './api-keys';
 import v1Routes from './v1';
 import telegramRoutes from './telegram';
 import consumerRoutes from './consumer';
+import trustRoutes from './trust';
 import { queueOwnerRouter, queuePublicRouter } from './queue';
 import loyaltyRoutes from './loyalty';
 import { apiKeyLimiter } from '../../server/middleware/rateLimiter';
@@ -47,6 +48,8 @@ router.use('/tenant', siteGeneratorRoutes);
 router.use('/tenant', aiChatRoutes);
 router.use('/tenant', crmRoutes);
 router.use('/public', intentPublicRouter);
+// Wayfinder #19 — trust & safety: public report intake + consumer blocks.
+router.use(trustRoutes);
 router.use('/tenant', intentTenantRouter);
 router.use('/tenant/api-keys', apiKeysRoutes);
 router.use('/tenant/bookings', walkInRouter);

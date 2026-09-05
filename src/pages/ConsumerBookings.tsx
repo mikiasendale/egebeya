@@ -18,6 +18,7 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { authFetch } from '../lib/api';
 import { showToast } from '../components/ui/toast-helper';
+import { ReportBlockLinks } from '../components/ReportBlockLinks';
 
 interface LoyaltyCard {
   punches: number;
@@ -185,6 +186,16 @@ export function ConsumerBookings() {
             </button>
           </div>
         )}
+
+        {/* Wayfinder #19 — report/block footer for the tenant context */}
+        {(() => {
+          const ctxTenant = localStorage.getItem('tenantId');
+          return ctxTenant ? (
+            <div className="mt-6 text-center">
+              <ReportBlockLinks tenantId={ctxTenant} />
+            </div>
+          ) : null;
+        })()}
       </div>
     </main>
   );

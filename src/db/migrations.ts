@@ -945,6 +945,43 @@ export async function ensureSchemaMigrations(): Promise<Record<string, string[]>
       column: 'idx_tenant_start',
       sql: `CREATE INDEX IF NOT EXISTS appointments_tenant_start_idx ON appointments(tenant_id, start_time)`,
     },
+    // ── Wayfinder #14/#19 — UGC reports + consumer blocks ─────────────────
+    // (Apple 1.2 / DSA Art 16 notice-and-action + personal consumer filter.)
+    {
+      table: 'content_reports',
+      column: 'id',
+      sql: `CREATE TABLE IF NOT EXISTS content_reports (
+        id TEXT PRIMARY KEY,
+        tenant_id TEXT REFERENCES tenants(id) NOT NULL,
+        reporter_phone TEXT,
+        reason TEXT NOT NULL,
+        details TEXT,
+        status TEXT NOT NULL DEFAULT 'open',
+        resolution_note TEXT,
+        created_at INTEGER NOT NULL,
+        resolved_at INTEGER
+      )`,
+    },
+    {
+      table: 'content_reports',
+      column: 'idx_status_created',
+      sql: `CREATE INDEX IF NOT EXISTS content_reports_status_created_idx ON content_reports(status, created_at)`,
+    },
+    {
+      table: 'consumer_blocks',
+      column: 'id',
+      sql: `CREATE TABLE IF NOT EXISTS consumer_blocks (
+        id TEXT PRIMARY KEY,
+        consumer_id TEXT REFERENCES consumers(id) NOT NULL,
+        tenant_id TEXT REFERENCES tenants(id) NOT NULL,
+        created_at INTEGER NOT NULL
+      )`,
+    },
+    {
+      table: 'consumer_blocks',
+      column: 'pair_unique',
+      sql: `CREATE UNIQUE INDEX IF NOT EXISTS consumer_blocks_pair_unique ON consumer_blocks(consumer_id, tenant_id)`,
+    },
   ];
   for (const m of migrations) {
     try {

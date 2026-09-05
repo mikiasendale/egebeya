@@ -3,7 +3,7 @@ import { db } from '../db';
 import {
   tenants, users, tenantSubscriptions, plans, appointments,
   customerStats, notificationLog, activationEvents, staff, tenantBusinessHours,
-  promoCodes,
+  promoCodes, contentReports,
 } from '../db/schema';
 import { eq, and, sql, desc, inArray, gte, lt } from 'drizzle-orm';
 import crypto from 'crypto';
@@ -501,6 +501,67 @@ router.post('/winback-leads/:tenantId/offer', async (req, res) => {
   } catch (error) {
     console.error('admin winback offer error:', error);
     res.status(500).json({ error: 'Failed to send winback offer' });
+  }
+});
+
+/**
+ * GET /api/admin/reports — platform-direct moderation queue (Wayfinder #14).
+ * ?status=open|actioned|dismissed (default: open). Joined with the reported
+ * merchant for one-glance review. Stated SLA: review within 7 days.
+ */
+router.get('/reports', async (req, res) => {
+  try {
+    const status = ['open', 'actioned', 'dismissed'].includes(String(req.query.status))
+      ? String(req.query.status)
+      : 'open';
+    const rows = await db
+      .select({
+        id: contentReports.id,
+        tenantId: contentReports.tenantId,
+        tenantName: tenants.name,
+        tenantSlug: tenants.slug,
+        reporterPhone: contentReports.reporterPhone,
+        reason: contentReports.reason,
+        details: contentReports.details,
+        status: contentReports.status,
+        resolutionNote: contentReports.resolutionNote,
+        createdAt: contentReports.createdAt,
+        resolvedAt: contentReports.resolvedAt,
+      })
+      .from(contentReports)
+      .leftJoin(tenants, eq(tenants.id, contentReports.tenantId))
+      .where(eq(contentReports.status, status))
+      .orderBy(desc(contentReports.createdAt))
+      .limit(200)
+      .all();
+    res.json(rows);
+  } catch (error) {
+    console.error('admin reports list error:', error);
+    res.status(500).json({ error: 'Failed to list reports' });
+  }
+});
+
+/**
+ * PATCH /api/admin/reports/:id — resolve a report (actioned | dismissed).
+ */
+router.patch('/reports/:id', adminWriteLimiter, async (req, res) => {
+  try {
+    const id = String(req.params.id || '');
+    const status = String(req.body?.status || '');
+    if (!['actioned', 'dismissed'].includes(status)) {
+      return res.status(400).json({ error: 'status must be actioned or dismissed' });
+    }
+    const note = typeof req.body?.note === 'string' ? req.body.note.slice(0, 1000) : null;
+    const updated = await db
+      .update(contentReports)
+      .set({ status, resolutionNote: note, resolvedAt: Date.now() })
+      .where(eq(contentReports.id, id))
+      .returning({ id: contentReports.id });
+    if (updated.length === 0) return res.status(404).json({ error: 'Report not found' });
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('admin report resolve error:', error);
+    res.status(500).json({ error: 'Failed to resolve report' });
   }
 });
 

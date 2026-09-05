@@ -521,3 +521,35 @@ export const activationEvents = sqliteTable('activation_events', {
   index('activation_events_tenant_event_idx').on(table.tenantId, table.event),
   index('activation_events_created_idx').on(table.createdAt),
 ]));
+
+// Wayfinder #14/#19 — UGC notice-and-action (Apple 1.2, DSA Art 16).
+// Reports are filed by consumers about a merchant (optionally anonymous) and
+// reviewed platform-direct. Deliberately NOT stored on the tenant settings
+// JSON: that blob is owner-writable, and the reported party must never hold
+// the evidence against them (decision #14 Q4).
+export const contentReports = sqliteTable('content_reports', {
+  id: text('id').primaryKey(),
+  tenantId: text('tenant_id').references(() => tenants.id).notNull(),
+  reporterPhone: text('reporter_phone'), // null = anonymous report
+  reason: text('reason').notNull(), // spam | fraud_or_scam | inappropriate_content | impersonation | other
+  details: text('details'),
+  status: text('status').notNull().default('open'), // open | actioned | dismissed
+  resolutionNote: text('resolution_note'),
+  createdAt: integer('created_at').notNull(),
+  resolvedAt: integer('resolved_at'),
+}, (table) => ([
+  index('content_reports_status_created_idx').on(table.status, table.createdAt),
+]));
+
+// Personal consumer→merchant filter (decision #14 Q3a): hides the merchant
+// from that consumer's /discover results only — no effect on other consumers,
+// no takedown (takedown is what the report SLA does). Many-to-many edge that
+// no single tenant's settings JSON can hold.
+export const consumerBlocks = sqliteTable('consumer_blocks', {
+  id: text('id').primaryKey(),
+  consumerId: text('consumer_id').references(() => consumers.id).notNull(),
+  tenantId: text('tenant_id').references(() => tenants.id).notNull(),
+  createdAt: integer('created_at').notNull(),
+}, (table) => ([
+  uniqueIndex('consumer_blocks_pair_unique').on(table.consumerId, table.tenantId),
+]));
