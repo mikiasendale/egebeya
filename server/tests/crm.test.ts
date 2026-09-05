@@ -9,7 +9,12 @@
  *   5. V8 consent filter: a merchant_card-only consumer (loyalty-participation
  *      consent, NEVER marketing consent) is excluded from the blast list.
  */
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
+
+// Stub the SMS channel so tests never hit the real gateway.
+vi.mock('../../server/lib/sms', () => ({
+  sendSms: vi.fn().mockResolvedValue({ success: true, messageId: 'test-msg-id' }),
+}));
 import request from 'supertest';
 import express from 'express';
 import crypto from 'crypto';
