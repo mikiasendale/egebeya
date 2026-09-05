@@ -218,7 +218,9 @@ router.post('/marketing/blast', async (req, res) => {
           text: fullText,
           tenantId,
           refType: 'customer',
-          refId: r.phone,
+          // S-1: masked in the notification log (raw phone stays in the
+          // tenant-scoped customer_stats row, where it belongs).
+          refId: r.phone.slice(0, 7) + '****',
         });
         if (!outcome.ok) throw new Error(outcome.error || 'send failed');
         sent += 1;

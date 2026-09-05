@@ -178,7 +178,9 @@ export async function generateOtp(
     to: { phone: normalized },
     text,
     refType: 'otp',
-    refId: normalized,
+    // S-1: never store a raw phone in notification_log — same masking
+    // convention as server/lib/sms.ts redactPhone().
+    refId: normalized.slice(0, 7) + '****',
   });
   if (!outcome.ok && outcome.status !== 'disabled') {
     // sms: gateway rejection is a hard error (existing semantics). telegram:

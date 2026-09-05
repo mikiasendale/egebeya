@@ -117,7 +117,7 @@ router.put('/:id/status', async (req, res) => {
           refId: id,
         });
       } catch (punchErr) {
-        console.error('[loyalty] punch failed (non-fatal):', punchErr);
+        console.error('[loyalty] punch failed (non-fatal):', (punchErr as Error)?.message || punchErr);
       }
 
       const paymentRecord = await db.select({ amount: payments.amount })

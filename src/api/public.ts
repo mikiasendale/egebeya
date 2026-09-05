@@ -872,7 +872,7 @@ router.post('/bookings', bookingWriteLimiter, async (req, res) => {
       const reward = await pendingRewardDiscount(tenant.id, customerPhone, totalPriceCents - promoDiscount);
       loyaltyDiscount = reward.discountEtbCents;
     } catch (lErr) {
-      console.error('[loyalty] redemption preview failed (non-fatal):', lErr);
+      console.error('[loyalty] redemption preview failed (non-fatal):', lErr?.message || lErr);
     }
     const effectiveAmount = Math.max(0, totalPriceCents - promoDiscount - loyaltyDiscount - quietDiscount);
 
@@ -1020,7 +1020,7 @@ router.post('/bookings', bookingWriteLimiter, async (req, res) => {
           const verification = await verifyPayment(txRef);
           verifiedStatus = verification.status;
         } catch (verifyErr) {
-          console.error('Chapa verify failed (leaving as pending):', verifyErr);
+          console.error('Chapa verify failed (leaving as pending):', verifyErr?.message || verifyErr);
         }
 
         if (verifiedStatus === 'success') {
@@ -1048,7 +1048,7 @@ router.post('/bookings', bookingWriteLimiter, async (req, res) => {
           paymentStatus = 'pending';
         }
       } catch (chapaErr: any) {
-        console.error('Chapa initiation failed — rolling back payment+appointment:', chapaErr?.message || chapaErr);
+        console.error('Chapa initiation failed — rolling back payment+appointment:', chapaErr?.message);
         try {
           await db.delete(payments).where(eq(payments.id, paymentId));
         } catch {}
