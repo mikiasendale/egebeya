@@ -245,9 +245,14 @@ describe('Pro build pipeline', () => {
     expect(publishedHtml).toContain('<iframe');
   });
 
-  it('publish preserves allowed iframe src matching PUBLIC_EMBED_DOMAIN', async () => {
-    const embedDomain = process.env.PUBLIC_EMBED_DOMAIN || process.env.APP_URL || 'http://localhost:3000';
-    const embedOrigin = new URL(embedDomain).origin;
+  it('publish preserves allowed iframe src matching the widget origin', async () => {
+    // Mirror the server-side sanitizer's allowlist (src/lib/sanitizePublishedCode.ts):
+    // env-configured origins when present, else its built-in widget origin. This
+    // keeps the assertion env-independent (no .env on CI runners).
+    const configuredDomain = process.env.PUBLIC_EMBED_DOMAIN || process.env.APP_URL;
+    const embedOrigin = configuredDomain
+      ? new URL(configuredDomain).origin
+      : 'https://api.egebeya.et';
 
     const htmlWithSafeIframe = `<!DOCTYPE html>
 <html lang="en">

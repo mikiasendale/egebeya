@@ -12,7 +12,10 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [20, 22]
+        # jsdom 30 (jsdom >=30.0.1) declares engines ^22.22.2 || ^24.15.0 || >=26.0.0
+        # and its nested undici >=22.19.0 — Node 20 cannot start the jsdom test
+        # environment (webidl.util.markAsUncloneable crashes), so it is dropped.
+        node-version: [22, 24]
       fail-fast: false
 
     steps:

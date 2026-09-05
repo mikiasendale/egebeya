@@ -190,7 +190,11 @@ describe('AI daily limiter (S-7)', () => {
       const res = await request(app).post('/api/tenant/site/ai-chat')
         .set('Authorization', `Bearer ${limiterToken}`)
         .send(body);
-      expect([200, 403, 502]).toContain(res.status);
+      // Any status except 429 proves the request passed the limiter. 200/502 =
+      // provider answered (or errored) when OPENROUTER_API_KEY is set; 500 is
+      // the documented env-gated outcome when the key is unset (CI runs have no
+      // OPENROUTER_API_KEY); 403 would mean the Pro gate misfired.
+      expect([200, 403, 500, 502]).toContain(res.status);
     }
     // 21st should be rate-limited.
     const res = await request(app).post('/api/tenant/site/ai-chat')

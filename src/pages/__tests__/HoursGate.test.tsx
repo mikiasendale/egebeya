@@ -127,7 +127,9 @@ describe('P2.6 hours-confirmation banner (B2)', () => {
       // The DARK stamp is part of the unconfirmed state.
       await waitFor(() => expect(screen.getByTestId('dark-stamp')).toBeTruthy());
       const action = screen.getByTestId('setup-banner-action');
-      expect(action.getAttribute('href')).toBe('/settings');
+      // Settings lives under the /dashboard tree (App.tsx mounts Dashboard at
+      // /dashboard/*) — a bare "/settings" would hit the /:slug public route.
+      expect(action.getAttribute('href')).toBe('/dashboard/settings');
       expect(action.textContent).toContain('አረጋግጥ');
       cleanup();
     }
