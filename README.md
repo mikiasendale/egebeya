@@ -29,7 +29,9 @@ A multi-tenant SaaS platform for service-based businesses in Ethiopia to manage 
 
 ### Prerequisites
 
-- Node.js 20+ (tested on 24.x)
+- Node.js 22.22+ (CI runs the matrix on 22 and 24; jsdom 30 — a dev dependency
+  used by the sanitizer + frontend tests — requires Node ≥22.19, so Node 20 no
+  longer works for `npm test` or `npm install`)
 - npm
 
 ### Installation
@@ -193,24 +195,28 @@ Documenting the exact problems solved during the Render launch so future deploys
 ## Testing
 
 ```bash
-npm run test      # full Vitest suite (718 tests across 120 files; 715 passing)
+npm run test      # full Vitest suite (762 tests across 126 files — all passing)
 npm run lint      # tsc --noEmit typecheck + motion-law scan
 ```
 
-**Known failures (pre-existing, verified at commit `3e364c9` — none are regressions):**
-
-- `HoursGate.test.tsx` — asserts a banner `href` of `/settings` where the app correctly renders `/dashboard/settings`.
-- `crm.test.ts` "marketing/blast sends only to opted-in" — the fixture phone (`+251500…`) is rejected by SMSEthiopia's live format check (`Invalid MSISDN`); the assertion needs a stubbed provider or a `+2519…` fixture.
-- `security-hardening.test.ts` F.4 — passes only when the mailer stubs (no real SMTP in env); a machine `.env` with real Brevo credentials makes the send attempt network delivery.
-
 ### Backend test notes
 
-- Tests share a local `file:sqlite.db`. If a run leaves it dirty, restore it:
+- Tests share a local `file:sqlite.db`. It is gitignored runtime data — the
+  schema self-provisions in `server/tests/_setup.ts` (same idempotent
+  migrations as production boot), so the file can simply be deleted for a
+  pristine run:
   ```bash
-  git checkout -- sqlite.db
+  rm -f sqlite.db
+  npm test
   ```
+- A real `.env` is loaded when present (secrets, provider keys, SMTP). CI runs
+  without one: `server/tests/_setup.ts` generates runtime-only random secrets,
+  and provider-dependent endpoints behave in their env-gated way (e.g. AI chat
+  returns its "not configured" 500, the mailer logs instead of sending). If a
+  suite passes in CI but not locally, run it with `.env` moved aside against a
+  fresh DB.
 - Vitest globals are **off** — each test file must import `afterEach` / `cleanup` explicitly.
-- Notable suites: `server/tests/booking-concurrency.test.ts` (BEGIN IMMEDIATE write-lock serialization), `server/tests/chain-*.test.ts` (real-app cross-API chains: payments→loyalty, queue, onboarding), `server/tests/loyalty*.test.ts` (gate + punch + redemption + merchant issuance), `server/tests/admin-demo-exclusion.test.ts` (is_demo aggregates), `server/tests/winback-cron.test.ts`, `server/tests/intent.test.ts`, `server/tests/customer-health.test.ts`, plus `src/pages/__tests__` component tests.
+- Notable suites: `server/tests/booking-concurrency.test.ts` (BEGIN IMMEDIATE write-lock serialization), `server/tests/chain-*.test.ts` (real-app cross-API chains: payments→loyalty, queue, quiet-hours analytics, onboarding), `server/tests/loyalty*.test.ts` (gate + punch + redemption + merchant issuance), `server/tests/admin-demo-exclusion.test.ts` (is_demo aggregates), `server/tests/winback-cron.test.ts`, `server/tests/intent.test.ts`, `server/tests/customer-health.test.ts`, plus `src/pages/__tests__` component tests.
 
 ---
 
