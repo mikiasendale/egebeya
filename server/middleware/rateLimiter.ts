@@ -55,6 +55,33 @@ export const authLimiter = rateLimit({
 });
 
 /**
+ * Token refresh — deliberately SEPARATE from the auth limiter (F-4): refresh
+ * is cookie-gated, rotation-protected, and polled silently by the SPA, so
+ * failed logins must never consume the refresh budget (and vice versa). The
+ * brute-force value of refresh is low (a valid signature + live family is
+ * required), so the per-IP budget is generous.
+ */
+export const refreshLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: isTestEnv,
+  message: {
+    error: 'Too many refresh attempts, please try again later.',
+    code: 'RATE_LIMITED_REFRESH',
+  },
+  handler: (req, res, _next, options) => {
+    logSecurityEvent({
+      type: 'rate_limit',
+      ip: ipFromRequest(req),
+      details: { surface: 'refresh', message: options.message },
+    });
+    res.status(429).json(options.message);
+  },
+});
+
+/**
  * Discover directory — a public, tenant-agnostic listing that is cheap to
  * scrape. 60 req/min/IP keeps a scraper honest while leaving real visitors
  * alone.

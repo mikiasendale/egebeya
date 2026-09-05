@@ -10,7 +10,7 @@ import { trackEvent, type ActivationEvent } from '../../server/lib/analytics';
 import { applyTemplate } from '../../server/lib/mailTemplates';
 import { jwtSecret, refreshSecret, requireAuth } from './middleware/auth';
 import { csrfProtection } from './middleware/csrf';
-import { authLimiter, otpLimiter } from '../../server/middleware/rateLimiter';
+import { authLimiter, otpLimiter, refreshLimiter } from '../../server/middleware/rateLimiter';
 import { logSecurityEvent, ipFromRequest } from '../../server/lib/securityLog';
 import { normalizePhone } from '../lib/phone';
 import { generateOtp, verifyOtp } from '../../server/lib/otp';
@@ -406,7 +406,7 @@ router.post('/login', authLimiter, async (req, res) => {
   console.error('Login error:', error);
   res.status(500).json({ error: 'Failed to login' });
  }
-});router.post('/refresh', authLimiter, async (req, res) => {
+});router.post('/refresh', refreshLimiter, async (req, res) => {
  try {
   const refreshToken = (req as any).cookies?.refreshToken || req.body?.refreshToken;
   if (!refreshToken) return res.status(401).json({ error: 'Refresh token required' });
