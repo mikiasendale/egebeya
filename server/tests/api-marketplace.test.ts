@@ -55,6 +55,8 @@ import {
   plans,
   apiKeys,
   tenantBusinessHours,
+  appointments,
+  payments,
 } from '../../src/db/schema';
 
 const app = express();
@@ -179,6 +181,8 @@ describe('API Marketplace', () => {
     await db.delete(staffServices).where(eq(staffServices.staffId, staffId)).catch(() => {});
     await db.delete(staff).where(eq(staff.tenantId, tenantId)).catch(() => {});
     await db.delete(services).where(eq(services.tenantId, tenantId)).catch(() => {});
+    await db.delete(appointments).where(eq(appointments.tenantId, tenantId)).catch(() => {});
+    await db.delete(payments).where(eq(payments.tenantId, tenantId)).catch(() => {});
     await db.delete(users).where(eq(users.tenantId, tenantId)).catch(() => {});
     await db.delete(tenantSubscriptions).where(eq(tenantSubscriptions.tenantId, tenantId)).catch(() => {});
     await db.delete(tenants).where(eq(tenants.id, tenantId)).catch(() => {});
@@ -294,6 +298,15 @@ describe('API Marketplace', () => {
     });
 
     it('read:bookings key can access GET /api/v1/bookings', async () => {
+      // Seed one booking so the projection is non-empty and opaqueId is emitted.
+      const appId = crypto.randomUUID();
+      const opaqueId = crypto.randomBytes(16).toString('hex');
+      await db.insert(appointments).values({
+        id: appId, tenantId, customerName: 'V1 Customer', customerPhone: '+251900000001',
+        staffId, serviceId, startTime: Date.now() + 86400_000, endTime: Date.now() + 86400_000 + 1800_000,
+        status: 'pending', opaqueId,
+      }).catch(() => {});
+
       const res = await request(app)
         .get('/api/v1/bookings')
         .set('x-api-key', readBookingsKey)
@@ -302,6 +315,10 @@ describe('API Marketplace', () => {
       expect(res.status).toBe(200);
       expect(res.body.tenant).toBeTruthy();
       expect(res.body.tenant.slug).toBe(slug);
+      const booking = res.body.bookings.find((b: any) => b.id === opaqueId);
+      expect(booking).toBeTruthy();
+      expect(booking.id).toBe(opaqueId);
+      expect(booking.customer_name).toBe('V1 Customer');
     });
 
     it('read:bookings key CANNOT access GET /api/v1/services (403)', async () => {
@@ -342,6 +359,34 @@ describe('API Marketplace', () => {
         .query({ tenant_slug: slug });
 
       expect(res.status).toBe(403);
+    });
+
+    it('CSV export emits opaqueId instead of the internal UUID', async () => {
+      const appId = crypto.randomUUID();
+      const opaqueId = crypto.randomBytes(16).toString('hex');
+      await db.insert(appointments).values({
+        id: appId, tenantId, customerName: 'CSV Customer', customerPhone: '+251900000002',
+        customerEmail: 'csv@test.test', staffId, serviceId,
+        startTime: Date.now() + 86400_000, endTime: Date.now() + 86400_000 + 1800_000,
+        status: 'confirmed', opaqueId,
+      }).catch(() => {});
+      const payId = crypto.randomUUID();
+      await db.insert(payments).values({
+        id: payId, tenantId, appointmentId: appId, amount: 50000, status: 'completed',
+      }).catch(() => {});
+
+      const res = await request(app)
+        .get('/api/tenant/export/csv')
+        .set(await authHeader())
+        .query({ type: 'bookings', tenantId });
+
+      expect(res.status).toBe(200);
+      const csv = res.text;
+      const header = csv.split('\n')[0];
+      expect(header).toContain('ID');
+      const row = csv.split('\n')[1];
+      expect(row).toContain(opaqueId);
+      expect(row).not.toContain(appId);
     });
   });
 

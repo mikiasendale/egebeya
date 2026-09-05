@@ -2165,7 +2165,7 @@ router.get('/export/csv', async (req, res) => {
         if (status) whereConditions.push(eq(appointments.status, status as string));
 
         const bookingsData = await db.select({
-          id: appointments.id,
+           opaqueId: appointments.opaqueId,
           customerName: appointments.customerName,
           customerPhone: appointments.customerPhone,
           customerEmail: appointments.customerEmail,
@@ -2187,7 +2187,7 @@ router.get('/export/csv', async (req, res) => {
 
         for (const booking of bookingsData) {
           writeRow([
-            booking.id,
+            booking.opaqueId,
             booking.customerName,
             booking.customerPhone,
             booking.customerEmail || '',

@@ -101,7 +101,7 @@ router.get('/bookings', requireApiKey('read:bookings'), async (req, res) => {
     if (!tenant) return;
 
     const rows = await db.select({
-      id: appointments.id,
+      id: appointments.opaqueId,
       customerName: appointments.customerName,
       staffId: appointments.staffId,
       startTime: appointments.startTime,
