@@ -187,10 +187,12 @@ router.post('/staff/invite', requirePlanLimit('staff'), async (req, res) => {
       });
     }
 
+    // S-2: hash at rest — the raw token lives only in the one-time link.
     const resetToken = crypto.randomUUID();
+    const resetTokenHash = crypto.createHash('sha256').update(resetToken, 'utf8').digest('hex');
     await db.insert(passwordResets).values({
       id: crypto.randomUUID(),
-      token: resetToken,
+      token: resetTokenHash,
       userId,
       expiresAt: Date.now() + 15 * 60 * 1000,
     });

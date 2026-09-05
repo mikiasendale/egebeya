@@ -18,6 +18,14 @@ import { getOrCreateFreePlan } from '../../server/lib/plans';
 
 import zxcvbn from 'zxcvbn';
 
+// S-2: reset tokens are stored as SHA-256 hashes at rest (same pattern as
+// OTP codes in server/lib/otp.ts) — a DB leak must not yield usable reset
+// links. The raw token exists only in the email/SMS link. Legacy plaintext
+// rows simply fail lookup and lapse within their 15-minute TTL.
+function hashResetToken(token: string): string {
+  return crypto.createHash('sha256').update(token, 'utf8').digest('hex');
+}
+
 /**
  * Password validation with strength checking.
  * Enforces minimum length, complexity, and uses zxcvbn for strength estimation.
@@ -504,7 +512,7 @@ router.post('/forgot-password', authLimiter, async (req, res) => {
     const token = crypto.randomUUID();
     await db.insert(passwordResets).values({
       id: crypto.randomUUID(),
-      token,
+      token: hashResetToken(token),
       userId: user.id,
       expiresAt: Date.now() + 15 * 60 * 1000 // 15 mins
     });
@@ -550,7 +558,7 @@ router.post('/reset-password', authLimiter, async (req, res) => {
       });
     }
 
-    const resetRecord = await db.select().from(passwordResets).where(eq(passwordResets.token, token)).get();
+    const resetRecord = await db.select().from(passwordResets).where(eq(passwordResets.token, hashResetToken(token))).get();
     if (!resetRecord) return res.status(400).json({ error: 'Invalid or expired token' });
 
     if (Date.now() > resetRecord.expiresAt) {
@@ -826,7 +834,7 @@ router.post('/verify-otp', otpLimiter, async (req, res) => {
 
       await db.insert(passwordResets).values({
         id: crypto.randomUUID(),
-        token: tempToken,
+        token: hashResetToken(tempToken),
         userId: user.id,
         expiresAt: Date.now() + 5 * 60 * 1000, // 5 minutes
       });
@@ -915,7 +923,7 @@ router.post('/confirm-password-reset', otpLimiter, async (req, res) => {
       });
     }
 
-    const resetRecord = await db.select().from(passwordResets).where(eq(passwordResets.token, resetToken)).get();
+    const resetRecord = await db.select().from(passwordResets).where(eq(passwordResets.token, hashResetToken(resetToken))).get();
     if (!resetRecord) {
       return res.status(400).json({ error: 'Invalid or expired reset token. Please start the reset process again.' });
     }
