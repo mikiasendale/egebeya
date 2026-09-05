@@ -10,6 +10,8 @@ type EnvCheck = {
   /** SHA-256 fingerprints of known-leaked values (never store the values themselves —
    *  the literals were once committed to a public repo; see C-2 in the 2026-09-05 audit). */
   rejectFingerprints?: string[];
+  /** Plain equality reject for NON-secret flags (no fingerprint needed). */
+  rejectIfEquals?: string[];
   prodOnly?: boolean;
 };
 
@@ -42,6 +44,16 @@ const checks: EnvCheck[] = [
     read: () => process.env.PUBLIC_EMBED_DOMAIN?.trim() || process.env.APP_URL?.trim() || null,
     prodOnly: true,
   },
+  {
+    name: 'ENABLE_TEST_ENDPOINTS',
+    // S-6: /api/test/* exposes an authenticated mail-send surface. It is
+    // mounted only when this flag is exactly 'true' (src/api/index.ts) —
+    // production must refuse to boot with it on, so a copy-pasted .env can
+    // never ship the debug surface.
+    read: () => process.env.ENABLE_TEST_ENDPOINTS?.trim() || null,
+    rejectIfEquals: ['true'],
+    prodOnly: true,
+  },
 ];
 
 export function validateProductionEnv(): void {
@@ -69,6 +81,10 @@ export function validateProductionEnv(): void {
     if (c.prodOnly && !isProd) continue;
     if (skipChapa && (c.name === 'CHAPA_SECRET_KEY' || c.name === 'CHAPA_WEBHOOK_SECRET')) continue;
     const value = c.read();
+    if (c.rejectIfEquals && value && c.rejectIfEquals.includes(value)) {
+      failures.push(`${c.name}=${value} must not be enabled in production`);
+      continue;
+    }
     if (!value) {
       failures.push(`${c.name} is not set`);
       continue;

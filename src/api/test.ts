@@ -17,7 +17,7 @@ router.post('/send-email', async (req, res) => {
       channel: 'email',
       template: 'test',
       to: { email: to },
-      subject: 'Test Email from Lux Nails & Spa',
+      subject: 'Test email from Egebeya',
       text: 'This is a test email to verify connectivity.',
     });
     if (!outcome.ok) throw new Error(outcome.error || 'send failed');
