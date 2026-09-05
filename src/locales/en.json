@@ -682,5 +682,18 @@
   "receipt": {
     "telegramCta": "ማስታወሻ በ Telegram · Remind me there",
     "telegramUnavailable": "Telegram reminders are not available yet. Please check back later."
+  },
+  "aiConsent": {
+    "title": "Turn on AI features?",
+    "intro": "Egebeya's AI features send data to third-party AI providers. Nothing is sent until you agree:",
+    "geminiData": "generates business descriptions and marketing snippets. We send your business name, category, city and the services you enter.",
+    "openrouterData": "powers the AI assistant in the website builder. We send your existing site content and the messages you type.",
+    "optOut": "You can keep using Egebeya without AI features if you decline. This choice applies to all AI features and is stored on your account.",
+    "accept": "I agree — enable AI features",
+    "accepting": "Saving…",
+    "decline": "No thanks",
+    "successTitle": "AI features enabled",
+    "failedTitle": "Could not save consent",
+    "failedBody": "Please try again in a moment."
   }
 }

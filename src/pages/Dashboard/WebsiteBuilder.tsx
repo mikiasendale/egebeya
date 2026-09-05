@@ -18,6 +18,7 @@ import { showToast } from '../../components/ui/toast-helper';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { StaffRedirect } from './StaffRedirect';
+import { AiConsentModal } from '../../components/AiConsentModal';
 import { useBuilderMode } from './BuilderModeContext';
 import { BlockGalleryEditor } from '../../components/dashboard/BlockGalleryEditor';
 import { ValuePricingSheet, LockChip, usePlanGate } from '../../components/dashboard/VelvetRope';
@@ -167,6 +168,22 @@ function WebsiteBuilderInner() {
   }, []);
 
   // ---- AI Assistant ----
+  // Wayfinder #18 — AI consent (Apple 5.1.2(i)): no chat opens before the
+  // owner has opted in to third-party AI processing.
+  const [aiConsentOpen, setAiConsentOpen] = useState(false);
+  const openAiPanelIfConsented = async (): Promise<void> => {
+    try {
+      const r = await authFetch('/api/tenant/ai/consent');
+      const body = r.ok ? await r.json().catch(() => ({})) : {};
+      if (body?.consentedAt) {
+        setAiOpen((o) => !o);
+        return;
+      }
+      setAiConsentOpen(true);
+    } catch {
+      showToast('AI Assistant', 'Could not check AI consent state.', 'destructive');
+    }
+  };
   const handleAiClick = () => {
     if (!planState.isPro) {
       // P5.4: label, don't hide — open the value-anchored pricing sheet.
@@ -174,7 +191,7 @@ function WebsiteBuilderInner() {
       return;
     }
     if (mode === 'code') {
-      setAiOpen((o) => !o); // toggle panel
+      void openAiPanelIfConsented();
     }
     if (mode === 'puck') {
       showToast('AI Assistant (Visual)', 'AI-powered Visual Mode edits are coming soon.');
@@ -292,6 +309,13 @@ function WebsiteBuilderInner() {
 
       {/* Subscribe-to-Pro modal */}
       <ValuePricingSheet open={velvetOpen} onClose={() => setVelvetOpen(false)} info={planGate.info} />
+
+      {/* Wayfinder #18 — AI consent (Apple 5.1.2(i)) before the chat opens */}
+      <AiConsentModal
+        open={aiConsentOpen}
+        onClose={() => setAiConsentOpen(false)}
+        onConsented={() => { setAiConsentOpen(false); setAiOpen(true); }}
+      />
     </div>
   );
 }

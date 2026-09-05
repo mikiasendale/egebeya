@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Send, Link as LinkIcon, Check, Rocket, Loader2, Sparkles } from 'lucide-react';
 import { authFetch } from '../lib/api';
 import { InstantEmpireAnimation } from '../components/InstantEmpireAnimation';
+import { AiConsentModal, fetchAiWithConsent } from '../components/AiConsentModal';
 
 interface BusinessHoursState {
   [dayOfWeek: number]: { open: string; close: string; closed: boolean };
@@ -55,6 +56,9 @@ export function SetupWizard() {
   // Step 5 — AI "About" block
   const [description, setDescription] = useState('');
   const [aiNotice, setAiNotice] = useState('');
+  // Wayfinder #18 — AI consent gate (Apple 5.1.2(i)): shown before first AI use.
+  const [aiConsentOpen, setAiConsentOpen] = useState(false);
+  const pendingAiRun = React.useRef<(() => void) | null>(null);
 
   // Step 6 — publish + Instant Empire
   const [listPublicly, setListPublicly] = useState(true);
@@ -190,7 +194,7 @@ export function SetupWizard() {
     setError('');
     try {
       const serviceNames = serviceName.trim() ? [serviceName.trim()] : [];
-      const res = await authFetch('/api/tenant/ai/generate-description', {
+      const res = await fetchAiWithConsent('/api/tenant/ai/generate-description', {
         method: 'POST',
         body: JSON.stringify({
           businessName: businessName.trim() || 'My business',
@@ -198,7 +202,8 @@ export function SetupWizard() {
           city: city.trim() || undefined,
           services: serviceNames,
         }),
-      });
+      }, () => { pendingAiRun.current = () => void generateAbout(); setAiConsentOpen(true); });
+      if (!res) return; // consent modal opened; the run resumes after accept
       if (!res.ok) {
         if (res.status === 403 || res.status === 401) {
           setAiNotice('AI generation is available on the Pro plan. Write your own About text below — you can upgrade later in Settings.');
@@ -733,6 +738,13 @@ export function SetupWizard() {
           </div>
         </div>
       </div>
+
+      {/* Wayfinder #18 — AI consent (Apple 5.1.2(i)) before any AI data leaves */}
+      <AiConsentModal
+        open={aiConsentOpen}
+        onClose={() => { setAiConsentOpen(false); pendingAiRun.current = null; }}
+        onConsented={() => { setAiConsentOpen(false); const run = pendingAiRun.current; pendingAiRun.current = null; run?.(); }}
+      />
     </div>
   );
 }

@@ -22,7 +22,7 @@
 
 import { Router } from 'express';
 import { db } from '../db';
-import { securityEvents } from '../db/schema';
+import { securityEvents, tenants } from '../db/schema';
 import { eq } from 'drizzle-orm';
 import crypto from 'crypto';
 import { requireAuth } from './middleware/auth';
@@ -90,9 +90,61 @@ function logAiUsage(tenantId: string, ip: string | null, model: string): void {
   });
 }
 
+// ── AI consent gate (Wayfinder #13/#18 — Apple 5.1.2(i)) ────────────────────
+// One per-owner consent covers every AI feature. Stored on the tenant
+// settings JSON as `aiConsentAt` (decision Q2 — no new table). Endpoints
+// reject with AI_CONSENT_REQUIRED until the flag exists, so no personal or
+// business data ever reaches Google Gemini or OpenRouter before opt-in.
+
+async function aiConsentedAt(tenantId: string): Promise<number | null> {
+  const tenant = await db.select({ settings: tenants.settings }).from(tenants).where(eq(tenants.id, tenantId)).get();
+  const ts = (tenant?.settings as any)?.aiConsentAt;
+  return typeof ts === 'number' ? ts : null;
+}
+
+async function requireAiConsent(req: any, res: any): Promise<boolean> {
+  const tenantId = (req as any).user?.tenantId;
+  const consentedAt = await aiConsentedAt(tenantId);
+  if (consentedAt) return true;
+  res.status(403).json({
+    error: 'AI features require consent before any data is sent to third-party AI providers.',
+    code: 'AI_CONSENT_REQUIRED',
+  });
+  return false;
+}
+
+// GET /api/tenant/ai/consent — current consent state for the dashboard.
+router.get('/ai/consent', async (req, res) => {
+  const { tenantId } = (req as any).user;
+  try {
+    res.json({ consentedAt: await aiConsentedAt(tenantId) });
+  } catch (error: any) {
+    console.error('[ai-consent] get error:', error?.message || error);
+    res.status(500).json({ error: 'Failed to read AI consent state' });
+  }
+});
+
+// POST /api/tenant/ai/consent — record the owner's explicit opt-in.
+router.post('/ai/consent', tenantWriteLimiter, async (req, res) => {
+  const { tenantId } = (req as any).user;
+  try {
+    const tenant = await db.select().from(tenants).where(eq(tenants.id, tenantId)).get();
+    if (!tenant) return res.status(404).json({ error: 'Tenant not found' });
+    const settings = { ...((tenant.settings as any) || {}), aiConsentAt: Date.now() };
+    await db.update(tenants).set({ settings }).where(eq(tenants.id, tenantId));
+    res.json({ ok: true, consentedAt: settings.aiConsentAt });
+  } catch (error: any) {
+    console.error('[ai-consent] post error:', error?.message || error);
+    res.status(500).json({ error: 'Failed to record AI consent' });
+  }
+});
+
 // POST /api/tenant/site/ai-chat
 router.post('/site/ai-chat', async (req, res) => {
   const { tenantId } = (req as any).user;
+
+  // 0. AI consent gate (before the plan gate — no data leaves without opt-in)
+  if (!(await requireAiConsent(req, res))) return;
 
   // 1. Pro-plan gate
   const plan = await requireProPlan(req, res);
@@ -245,6 +297,9 @@ Make sure to escape any special characters properly in the JSON.`;
 router.post('/ai/generate-description', tenantWriteLimiter, async (req, res) => {
   const { tenantId } = (req as any).user;
 
+  // AI consent gate (before the plan gate — no data leaves without opt-in)
+  if (!(await requireAiConsent(req, res))) return;
+
   // Pro-plan gate
   const plan = await requireProPlan(req, res);
   if (!plan) return;
@@ -288,6 +343,9 @@ router.post('/ai/generate-description', tenantWriteLimiter, async (req, res) => 
  * Output: { snippet: string; locale: 'en' | 'am' }
  */
 router.post('/ai/marketing-snippet', tenantWriteLimiter, async (req, res) => {
+  // AI consent gate (before the plan gate — no data leaves without opt-in)
+  if (!(await requireAiConsent(req, res))) return;
+
   const plan = await requireProPlan(req, res);
   if (!plan) return;
 

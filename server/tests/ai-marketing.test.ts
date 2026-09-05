@@ -83,8 +83,15 @@ describe('AI marketing snippet (Feature B)', () => {
       });
     };
 
+    // Wayfinder #18: the AI consent gate runs BEFORE the plan gate, so these
+    // fixtures record consent up front and let the plan assertions stand.
     await makeTenant(freeTenant, 'Free Salon', `aimkt-free-${suffix}@egebeya.test`);
     await makeTenant(proTenant, 'Pro Salon', `aimkt-pro-${suffix}@egebeya.test`);
+    const consentedAt = Date.now();
+    await db.update(tenants).set({ settings: { aiConsentAt: consentedAt } })
+      .where(eq(tenants.id, freeTenant.id));
+    await db.update(tenants).set({ settings: { aiConsentAt: consentedAt } })
+      .where(eq(tenants.id, proTenant.id));
     await activateProSubscription(proTenant.id, proPlanId, Date.now());
 
     freeToken = tokenFor(freeTenant.userId, freeTenant.id);

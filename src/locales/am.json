@@ -682,5 +682,18 @@
   "receipt": {
     "telegramCta": "ማስታወሻ በ Telegram · Remind me there",
     "telegramUnavailable": "የቴሌግራም ማሳሰቢያ ገና አይገኝም። እባክዎ ትንሽ ቆይተው ይምለሱ።"
+  },
+  "aiConsent": {
+    "title": "የ AI አገልግሎቶችን ይክፈቱ?",
+    "intro": "የ Egebeya AI አገልግሎቶች መረጃ ለሦስተኛ ወገን AI አቅራቢዎች ይልካሉ። እስኪስማሙ ድረስ ምንም አይላክም፦",
+    "geminiData": "የንግድ መግለጫ እና የማስታወቂያ ጽሑፍ ይፈጥራል። የሚልከው የንግድ ስምዎን፣ ዓይነቱን፣ ከተማዎን እና የሚያስገቡትን አገልግሎቶች ነው።",
+    "openrouterData": "በ website builder ውስጥ ያለውን AI አማካሪ ያስኬዳል። የሚልከው የነበረውን የጣቢያዎ ይዘት እና የሚጽፎትን መልእክቶች ነው።",
+    "optOut": "ውድቅ ካደረጉ AI ሳይኖር Egebeya መጠቀም ይችላሉ። ምርጫዎ ለሁሉም AI አገልግሎቶች ተመሳሳይ ሆኖ በመለያዎ ላይ ይቀመጣል።",
+    "accept": "ሰማሁን — AI አገልግሎቶችን ክፈት",
+    "accepting": "በማስቀመጥ ላይ…",
+    "decline": "አይ አለበለዚያ",
+    "successTitle": "AI አገልግሎቶች ተከፍተዋል",
+    "failedTitle": "ምርጫዎ ማስቀመጥ አልተቻለም",
+    "failedBody": "እባክዎ ተመልሰው ይሞክሩ።"
   }
 }
