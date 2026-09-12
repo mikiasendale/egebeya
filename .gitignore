@@ -25,3 +25,7 @@ graphify-out/
 _test_pixel.png
 .aider*
 .opencode/
+# Fresha replication KB (local corpus — council evidence, not app source)
+_knowledge/
+# hallmark log (local tool state)
+.hallmark/
