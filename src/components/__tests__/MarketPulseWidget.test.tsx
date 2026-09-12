@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, cleanup, waitFor } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 
 const mockAuthFetch = vi.fn();
@@ -94,13 +94,67 @@ describe('MarketPulseWidget', () => {
     expect(screen.getAllByText(/salon/).length).toBeGreaterThan(0);
   });
 
-  it('renders a Broadcast Flash Sale button that opens Telegram', async () => {
+  it('#50: Broadcast Flash Sale mints a real expiring 15% promo BEFORE opening Telegram', async () => {
+    const seq: string[] = [];
     mockAuthFetch.mockImplementation((url: string) => {
       if (url === '/api/tenant/subscription') {
         return Promise.resolve({ ok: true, json: () => Promise.resolve(PRO_SUBMISSION) });
       }
       if (url === '/api/tenant/alerts') {
         return Promise.resolve({ ok: true, json: () => Promise.resolve(MOCK_ALERTS) });
+      }
+      if (url === '/api/tenant/promo-codes') {
+        seq.push('promo-post');
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ id: 'promo-1' }) });
+      }
+      return Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
+    });
+
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => {
+      seq.push('open');
+      return null;
+    });
+
+    render(<MarketPulseWidget businessName="Test Salon" />);
+    await waitFor(() => {
+      expect(screen.getAllByText(/Broadcast Flash Sale/).length).toBeGreaterThan(0);
+    });
+
+    fireEvent.click(screen.getByText(/Broadcast Flash Sale/));
+    await waitFor(() => expect(openSpy).toHaveBeenCalledTimes(1));
+
+    // No share opens unless a real promo row exists first.
+    expect(seq).toEqual(['promo-post', 'open']);
+
+    const post = mockAuthFetch.mock.calls.find((c) => c[0] === '/api/tenant/promo-codes');
+    expect(post).toBeTruthy();
+    const body = JSON.parse(post[1].body);
+    expect(body.code).toMatch(/^FLASH-[A-Z0-9]{4}$/);
+    expect(body.discountType).toBe('percent');
+    expect(body.discountValue).toBe(15);
+    expect(body.maxUses).toBe(500);
+    expect(body.validUntil).toBeGreaterThan(Date.now());
+
+    const url = openSpy.mock.calls[0][0] as string;
+    expect(url).toContain(encodeURIComponent(`code ${body.code}`));
+    expect(url).toContain(encodeURIComponent('valid until'));
+    // The old bare promise — "Limited-time 15% off all services." with no
+    // code, no expiry, no row — must be gone.
+    expect(url).not.toContain(encodeURIComponent('Limited-time 15% off all services.'));
+
+    openSpy.mockRestore();
+  });
+
+  it('#50: a failed promo mint opens no share', async () => {
+    mockAuthFetch.mockImplementation((url: string) => {
+      if (url === '/api/tenant/subscription') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(PRO_SUBMISSION) });
+      }
+      if (url === '/api/tenant/alerts') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(MOCK_ALERTS) });
+      }
+      if (url === '/api/tenant/promo-codes') {
+        return Promise.resolve({ ok: false, json: () => Promise.resolve({ error: 'nope' }) });
       }
       return Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
     });
@@ -112,11 +166,19 @@ describe('MarketPulseWidget', () => {
       expect(screen.getAllByText(/Broadcast Flash Sale/).length).toBeGreaterThan(0);
     });
 
-    const btn = screen.getByText(/Broadcast Flash Sale/);
-    btn.click();
+    fireEvent.click(screen.getByText(/Broadcast Flash Sale/));
+    await waitFor(() => {
+      expect(mockAuthFetch).toHaveBeenCalledWith(
+        '/api/tenant/promo-codes',
+        expect.objectContaining({ method: 'POST' }),
+      );
+    });
+    expect(openSpy).not.toHaveBeenCalled();
 
-    expect(openSpy).toHaveBeenCalledWith(expect.stringContaining('https://t.me/share/url'), '_blank');
-    expect(openSpy).toHaveBeenCalledWith(expect.stringContaining(encodeURIComponent('Test Salon')), '_blank');
+    // Button is live again, not stuck in a minting state.
+    await waitFor(() => {
+      expect(screen.getAllByText(/Broadcast Flash Sale/).length).toBeGreaterThan(0);
+    });
     openSpy.mockRestore();
   });
 

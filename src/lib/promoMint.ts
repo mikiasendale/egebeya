@@ -15,14 +15,15 @@ export function generatePromoCode(prefix: string): string {
 }
 
 /**
- * Mint a single-use percent promo and return the live code.
- * `validUntil` (epoch ms) makes the discount — and any expiry printed in the
- * share text — true for the same window.
+ * Mint a percent promo and return the live code. Defaults to single-use —
+ * a hand-shared code cannot leak. `validUntil` (epoch ms) makes the discount
+ * — and any expiry printed in the share text — true for the same window;
+ * `maxUses` opens it to a bounded crowd (flash sales) instead.
  */
 export async function createPromo(
   percent: number,
   prefix: string,
-  validUntil?: number,
+  opts: { validUntil?: number; maxUses?: number } = {},
 ): Promise<string> {
   const code = generatePromoCode(prefix);
   const res = await authFetch('/api/tenant/promo-codes', {
@@ -32,8 +33,8 @@ export async function createPromo(
       code,
       discountType: 'percent',
       discountValue: percent,
-      maxUses: 1,
-      ...(typeof validUntil === 'number' ? { validUntil } : {}),
+      maxUses: typeof opts.maxUses === 'number' && opts.maxUses > 0 ? opts.maxUses : 1,
+      ...(typeof opts.validUntil === 'number' ? { validUntil: opts.validUntil } : {}),
     }),
   });
   if (!res.ok) throw new Error('Promo creation failed');
