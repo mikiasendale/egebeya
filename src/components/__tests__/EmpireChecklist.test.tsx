@@ -60,7 +60,7 @@ describe('EmpireChecklist (P2.5)', () => {
 
     // Hours confirmation is pending → present with its settings deep link.
     const hoursItem = screen.getByTestId('checklist-hoursConfirmed');
-    expect(hoursItem.getAttribute('href')).toBe('/settings');
+    expect(hoursItem.getAttribute('href')).toBe('/dashboard/settings');
     expect(hoursItem.textContent).toContain('Confirm your hours');
 
     // Completed steps never render as nag items.

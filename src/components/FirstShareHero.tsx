@@ -192,7 +192,7 @@ export function FirstShareHero({ businessName, slug }: FirstShareHeroProps) {
         ሰዓታትዎ{' '}
         <strong className="text-ink">9:00–18:00</strong>{' '}
         ተብሏል ·{' '}
-        <Link to="/settings" className="underline underline-offset-2 text-primary-deep font-medium">
+        <Link to="/dashboard/settings" className="underline underline-offset-2 text-primary-deep font-medium">
           ያስተካክሉ · adjust
         </Link>
       </p>

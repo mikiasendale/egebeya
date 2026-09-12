@@ -67,7 +67,7 @@ export function EmpireChecklist() {
             key: 'hoursConfirmed',
             label: 'Confirm your hours · ሰዓታትዎን ያረጋግጡ',
             hint: 'Drafted 9:00–18:00 · adjust and confirm',
-            to: '/settings',
+            to: '/dashboard/settings',
             done: byStep.hoursConfirmed === true,
           },
           {

@@ -249,7 +249,7 @@ describe('FirstShareHero (P2.5)', () => {
     expect(screen.getByText('ተቀድቷል ✓')).toBeTruthy();
 
     expect(screen.getByText(/9:00–18:00/)).toBeTruthy();
-    expect(screen.getByText(/adjust/).closest('a')!.getAttribute('href')).toBe('/settings');
+    expect(screen.getByText(/adjust/).closest('a')!.getAttribute('href')).toBe('/dashboard/settings');
     expect(screen.getByTestId('edit-site-link').getAttribute('href')).toBe('/dashboard/website');
   });
 
