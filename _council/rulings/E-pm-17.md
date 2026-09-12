@@ -1,0 +1,20 @@
+ID: E-pm-17 (+ Fresha pair F-bh-58)
+Name: Taxes, service charges, surcharges
+Surface: merchant SaaS
+Category: payments-money
+Class: GAP (COMPARE-01 — no tax/service-charge line)
+Fresha behaviour: Tax and service-charge configuration with additive lines computed at capture and itemized on receipts (hc/359,101803,360,102379). KB provenance: OBSERVED.
+Egebeya current state: The charged number is `effectiveAmount` = max(0, total − promo − loyalty − quiet) with no tax term (src/api/public.ts:877); the webhook verifies provider amount vs `payments.amount` at 0.005-birr tolerance (src/api/payments.ts:~148-170), so any additive line must be inside the stored amount or every paid webhook no-ops as mismatch (B's trap).
+Blockers: money (a promise) + protected-adjacency (COMPARE-03 #8) — resolved by ruling 3's display-only posture; precondition: ruling 1
+Debate summary: A's smallest unit was an additive line at public.ts:877 behind a design doc; B priced M with the webhook-parity trap as a risk-L flag; C recommended option (a) — display-only "prices include TOT" per Ethiopian convention with zero money-semantics change — warning that an additive capture line edges toward the price-up semantics #8 killed; D reframed the pain as truth, not compliance: "the platform literally cannot print the number the shop already charges," and Addis menus are inclusive. The clash was definitional: additive line (A/B) vs display convention (C), with nothing allowed to ship before the CEO chose.
+Council ruling: BUILD NEXT — tenant tax-% setting + "including TOT" display only; effectiveAmount math unchanged
+Closure method (if BUILD): Scope: a tenant setting for tax %; when set, receipt/booking copy shows the inclusive-TOT note. NO additive capture line — `effectiveAmount` math unchanged (public.ts:877 stays max(0, total − promo − loyalty − quiet), pristine per the CEO's impact note); no webhook surface touched; ETB-only preserved (COMPARE-03 #12). Entity changes: none (settings blob; the GET/PUT /api/tenant/settings seam, tenant.ts:1185-1204 pattern). Endpoint changes: settings read/write only. UI changes: Settings field (both locales) + "including TOT" line on receipt (ReceiptTicket.tsx) and booking confirmation copy. Tests — MONEY: NEW case in server/tests/chain-payments-billing.test.ts: the charged amount is byte-identical with and without the tax setting (display-only must provably not promise a different price).
+Substitute method (if SUBSTITUTE/DEFER-with-substitute): n/a (BUILD NEXT). Scope note: the ruled display shape IS the substitute for Fresha's additive engine; service charges / surcharges are NOT covered by ruling 3 — default posture stays "nothing added" and #8 keeps upward changes impossible.
+Owner: Product Owner (setting + copy); Engineering Lead delivers
+Effort: M as debated for the additive spec; the display-only shape ruling 3 chose is materially smaller (no separate re-price on the record — transcribed, not invented)
+Money path: YES — CAUTION (it promises a price, even though it records/moves nothing new)
+Protected decision referenced (if any): COMPARE-03 #8 (no dynamic price-up as platform behaviour — display-only keeps clear); #12 (ETB-only) preserved
+EGE-ADVANTAGE collision (if any): none (inclusive-price printing is Addis-market fit, not a copied advantage)
+Merchant evidence: HIGH for truth, not features; OBSERVED-workaround: inclusive pricing kept outside the app because the platform cannot print the number the shop already charges (Gap.md:111); day-1: n — prices already read correctly *because* nothing is added.
+Confidence: HIGH
+CEO ruling (final): Ruling 3 — "Taxes — tenant setting for tax %; if set, display 'including TOT'. Display-only posture: NO additive capture line; effectiveAmount math unchanged (public.ts:877 stays…). Receipt/booking copy shows the inclusive-TOT note when the rate is set. (C's recommendation, taken.)" CP5 residual confirmed: **tax-% ONLY — service charges and surcharges are NOT authorized this session** (row scope is VAT/TOT display; F-bh-58's surcharge half stays GAP). See ceo-rulings-cp4.md CP5 ADDENDUM item 3.

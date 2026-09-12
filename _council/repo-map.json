@@ -1,0 +1,2935 @@
+{
+ "meta": {
+  "generated": "2026-09-12",
+  "method": "graphify CLI present (AST re-extraction ran; semantic graph at graphify-out/graph.json retained); map built from live-tree scan per AGENTS.md \"files are truth\"",
+  "counts": {
+   "endpoints": 134,
+   "tables": 41,
+   "crons": 7,
+   "services": 31,
+   "ui_surfaces": 22,
+   "dead_surfaces": 6,
+   "disagreements": 10
+  }
+ },
+ "endpoints": [
+  {
+   "method": "GET",
+   "path": "/api/health",
+   "file": "src/api/health.ts",
+   "line": 44,
+   "handler": "inline",
+   "auth": "public",
+   "plan_gate": null
+  },
+  {
+   "method": "POST",
+   "path": "/api/auth/check-slug",
+   "file": "src/api/auth.ts",
+   "line": 126,
+   "handler": "inline",
+   "auth": "public",
+   "plan_gate": null
+  },
+  {
+   "method": "POST",
+   "path": "/api/auth/events/reg-step",
+   "file": "src/api/auth.ts",
+   "line": 150,
+   "handler": "inline",
+   "auth": "authLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "POST",
+   "path": "/api/auth/register",
+   "file": "src/api/auth.ts",
+   "line": 170,
+   "handler": "inline",
+   "auth": "authLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "POST",
+   "path": "/api/auth/login",
+   "file": "src/api/auth.ts",
+   "line": 362,
+   "handler": "inline",
+   "auth": "authLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "POST",
+   "path": "/api/auth/refresh",
+   "file": "src/api/auth.ts",
+   "line": 417,
+   "handler": "inline",
+   "auth": "refreshLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/auth/me",
+   "file": "src/api/auth.ts",
+   "line": 477,
+   "handler": "inline",
+   "auth": "requireAuth()",
+   "plan_gate": null
+  },
+  {
+   "method": "POST",
+   "path": "/api/auth/forgot-password",
+   "file": "src/api/auth.ts",
+   "line": 499,
+   "handler": "inline",
+   "auth": "authLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "POST",
+   "path": "/api/auth/reset-password",
+   "file": "src/api/auth.ts",
+   "line": 544,
+   "handler": "inline",
+   "auth": "authLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "POST",
+   "path": "/api/auth/register-with-phone",
+   "file": "src/api/auth.ts",
+   "line": 602,
+   "handler": "inline",
+   "auth": "otpLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "POST",
+   "path": "/api/auth/verify-otp",
+   "file": "src/api/auth.ts",
+   "line": 689,
+   "handler": "inline",
+   "auth": "otpLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "POST",
+   "path": "/api/auth/reset-password-via-sms",
+   "file": "src/api/auth.ts",
+   "line": 867,
+   "handler": "inline",
+   "auth": "otpLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "POST",
+   "path": "/api/auth/confirm-password-reset",
+   "file": "src/api/auth.ts",
+   "line": 905,
+   "handler": "inline",
+   "auth": "otpLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "POST",
+   "path": "/api/auth/logout",
+   "file": "src/api/auth.ts",
+   "line": 959,
+   "handler": "inline",
+   "auth": "csrfProtection",
+   "plan_gate": "pro"
+  },
+  {
+   "method": "POST",
+   "path": "/api/tenant/staff",
+   "file": "src/api/tenant.ts",
+   "line": 101,
+   "handler": "inline",
+   "auth": "requirePlanLimit('staff') + requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": "staff"
+  },
+  {
+   "method": "POST",
+   "path": "/api/tenant/staff/invite",
+   "file": "src/api/tenant.ts",
+   "line": 129,
+   "handler": "inline",
+   "auth": "requirePlanLimit('staff') + requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": "staff"
+  },
+  {
+   "method": "PUT",
+   "path": "/api/tenant/staff/:id",
+   "file": "src/api/tenant.ts",
+   "line": 214,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "DELETE",
+   "path": "/api/tenant/staff/:id",
+   "file": "src/api/tenant.ts",
+   "line": 248,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/tenant/staff/:id/services",
+   "file": "src/api/tenant.ts",
+   "line": 267,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/tenant/staff/:id/availability",
+   "file": "src/api/tenant.ts",
+   "line": 288,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "PUT",
+   "path": "/api/tenant/business-hours",
+   "file": "src/api/tenant.ts",
+   "line": 310,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "POST",
+   "path": "/api/tenant/staff/:id/services",
+   "file": "src/api/tenant.ts",
+   "line": 339,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "PUT",
+   "path": "/api/tenant/staff/:id/availability",
+   "file": "src/api/tenant.ts",
+   "line": 373,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "PUT",
+   "path": "/api/tenant/domain",
+   "file": "src/api/tenant.ts",
+   "line": 406,
+   "handler": "inline",
+   "auth": "requireActiveSubscription + requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": "pro"
+  },
+  {
+   "method": "GET",
+   "path": "/api/tenant/analytics",
+   "file": "src/api/tenant.ts",
+   "line": 450,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/tenant/subscription",
+   "file": "src/api/tenant.ts",
+   "line": 548,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "POST",
+   "path": "/api/tenant/subscription/checkout",
+   "file": "src/api/tenant.ts",
+   "line": 623,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/tenant/invoices",
+   "file": "src/api/tenant.ts",
+   "line": 720,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/tenant/invoices/:id/receipt",
+   "file": "src/api/tenant.ts",
+   "line": 747,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "POST",
+   "path": "/api/tenant/provision",
+   "file": "src/api/tenant.ts",
+   "line": 838,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": "pro"
+  },
+  {
+   "method": "POST",
+   "path": "/api/tenant/provision/confirm-hours",
+   "file": "src/api/tenant.ts",
+   "line": 979,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": "pro"
+  },
+  {
+   "method": "POST",
+   "path": "/api/tenant/events/site-shared",
+   "file": "src/api/tenant.ts",
+   "line": 1013,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "POST",
+   "path": "/api/tenant/events/price-seen",
+   "file": "src/api/tenant.ts",
+   "line": 1023,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/tenant/provision/status",
+   "file": "src/api/tenant.ts",
+   "line": 1045,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": "pro"
+  },
+  {
+   "method": "PUT",
+   "path": "/api/tenant/quiet-hours",
+   "file": "src/api/tenant.ts",
+   "line": 1093,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/tenant/quiet-hours/stats",
+   "file": "src/api/tenant.ts",
+   "line": 1135,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/tenant/settings",
+   "file": "src/api/tenant.ts",
+   "line": 1185,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "PUT",
+   "path": "/api/tenant/settings",
+   "file": "src/api/tenant.ts",
+   "line": 1204,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/tenant/page",
+   "file": "src/api/tenant.ts",
+   "line": 1239,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "PUT",
+   "path": "/api/tenant/page",
+   "file": "src/api/tenant.ts",
+   "line": 1249,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "POST",
+   "path": "/api/tenant/page",
+   "file": "src/api/tenant.ts",
+   "line": 1282,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "POST",
+   "path": "/api/tenant/onboarding/complete",
+   "file": "src/api/tenant.ts",
+   "line": 1351,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "POST",
+   "path": "/api/tenant/upload",
+   "file": "src/api/tenant.ts",
+   "line": 1401,
+   "handler": "inline",
+   "auth": "uploadLimiter + requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/tenant/media",
+   "file": "src/api/tenant.ts",
+   "line": 1441,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "DELETE",
+   "path": "/api/tenant/media/:id",
+   "file": "src/api/tenant.ts",
+   "line": 1457,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/tenant/staff",
+   "file": "src/api/tenant.ts",
+   "line": 1486,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/tenant/services",
+   "file": "src/api/tenant.ts",
+   "line": 1524,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "POST",
+   "path": "/api/tenant/services",
+   "file": "src/api/tenant.ts",
+   "line": 1536,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "PUT",
+   "path": "/api/tenant/services/:id",
+   "file": "src/api/tenant.ts",
+   "line": 1569,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "DELETE",
+   "path": "/api/tenant/services/:id",
+   "file": "src/api/tenant.ts",
+   "line": 1613,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "POST",
+   "path": "/api/tenant/recurring-series",
+   "file": "src/api/tenant.ts",
+   "line": 1697,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/tenant/recurring-series",
+   "file": "src/api/tenant.ts",
+   "line": 1891,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "DELETE",
+   "path": "/api/tenant/recurring-series/:id",
+   "file": "src/api/tenant.ts",
+   "line": 1911,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/tenant/inventory",
+   "file": "src/api/tenant.ts",
+   "line": 1938,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "PUT",
+   "path": "/api/tenant/inventory",
+   "file": "src/api/tenant.ts",
+   "line": 1974,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "POST",
+   "path": "/api/tenant/inventory/:id/adjust",
+   "file": "src/api/tenant.ts",
+   "line": 2088,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/tenant/export/csv",
+   "file": "src/api/tenant.ts",
+   "line": 2122,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "POST",
+   "path": "/api/tenant/account/deletion",
+   "file": "src/api/tenant.ts",
+   "line": 2362,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "POST",
+   "path": "/api/tenant/pro-site/init",
+   "file": "src/api/pro-site.ts",
+   "line": 72,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": "pro"
+  },
+  {
+   "method": "GET",
+   "path": "/api/tenant/pro-site/files",
+   "file": "src/api/pro-site.ts",
+   "line": 96,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": "pro"
+  },
+  {
+   "method": "PUT",
+   "path": "/api/tenant/pro-site/files",
+   "file": "src/api/pro-site.ts",
+   "line": 110,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": "pro"
+  },
+  {
+   "method": "GET",
+   "path": "/api/tenant/site",
+   "file": "src/api/site-settings.ts",
+   "line": 27,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "PATCH",
+   "path": "/api/tenant/site",
+   "file": "src/api/site-settings.ts",
+   "line": 56,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "POST",
+   "path": "/api/tenant/site/publish",
+   "file": "src/api/site-settings.ts",
+   "line": 136,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/tenant/site/builds",
+   "file": "src/api/site-settings.ts",
+   "line": 257,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "POST",
+   "path": "/api/tenant/site/builds/:buildId/activate",
+   "file": "src/api/site-settings.ts",
+   "line": 310,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "POST",
+   "path": "/api/tenant/generate-site",
+   "file": "src/api/site-generator.ts",
+   "line": 155,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/tenant/share-link",
+   "file": "src/api/site-generator.ts",
+   "line": 195,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/tenant/ai/consent",
+   "file": "src/api/ai-chat.ts",
+   "line": 108,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection",
+   "plan_gate": null
+  },
+  {
+   "method": "POST",
+   "path": "/api/tenant/ai/consent",
+   "file": "src/api/ai-chat.ts",
+   "line": 119,
+   "handler": "inline",
+   "auth": "tenantWriteLimiter + requireAuth({ roles: ['owner'] }) + csrfProtection",
+   "plan_gate": null
+  },
+  {
+   "method": "POST",
+   "path": "/api/tenant/site/ai-chat",
+   "file": "src/api/ai-chat.ts",
+   "line": 134,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection",
+   "plan_gate": null
+  },
+  {
+   "method": "POST",
+   "path": "/api/tenant/ai/generate-description",
+   "file": "src/api/ai-chat.ts",
+   "line": 289,
+   "handler": "inline",
+   "auth": "tenantWriteLimiter + requireAuth({ roles: ['owner'] }) + csrfProtection",
+   "plan_gate": null
+  },
+  {
+   "method": "POST",
+   "path": "/api/tenant/ai/marketing-snippet",
+   "file": "src/api/ai-chat.ts",
+   "line": 337,
+   "handler": "inline",
+   "auth": "tenantWriteLimiter + requireAuth({ roles: ['owner'] }) + csrfProtection",
+   "plan_gate": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/tenant/customers",
+   "file": "src/api/crm.ts",
+   "line": 34,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "POST",
+   "path": "/api/tenant/promo-codes",
+   "file": "src/api/crm.ts",
+   "line": 98,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": "pro"
+  },
+  {
+   "method": "GET",
+   "path": "/api/tenant/promo-codes",
+   "file": "src/api/crm.ts",
+   "line": 155,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": "pro"
+  },
+  {
+   "method": "POST",
+   "path": "/api/tenant/marketing/blast",
+   "file": "src/api/crm.ts",
+   "line": 182,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "PATCH",
+   "path": "/api/tenant/customers/:phone/marketing-opt-in",
+   "file": "src/api/crm.ts",
+   "line": 246,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "POST",
+   "path": "/api/tenant/customers/:phone/require-upfront",
+   "file": "src/api/crm.ts",
+   "line": 293,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/tenant/settings/upfront-phones",
+   "file": "src/api/crm.ts",
+   "line": 339,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/public/discover",
+   "file": "src/api/public.ts",
+   "line": 56,
+   "handler": "inline",
+   "auth": "discoverLimiter + strictCsp + publicReadLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/public/turnstile-config",
+   "file": "src/api/public.ts",
+   "line": 214,
+   "handler": "inline",
+   "auth": "strictCsp + publicReadLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/public/telegram-config",
+   "file": "src/api/public.ts",
+   "line": 221,
+   "handler": "inline",
+   "auth": "strictCsp + publicReadLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/public/site-status",
+   "file": "src/api/public.ts",
+   "line": 312,
+   "handler": "inline",
+   "auth": "strictCsp + publicReadLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/public/business-hours",
+   "file": "src/api/public.ts",
+   "line": 402,
+   "handler": "inline",
+   "auth": "strictCsp + publicReadLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/public/page",
+   "file": "src/api/public.ts",
+   "line": 415,
+   "handler": "inline",
+   "auth": "strictCsp + publicReadLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/public/services",
+   "file": "src/api/public.ts",
+   "line": 428,
+   "handler": "inline",
+   "auth": "strictCsp + publicReadLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/public/staff",
+   "file": "src/api/public.ts",
+   "line": 441,
+   "handler": "inline",
+   "auth": "strictCsp + publicReadLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/public/availability",
+   "file": "src/api/public.ts",
+   "line": 477,
+   "handler": "inline",
+   "auth": "strictCsp + publicReadLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "POST",
+   "path": "/api/public/bookings",
+   "file": "src/api/public.ts",
+   "line": 736,
+   "handler": "inline",
+   "auth": "bookingWriteLimiter + strictCsp + publicReadLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "POST",
+   "path": "/api/public/bookings/:id/cancel",
+   "file": "src/api/public.ts",
+   "line": 1267,
+   "handler": "inline",
+   "auth": "bookingWriteLimiter + strictCsp + publicReadLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "POST",
+   "path": "/api/public/bookings/:id/reschedule",
+   "file": "src/api/public.ts",
+   "line": 1293,
+   "handler": "inline",
+   "auth": "bookingWriteLimiter + strictCsp + publicReadLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/public/appointments/:id/status",
+   "file": "src/api/public.ts",
+   "line": 1382,
+   "handler": "inline",
+   "auth": "strictCsp + publicReadLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/public/appointments",
+   "file": "src/api/public.ts",
+   "line": 1432,
+   "handler": "inline",
+   "auth": "strictCsp + publicReadLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/public/pro-build",
+   "file": "src/api/public.ts",
+   "line": 1495,
+   "handler": "inline",
+   "auth": "strictCsp + publicReadLimiter",
+   "plan_gate": "pro"
+  },
+  {
+   "method": "POST",
+   "path": "/api/payments/webhook",
+   "file": "src/api/payments.ts",
+   "line": 73,
+   "handler": "inline",
+   "auth": "webhookLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/admin/stats",
+   "file": "src/api/admin.ts",
+   "line": 42,
+   "handler": "inline",
+   "auth": "requireAuth() + csrfProtection + adminWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/admin/tenants",
+   "file": "src/api/admin.ts",
+   "line": 78,
+   "handler": "inline",
+   "auth": "requireAuth() + csrfProtection + adminWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "PUT",
+   "path": "/api/admin/tenants/:id/suspend",
+   "file": "src/api/admin.ts",
+   "line": 115,
+   "handler": "inline",
+   "auth": "requireAuth() + csrfProtection + adminWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "PUT",
+   "path": "/api/admin/tenants/:id/reactivate",
+   "file": "src/api/admin.ts",
+   "line": 136,
+   "handler": "inline",
+   "auth": "requireAuth() + csrfProtection + adminWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/admin/notification-stats",
+   "file": "src/api/admin.ts",
+   "line": 161,
+   "handler": "inline",
+   "auth": "requireAuth() + csrfProtection + adminWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/admin/stuck-tenants",
+   "file": "src/api/admin.ts",
+   "line": 204,
+   "handler": "inline",
+   "auth": "requireAuth() + csrfProtection + adminWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/admin/funnel",
+   "file": "src/api/admin.ts",
+   "line": 290,
+   "handler": "inline",
+   "auth": "requireAuth() + csrfProtection + adminWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/admin/winback-leads",
+   "file": "src/api/admin.ts",
+   "line": 366,
+   "handler": "inline",
+   "auth": "requireAuth() + csrfProtection + adminWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "POST",
+   "path": "/api/admin/winback-leads/:tenantId/offer",
+   "file": "src/api/admin.ts",
+   "line": 433,
+   "handler": "inline",
+   "auth": "requireAuth() + csrfProtection + adminWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/admin/reports",
+   "file": "src/api/admin.ts",
+   "line": 512,
+   "handler": "inline",
+   "auth": "requireAuth() + csrfProtection + adminWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "PATCH",
+   "path": "/api/admin/reports/:id",
+   "file": "src/api/admin.ts",
+   "line": 547,
+   "handler": "inline",
+   "auth": "adminWriteLimiter + requireAuth() + csrfProtection",
+   "plan_gate": null
+  },
+  {
+   "method": "POST",
+   "path": "/api/telegram/webhook",
+   "file": "src/api/telegram.ts",
+   "line": 36,
+   "handler": "inline",
+   "auth": "public",
+   "plan_gate": null
+  },
+  {
+   "method": "POST",
+   "path": "/api/consumer/request-code",
+   "file": "src/api/consumer.ts",
+   "line": 49,
+   "handler": "inline",
+   "auth": "consumerLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "POST",
+   "path": "/api/consumer/verify",
+   "file": "src/api/consumer.ts",
+   "line": 124,
+   "handler": "inline",
+   "auth": "consumerLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/consumer/loyalty/:tenantId",
+   "file": "src/api/consumer.ts",
+   "line": 189,
+   "handler": "inline",
+   "auth": "requireConsumerAuth()",
+   "plan_gate": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/consumer/me",
+   "file": "src/api/consumer.ts",
+   "line": 202,
+   "handler": "inline",
+   "auth": "requireConsumerAuth()",
+   "plan_gate": null
+  },
+  {
+   "method": "POST",
+   "path": "/api/consumer/data-deletion",
+   "file": "src/api/consumer.ts",
+   "line": 222,
+   "handler": "inline",
+   "auth": "consumerLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "POST",
+   "path": "/api/consumer/account/deletion",
+   "file": "src/api/consumer.ts",
+   "line": 274,
+   "handler": "inline",
+   "auth": "consumerLimiter + requireConsumerAuth()",
+   "plan_gate": null
+  },
+  {
+   "method": "POST",
+   "path": "/api/test/send-email",
+   "file": "src/api/test.ts",
+   "line": 11,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] })",
+   "plan_gate": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/v1/services",
+   "file": "src/api/v1.ts",
+   "line": 70,
+   "handler": "inline",
+   "auth": "requireApiKey('read:services')",
+   "plan_gate": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/v1/bookings",
+   "file": "src/api/v1.ts",
+   "line": 98,
+   "handler": "inline",
+   "auth": "requireApiKey('read:bookings')",
+   "plan_gate": null
+  },
+  {
+   "method": "POST",
+   "path": "/api/v1/bookings",
+   "file": "src/api/v1.ts",
+   "line": 158,
+   "handler": "inline",
+   "auth": "requireApiKey('write:bookings')",
+   "plan_gate": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/tenant/dashboard",
+   "file": "server/api/tenantRoute.ts",
+   "line": 56,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner', 'admin', 'staff'] }) + dashboardReadLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/tenant/queue",
+   "file": "src/api/queue.ts",
+   "line": 65,
+   "handler": "inline",
+   "auth": "requireAuth() + csrfProtection + tenantWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "POST",
+   "path": "/api/tenant/queue/advance/:appointmentId",
+   "file": "src/api/queue.ts",
+   "line": 79,
+   "handler": "inline",
+   "auth": "requireAuth() + csrfProtection + tenantWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/public/queue-status/:opaqueId",
+   "file": "src/api/queue.ts",
+   "line": 113,
+   "handler": "inline",
+   "auth": "queueStatusLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/bookings",
+   "file": "src/api/bookings.ts",
+   "line": 43,
+   "handler": "inline",
+   "auth": "requireAuth()",
+   "plan_gate": null
+  },
+  {
+   "method": "PUT",
+   "path": "/api/bookings/:id/status",
+   "file": "src/api/bookings.ts",
+   "line": 81,
+   "handler": "inline",
+   "auth": "requireAuth()",
+   "plan_gate": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/bookings/:id",
+   "file": "src/api/bookings.ts",
+   "line": 215,
+   "handler": "inline",
+   "auth": "requireAuth()",
+   "plan_gate": null
+  },
+  {
+   "method": "POST",
+   "path": "/api/tenant/bookings/walk-in",
+   "file": "src/api/bookings.ts",
+   "line": 345,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection + tenantWriteLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "POST",
+   "path": "/api/public/intent",
+   "file": "src/api/intent.ts",
+   "line": 42,
+   "handler": "inline",
+   "auth": "intentLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/tenant/alerts",
+   "file": "src/api/intent.ts",
+   "line": 73,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] }) + csrfProtection",
+   "plan_gate": "pro"
+  },
+  {
+   "method": "POST",
+   "path": "/api/public/report",
+   "file": "src/api/trust.ts",
+   "line": 43,
+   "handler": "inline",
+   "auth": "public",
+   "plan_gate": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/consumer/blocks",
+   "file": "src/api/trust.ts",
+   "line": 95,
+   "handler": "inline",
+   "auth": "consumerLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "POST",
+   "path": "/api/consumer/blocks",
+   "file": "src/api/trust.ts",
+   "line": 110,
+   "handler": "inline",
+   "auth": "consumerLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "DELETE",
+   "path": "/api/consumer/blocks/:tenantId",
+   "file": "src/api/trust.ts",
+   "line": 140,
+   "handler": "inline",
+   "auth": "consumerLimiter",
+   "plan_gate": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/tenant/loyalty/gate-status",
+   "file": "src/api/loyalty.ts",
+   "line": 29,
+   "handler": "inline",
+   "auth": "requireAuth({ roles: ['owner'] })",
+   "plan_gate": null
+  },
+  {
+   "method": "POST",
+   "path": "/api/tenant/loyalty/cards",
+   "file": "src/api/loyalty.ts",
+   "line": 46,
+   "handler": "inline",
+   "auth": "csrfProtection + tenantWriteLimiter + requireAuth({ roles: ['owner'] })",
+   "plan_gate": "pro"
+  }
+ ],
+ "tables": [
+  {
+   "name": "tenants",
+   "exportName": "tenants",
+   "columns": [
+    "id",
+    "name",
+    "slug",
+    "domain",
+    "category",
+    "isListed",
+    "isSuspended",
+    "isDemo",
+    "settings",
+    "foundingRateLockedUntil",
+    "acquiredViaCode",
+    "createdAt"
+   ],
+   "relations": [],
+   "file": "src/db/schema.ts",
+   "line": 3
+  },
+  {
+   "name": "users",
+   "exportName": "users",
+   "columns": [
+    "id",
+    "tenantId",
+    "name",
+    "phone",
+    "email",
+    "passwordHash",
+    "role",
+    "isSuperadmin",
+    "consentGivenAt",
+    "tokenVersion",
+    "refreshTokenId",
+    "createdAt"
+   ],
+   "relations": [
+    "tenants"
+   ],
+   "file": "src/db/schema.ts",
+   "line": 24
+  },
+  {
+   "name": "password_resets",
+   "exportName": "passwordResets",
+   "columns": [
+    "id",
+    "token",
+    "userId",
+    "expiresAt"
+   ],
+   "relations": [
+    "users"
+   ],
+   "file": "src/db/schema.ts",
+   "line": 42
+  },
+  {
+   "name": "plans",
+   "exportName": "plans",
+   "columns": [
+    "id",
+    "name",
+    "price",
+    "maxStaff",
+    "customDomainAllowed"
+   ],
+   "relations": [],
+   "file": "src/db/schema.ts",
+   "line": 49
+  },
+  {
+   "name": "tenant_subscriptions",
+   "exportName": "tenantSubscriptions",
+   "columns": [
+    "id",
+    "tenantId",
+    "planId",
+    "status",
+    "trialEndsAt",
+    "startsAt",
+    "endsAt"
+   ],
+   "relations": [
+    "tenants",
+    "plans"
+   ],
+   "file": "src/db/schema.ts",
+   "line": 57
+  },
+  {
+   "name": "services",
+   "exportName": "services",
+   "columns": [
+    "id",
+    "tenantId",
+    "name",
+    "durationMinutes",
+    "price",
+    "imagePath",
+    "active"
+   ],
+   "relations": [
+    "tenants"
+   ],
+   "file": "src/db/schema.ts",
+   "line": 67
+  },
+  {
+   "name": "staff",
+   "exportName": "staff",
+   "columns": [
+    "id",
+    "tenantId",
+    "userId",
+    "name",
+    "title",
+    "bio",
+    "imagePath",
+    "active"
+   ],
+   "relations": [
+    "tenants",
+    "users"
+   ],
+   "file": "src/db/schema.ts",
+   "line": 77
+  },
+  {
+   "name": "staff_services",
+   "exportName": "staffServices",
+   "columns": [
+    "staffId",
+    "serviceId"
+   ],
+   "relations": [
+    "staff",
+    "services"
+   ],
+   "file": "src/db/schema.ts",
+   "line": 88
+  },
+  {
+   "name": "staff_availability",
+   "exportName": "staffAvailability",
+   "columns": [
+    "id",
+    "staffId",
+    "dayOfWeek",
+    "startTime",
+    "endTime"
+   ],
+   "relations": [
+    "staff"
+   ],
+   "file": "src/db/schema.ts",
+   "line": 93
+  },
+  {
+   "name": "tenant_business_hours",
+   "exportName": "tenantBusinessHours",
+   "columns": [
+    "id",
+    "tenantId",
+    "dayOfWeek",
+    "openTime",
+    "closeTime",
+    "isClosed"
+   ],
+   "relations": [
+    "tenants"
+   ],
+   "file": "src/db/schema.ts",
+   "line": 101
+  },
+  {
+   "name": "tenant_closures",
+   "exportName": "tenantClosures",
+   "columns": [
+    "id",
+    "tenantId",
+    "date",
+    "reason"
+   ],
+   "relations": [
+    "tenants"
+   ],
+   "file": "src/db/schema.ts",
+   "line": 110
+  },
+  {
+   "name": "appointments",
+   "exportName": "appointments",
+   "columns": [
+    "id",
+    "tenantId",
+    "customerName",
+    "customerPhone",
+    "customerEmail",
+    "staffId",
+    "serviceId",
+    "startTime",
+    "endTime",
+    "status",
+    "reminderSent",
+    "sentVia",
+    "cancelsAt",
+    "recurringSeriesId",
+    "opaqueId",
+    "consumerId",
+    "queuePosition",
+    "queueState",
+    "checkedInAt",
+    "bookingSource"
+   ],
+   "relations": [
+    "tenants",
+    "staff",
+    "services",
+    "consumers"
+   ],
+   "file": "src/db/schema.ts",
+   "line": 117
+  },
+  {
+   "name": "appointment_services",
+   "exportName": "appointmentServices",
+   "columns": [
+    "appointmentId",
+    "serviceId",
+    "priceAtBooking",
+    "durationMinutes"
+   ],
+   "relations": [
+    "appointments",
+    "services"
+   ],
+   "file": "src/db/schema.ts",
+   "line": 150
+  },
+  {
+   "name": "recurring_series",
+   "exportName": "recurringSeries",
+   "columns": [
+    "id",
+    "tenantId",
+    "staffId",
+    "serviceId",
+    "customerName",
+    "customerPhone",
+    "customerEmail",
+    "interval",
+    "startDate",
+    "endDate",
+    "timeslotMinutes",
+    "isActive",
+    "createdAt"
+   ],
+   "relations": [
+    "tenants",
+    "staff",
+    "services"
+   ],
+   "file": "src/db/schema.ts",
+   "line": 159
+  },
+  {
+   "name": "payments",
+   "exportName": "payments",
+   "columns": [
+    "id",
+    "tenantId",
+    "appointmentId",
+    "amount",
+    "gateway",
+    "method",
+    "gatewayReference",
+    "status",
+    "settledAt",
+    "settlementStatus",
+    "createdAt",
+    "subscriptionGrantedAt",
+    "meta"
+   ],
+   "relations": [
+    "tenants",
+    "appointments"
+   ],
+   "file": "src/db/schema.ts",
+   "line": 175
+  },
+  {
+   "name": "pages",
+   "exportName": "pages",
+   "columns": [
+    "tenantId",
+    "content"
+   ],
+   "relations": [
+    "tenants"
+   ],
+   "file": "src/db/schema.ts",
+   "line": 198
+  },
+  {
+   "name": "pro_site_files",
+   "exportName": "proSiteFiles",
+   "columns": [
+    "id",
+    "tenantId",
+    "filePath",
+    "content",
+    "updatedAt"
+   ],
+   "relations": [
+    "tenants"
+   ],
+   "file": "src/db/schema.ts",
+   "line": 203
+  },
+  {
+   "name": "media",
+   "exportName": "media",
+   "columns": [
+    "id",
+    "tenantId",
+    "path",
+    "originalName",
+    "mimeType",
+    "size",
+    "createdAt"
+   ],
+   "relations": [
+    "tenants"
+   ],
+   "file": "src/db/schema.ts",
+   "line": 217
+  },
+  {
+   "name": "otp_codes",
+   "exportName": "otpCodes",
+   "columns": [
+    "id",
+    "phone",
+    "code",
+    "expiresAt",
+    "attempts",
+    "used",
+    "createdAt"
+   ],
+   "relations": [],
+   "file": "src/db/schema.ts",
+   "line": 227
+  },
+  {
+   "name": "site_config",
+   "exportName": "siteConfig",
+   "columns": [
+    "tenantId",
+    "builderMode",
+    "publishedCodeHtml",
+    "activeBuildId",
+    "updatedAt"
+   ],
+   "relations": [
+    "tenants"
+   ],
+   "file": "src/db/schema.ts",
+   "line": 240
+  },
+  {
+   "name": "security_events",
+   "exportName": "securityEvents",
+   "columns": [
+    "id",
+    "eventType",
+    "tenantId",
+    "ip",
+    "result",
+    "details",
+    "createdAt"
+   ],
+   "relations": [],
+   "file": "src/db/schema.ts",
+   "line": 252
+  },
+  {
+   "name": "processed_webhook_events",
+   "exportName": "processedWebhookEvents",
+   "columns": [
+    "id",
+    "provider",
+    "eventId",
+    "txRef",
+    "paymentId",
+    "action",
+    "raw",
+    "receivedAt"
+   ],
+   "relations": [],
+   "file": "src/db/schema.ts",
+   "line": 265
+  },
+  {
+   "name": "customer_stats",
+   "exportName": "customerStats",
+   "columns": [
+    "tenantId",
+    "customerPhone",
+    "customerName",
+    "firstVisitAt",
+    "lastVisitAt",
+    "visitCount",
+    "totalSpendEtbCents",
+    "lastCancelledAt",
+    "marketingOptIn",
+    "marketingOptInGivenAt",
+    "healthTag",
+    "noShowCount",
+    "automationState",
+    "lastAutomationSentAt",
+    "createdAt"
+   ],
+   "relations": [
+    "tenants"
+   ],
+   "file": "src/db/schema.ts",
+   "line": 279
+  },
+  {
+   "name": "promo_codes",
+   "exportName": "promoCodes",
+   "columns": [
+    "id",
+    "tenantId",
+    "code",
+    "discountType",
+    "discountValue",
+    "maxUses",
+    "usedCount",
+    "validFrom",
+    "validUntil",
+    "isActive",
+    "createdAt"
+   ],
+   "relations": [
+    "tenants"
+   ],
+   "file": "src/db/schema.ts",
+   "line": 302
+  },
+  {
+   "name": "invoices",
+   "exportName": "invoices",
+   "columns": [
+    "id",
+    "tenantId",
+    "number",
+    "amount",
+    "currency",
+    "periodStart",
+    "periodEnd",
+    "status",
+    "chapaTxRef",
+    "issuedAt",
+    "paidAt",
+    "settledAt",
+    "settlementStatus"
+   ],
+   "relations": [
+    "tenants"
+   ],
+   "file": "src/db/schema.ts",
+   "line": 324
+  },
+  {
+   "name": "inventory_items",
+   "exportName": "inventoryItems",
+   "columns": [
+    "id",
+    "tenantId",
+    "serviceId",
+    "name",
+    "sku",
+    "quantityOnHand",
+    "reorderThreshold",
+    "unit",
+    "createdAt"
+   ],
+   "relations": [
+    "tenants",
+    "services"
+   ],
+   "file": "src/db/schema.ts",
+   "line": 342
+  },
+  {
+   "name": "api_keys",
+   "exportName": "apiKeys",
+   "columns": [
+    "id",
+    "tenantId",
+    "keyPrefix",
+    "keyHash",
+    "scopes",
+    "expiresAt",
+    "lastUsedAt",
+    "createdAt"
+   ],
+   "relations": [
+    "tenants"
+   ],
+   "file": "src/db/schema.ts",
+   "line": 354
+  },
+  {
+   "name": "search_intent",
+   "exportName": "searchIntent",
+   "columns": [
+    "id",
+    "category",
+    "city",
+    "action",
+    "createdAt"
+   ],
+   "relations": [],
+   "file": "src/db/schema.ts",
+   "line": 368
+  },
+  {
+   "name": "pro_alerts",
+   "exportName": "proAlerts",
+   "columns": [
+    "id",
+    "tenantId",
+    "category",
+    "city",
+    "actionCount",
+    "message",
+    "createdAt"
+   ],
+   "relations": [
+    "tenants"
+   ],
+   "file": "src/db/schema.ts",
+   "line": 378
+  },
+  {
+   "name": "refresh_token_families",
+   "exportName": "refreshTokenFamilies",
+   "columns": [
+    "id",
+    "userId",
+    "parentJti",
+    "childJti",
+    "createdAt",
+    "lastUsedAt",
+    "revokedAt"
+   ],
+   "relations": [
+    "users"
+   ],
+   "file": "src/db/schema.ts",
+   "line": 391
+  },
+  {
+   "name": "billing_reminder_sends",
+   "exportName": "billingReminderSends",
+   "columns": [
+    "id",
+    "tenantId",
+    "stage",
+    "cycleStart",
+    "channel",
+    "sentAt"
+   ],
+   "relations": [
+    "tenants"
+   ],
+   "file": "src/db/schema.ts",
+   "line": 405
+  },
+  {
+   "name": "telegram_links",
+   "exportName": "telegramLinks",
+   "columns": [
+    "chatId",
+    "phone",
+    "tenantId",
+    "consentGivenAt",
+    "linkedAt"
+   ],
+   "relations": [],
+   "file": "src/db/schema.ts",
+   "line": 420
+  },
+  {
+   "name": "notification_log",
+   "exportName": "notificationLog",
+   "columns": [
+    "id",
+    "tenantId",
+    "channel",
+    "template",
+    "refType",
+    "refId",
+    "status",
+    "error",
+    "createdAt"
+   ],
+   "relations": [],
+   "file": "src/db/schema.ts",
+   "line": 438
+  },
+  {
+   "name": "consumers",
+   "exportName": "consumers",
+   "columns": [
+    "id",
+    "phone",
+    "name",
+    "consentGivenAt",
+    "createdAt"
+   ],
+   "relations": [],
+   "file": "src/db/schema.ts",
+   "line": 455
+  },
+  {
+   "name": "data_deletion_requests",
+   "exportName": "dataDeletionRequests",
+   "columns": [
+    "id",
+    "phone",
+    "status",
+    "requestedAt",
+    "fulfilledAt",
+    "note"
+   ],
+   "relations": [],
+   "file": "src/db/schema.ts",
+   "line": 465
+  },
+  {
+   "name": "loyalty_ledger",
+   "exportName": "loyaltyLedger",
+   "columns": [
+    "id",
+    "tenantId",
+    "consumerPhone",
+    "pointsDelta",
+    "reason",
+    "refType",
+    "refId",
+    "createdAt"
+   ],
+   "relations": [
+    "tenants"
+   ],
+   "file": "src/db/schema.ts",
+   "line": 481
+  },
+  {
+   "name": "punch_cards",
+   "exportName": "punchCards",
+   "columns": [
+    "id",
+    "tenantId",
+    "consumerPhone",
+    "punches",
+    "target",
+    "rewardConfig",
+    "createdAt"
+   ],
+   "relations": [
+    "tenants"
+   ],
+   "file": "src/db/schema.ts",
+   "line": 498
+  },
+  {
+   "name": "activation_events",
+   "exportName": "activationEvents",
+   "columns": [
+    "id",
+    "tenantId",
+    "event",
+    "meta",
+    "createdAt"
+   ],
+   "relations": [],
+   "file": "src/db/schema.ts",
+   "line": 514
+  },
+  {
+   "name": "content_reports",
+   "exportName": "contentReports",
+   "columns": [
+    "id",
+    "tenantId",
+    "reporterPhone",
+    "reason",
+    "details",
+    "status",
+    "resolutionNote",
+    "createdAt",
+    "resolvedAt"
+   ],
+   "relations": [
+    "tenants"
+   ],
+   "file": "src/db/schema.ts",
+   "line": 530
+  },
+  {
+   "name": "consumer_blocks",
+   "exportName": "consumerBlocks",
+   "columns": [
+    "id",
+    "consumerId",
+    "tenantId",
+    "createdAt"
+   ],
+   "relations": [
+    "consumers",
+    "tenants"
+   ],
+   "file": "src/db/schema.ts",
+   "line": 548
+  },
+  {
+   "name": "ai_usage",
+   "exportName": "aiUsage",
+   "columns": [
+    "id",
+    "tenantId",
+    "day",
+    "count",
+    "createdAt"
+   ],
+   "relations": [
+    "tenants"
+   ],
+   "file": "src/db/schema.ts",
+   "line": 557
+  }
+ ],
+ "crons": [
+  {
+   "name": "sendReminders",
+   "schedule": "*/15 * * * *",
+   "file": "server.ts",
+   "line": 243,
+   "purpose": "appointment reminders + expire stale pending-payment slots",
+   "idempotency": "appointments.reminderSent flag (server/cron/sendReminders.ts:63,148); expired-slot sweep cancels_at"
+  },
+  {
+   "name": "runWinbackAutomations",
+   "schedule": "0 23 * * *",
+   "file": "server.ts",
+   "line": 253,
+   "purpose": "win-back lapsed clients with single-use codes",
+   "idempotency": "customer_stats.automation_state (server/cron/runWinbackAutomations.ts:7,115); throttle 50@1/s in-process (37-39)"
+  },
+  {
+   "name": "expandRecurring",
+   "schedule": "0 3 * * *",
+   "file": "server.ts",
+   "line": 263,
+   "purpose": "expand recurring_series occurrences (Ge'ez dates)",
+   "idempotency": "series+date existence check; duplicate logic also at src/api/tenant.ts (T6.4 consolidation pending)"
+  },
+  {
+   "name": "downgradeExpired",
+   "schedule": "5 3 * * *",
+   "file": "server.ts",
+   "line": 273,
+   "purpose": "downgrade expired Pro subscriptions to free",
+   "idempotency": "status transition guard; billing grace window"
+  },
+  {
+   "name": "settlementReconciliation",
+   "schedule": "0 4 * * *",
+   "file": "server.ts",
+   "line": 285,
+   "purpose": "flag stale pending settlements (>5d) payments+invoices",
+   "idempotency": "status-only; isDirectRun guard now present (server/cron/settlementReconciliation.ts:51,60)"
+  },
+  {
+   "name": "aggregateIntent",
+   "schedule": "0 */2 * * *",
+   "file": "server.ts",
+   "line": 298,
+   "purpose": "anonymized search-intent → pro_alerts + Market Pulse SMS",
+   "idempotency": "per-window aggregation rows"
+  },
+  {
+   "name": "billingReminders",
+   "schedule": "0 9 * * *",
+   "file": "server.ts",
+   "line": 310,
+   "purpose": "dunning T-3d/T-0d/T+2d/T+5d renewal notices",
+   "idempotency": "billing_reminder_sends UNIQUE(tenant,stage,cycle) marker-first, delete-on-failure (server/cron/billingReminders.ts:10,124-126)"
+  }
+ ],
+ "services": [
+  {
+   "name": "accountDeletion",
+   "file": "server/lib/accountDeletion.ts",
+   "exports": [
+    "deleteTenantAccount",
+    "deleteConsumerAccount"
+   ],
+   "consumers": [
+    "src/api/consumer.ts",
+    "src/api/tenant.ts"
+   ]
+  },
+  {
+   "name": "ai",
+   "file": "server/lib/ai.ts",
+   "exports": [
+    "generateBusinessDescription",
+    "generateMarketingSnippet"
+   ],
+   "consumers": [
+    "src/api/ai-chat.ts",
+    "src/pages/Dashboard/WebsiteBuilder.tsx",
+    "server/tests/ai.test.ts"
+   ]
+  },
+  {
+   "name": "analytics",
+   "file": "server/lib/analytics.ts",
+   "exports": [
+    "ACTIVATION_EVENTS",
+    "trackEvent",
+    "weekStart",
+    "aggregateWeeklyFunnel",
+    "funnelConversion",
+    "computeNorthStar",
+    "quietHoursConfigOf",
+    "computeQuietHoursFillRate",
+    "computeMonthlyChurn"
+   ],
+   "consumers": [
+    "src/api/admin.ts",
+    "src/api/auth.ts",
+    "src/api/payments.ts",
+    "src/api/public.ts",
+    "src/api/tenant.ts",
+    "server/lib/notificationStats.ts",
+    "server/tests/activation-funnel.test.ts",
+    "server/tests/chain-quiet-hours-analytics.test.ts"
+   ]
+  },
+  {
+   "name": "billing",
+   "file": "server/lib/billing.ts",
+   "exports": [
+    "PRO_PLAN_PRICE_BIRR",
+    "FOUNDING_RATE_PRICE_BIRR",
+    "FOUNDING_RATE_PRICE_CENTS",
+    "FOUNDING_RATE_CAP",
+    "FOUNDING_RATE_LOCK_MS",
+    "SUPPORTED_CYCLE_DAYS",
+    "QUARTERLY_DISCOUNT",
+    "priceForCycle",
+    "PRO_CYCLE_MS",
+    "GRACE_PERIOD_MS",
+    "DOWNGRADE_AFTER_GRACE_MS",
+    "activateProSubscription",
+    "countFoundingCohort",
+    "resolvePriceForTenant",
+    "billingStateFor"
+   ],
+   "consumers": [
+    "src/api/payments.ts",
+    "src/api/pro-site.ts",
+    "src/api/tenant.ts",
+    "server/cron/downgradeExpired.ts",
+    "server/lib/plans.ts",
+    "server/seed.ts",
+    "server/tests/ai-marketing.test.ts",
+    "server/tests/chain-prepay-billing.test.ts",
+    "server/tests/founding-rate.test.ts",
+    "server/tests/prepay-cycles.test.ts"
+   ]
+  },
+  {
+   "name": "chapa",
+   "file": "server/lib/chapa.ts",
+   "exports": [
+    "initChapa",
+    "createCheckout",
+    "initiateDirectCharge",
+    "authorizeDirectCharge",
+    "verifyPayment",
+    "generateTxRef",
+    "getWebhookSecret"
+   ],
+   "consumers": [
+    "src/api/payments.ts",
+    "src/api/public.ts",
+    "src/api/tenant.ts",
+    "src/api/v1.ts",
+    "server/tests/billing.test.ts",
+    "server/tests/chain-helpers.ts",
+    "server/tests/chain-webhook-amount.test.ts",
+    "server/tests/invoices.test.ts",
+    "server/tests/prepay-cycles.test.ts",
+    "server/tests/settlements.test.ts",
+    "server/tests/webhook.test.ts"
+   ]
+  },
+  {
+   "name": "consumers",
+   "file": "server/lib/consumers.ts",
+   "exports": [
+    "upsertConsumerByPhone"
+   ],
+   "consumers": [
+    "src/api/consumer.ts",
+    "src/api/loyalty.ts",
+    "src/api/public.ts"
+   ]
+  },
+  {
+   "name": "demoTenant",
+   "file": "server/lib/demoTenant.ts",
+   "exports": [
+    "DEMO_TENANT_SLUG",
+    "SEED_TENANT_SLUGS",
+    "getDemoTenantId",
+    "getDemoTenantIds",
+    "__resetDemoTenantCache",
+    "excludeDemoRows"
+   ],
+   "consumers": [
+    "src/api/admin.ts",
+    "src/api/public.ts",
+    "src/db/migrations.ts",
+    "server/tests/demo-tenant.test.ts"
+   ]
+  },
+  {
+   "name": "loyalty",
+   "file": "server/lib/loyalty.ts",
+   "exports": [
+    "LOYALTY_TARGET_DEFAULT",
+    "NSM_THRESHOLD",
+    "OPT_IN_THRESHOLD",
+    "gateStatus",
+    "recordPunch",
+    "getCardForConsumer",
+    "issueCard",
+    "pendingRewardDiscount",
+    "consumeReward"
+   ],
+   "consumers": [
+    "src/api/index.ts",
+    "src/api/loyalty.ts",
+    "server/tests/chain-loyalty-consume-race.test.ts"
+   ]
+  },
+  {
+   "name": "mailTemplates",
+   "file": "server/lib/mailTemplates.ts",
+   "exports": [
+    "templates",
+    "renderTemplate",
+    "applyTemplate"
+   ],
+   "consumers": [
+    "src/api/auth.ts",
+    "src/api/public.ts",
+    "src/api/v1.ts",
+    "server/cron/sendReminders.ts",
+    "server/tests/email-templates.test.ts"
+   ]
+  },
+  {
+   "name": "mailer",
+   "file": "server/lib/mailer.ts",
+   "exports": [
+    "transporter",
+    "sendMail"
+   ],
+   "consumers": [
+    "server/lib/notifications.ts"
+   ]
+  },
+  {
+   "name": "mediaUrls",
+   "file": "server/lib/mediaUrls.ts",
+   "exports": [
+    "resolveMediaUrl",
+    "rewriteUploadUrls"
+   ],
+   "consumers": [
+    "src/api/public.ts",
+    "src/api/tenant.ts"
+   ]
+  },
+  {
+   "name": "notificationStats",
+   "file": "server/lib/notificationStats.ts",
+   "exports": [
+    "aggregateNotificationStats"
+   ],
+   "consumers": [
+    "src/api/admin.ts",
+    "server/tests/notification-stats.test.ts"
+   ]
+  },
+  {
+   "name": "notifications",
+   "file": "server/lib/notifications.ts",
+   "exports": [
+    "registerChannel",
+    "getChannel",
+    "listChannels",
+    "emailChannel",
+    "smsChannel",
+    "notify"
+   ],
+   "consumers": [
+    "src/api/admin.ts",
+    "src/api/auth.ts",
+    "src/api/crm.ts",
+    "src/api/public.ts",
+    "src/api/test.ts",
+    "src/api/v1.ts",
+    "server/cron/aggregateIntent.ts",
+    "server/cron/billingReminders.ts",
+    "server/cron/runWinbackAutomations.ts",
+    "server/cron/sendReminders.ts",
+    "server/lib/otp.ts",
+    "server/lib/telegram.ts"
+   ]
+  },
+  {
+   "name": "otp",
+   "file": "server/lib/otp.ts",
+   "exports": [
+    "generateOtp",
+    "verifyOtp",
+    "resendOtp"
+   ],
+   "consumers": [
+    "src/api/auth.ts",
+    "src/api/consumer.ts",
+    "server/tests/consumer-auth.test.ts"
+   ]
+  },
+  {
+   "name": "plans",
+   "file": "server/lib/plans.ts",
+   "exports": [
+    "FREE_MAX_STAFF",
+    "PRO_MAX_STAFF",
+    "getOrCreatePlan",
+    "getOrCreateFreePlan",
+    "getOrCreateProPlan"
+   ],
+   "consumers": [
+    "src/api/auth.ts",
+    "src/api/tenant.ts",
+    "src/db/migrations.ts",
+    "server/lib/trial.ts"
+   ]
+  },
+  {
+   "name": "queue",
+   "file": "server/lib/queue.ts",
+   "exports": [
+    "withBusyRetry",
+    "enrollAndListQueue",
+    "advanceEntry"
+   ],
+   "consumers": [
+    "src/api/index.ts",
+    "src/api/public.ts",
+    "src/api/queue.ts"
+   ]
+  },
+  {
+   "name": "securityLog",
+   "file": "server/lib/securityLog.ts",
+   "exports": [
+    "logSecurityEvent",
+    "ipFromRequest"
+   ],
+   "consumers": [
+    "src/api/auth.ts",
+    "src/api/bookings.ts",
+    "src/api/consumer.ts",
+    "src/api/middleware/apiKey.ts",
+    "src/api/middleware/consumerAuth.ts",
+    "src/api/payments.ts",
+    "src/api/public.ts",
+    "src/api/queue.ts",
+    "src/api/telegram.ts",
+    "src/api/tenant.ts",
+    "src/api/trust.ts",
+    "src/api/v1.ts"
+   ]
+  },
+  {
+   "name": "settlements",
+   "file": "server/lib/settlements.ts",
+   "exports": [
+    "SETTLEMENT_STALE_MS",
+    "deriveSettlementStatus",
+    "findStalePendingPayments",
+    "findStalePendingInvoices",
+    "settlementReconciliationReport"
+   ],
+   "consumers": [
+    "src/api/payments.ts",
+    "server/cron/settlementReconciliation.ts",
+    "server/tests/settlements.test.ts"
+   ]
+  },
+  {
+   "name": "siteTemplates",
+   "file": "server/lib/siteTemplates.ts",
+   "exports": [
+    "TEMPLATE_BUSINESS_HOURS",
+    "TEMPLATE_CATEGORIES",
+    "templateForCategory",
+    "buildTemplatePage"
+   ],
+   "consumers": [
+    "src/api/tenant.ts",
+    "server/seed.ts",
+    "server/tests/site-templates.test.ts"
+   ]
+  },
+  {
+   "name": "sms",
+   "file": "server/lib/sms.ts",
+   "exports": [
+    "sendSms"
+   ],
+   "consumers": [
+    "server/lib/notifications.ts"
+   ]
+  },
+  {
+   "name": "telegram",
+   "file": "server/lib/telegram.ts",
+   "exports": [
+    "isTelegramConfigured",
+    "__setTelegramFetch",
+    "buildTelegramDeepLink",
+    "getTelegramLinkByPhone",
+    "telegramChannel",
+    "ensureTelegramRegistered",
+    "linkChat",
+    "redactChatId",
+    "verifyWebhookSecret"
+   ],
+   "consumers": [
+    "src/api/consumer.ts",
+    "src/api/index.ts",
+    "src/api/public.ts",
+    "src/api/telegram.ts",
+    "server/tests/consumer-auth.test.ts",
+    "server/tests/notifications.test.ts",
+    "server/tests/telegram-webhook.test.ts"
+   ]
+  },
+  {
+   "name": "timezone",
+   "file": "server/lib/timezone.ts",
+   "exports": [
+    "toAddis",
+    "getAddisDayOfWeek",
+    "getAddisDateString",
+    "parseAddisDate",
+    "formatAddisSlotTime",
+    "ETHIOPIAN_MONTHS",
+    "formatEthiopianDate",
+    "formatEthiopianDateCompact",
+    "formatEthiopianDateTime"
+   ],
+   "consumers": [
+    "src/api/public.ts",
+    "src/api/queue.ts",
+    "src/api/tenant.ts",
+    "src/api/v1.ts",
+    "server/api/tenantRoute.ts",
+    "server/cron/expandRecurring.ts",
+    "server/cron/sendReminders.ts",
+    "server/lib/queue.ts",
+    "server/tests/ethiopian-calendar-edge-cases.test.ts",
+    "server/tests/ethiopian-calendar.test.ts"
+   ]
+  },
+  {
+   "name": "trial",
+   "file": "server/lib/trial.ts",
+   "exports": [
+    "grantProTrial"
+   ],
+   "consumers": [
+    "server/tests/grant-trial.test.ts",
+    "server/tests/pro-trial-grant.test.ts",
+    "server/tests/subscription-upgrade.test.ts"
+   ]
+  },
+  {
+   "name": "turnstile",
+   "file": "server/lib/turnstile.ts",
+   "exports": [
+    "TurnstileNotConfiguredError",
+    "isTurnstileConfigured",
+    "verifyTurnstileToken"
+   ],
+   "consumers": [
+    "src/api/public.ts"
+   ]
+  },
+  {
+   "name": "aggregateIntent",
+   "file": "server/cron/aggregateIntent.ts",
+   "exports": [
+    "runOnce"
+   ],
+   "consumers": [
+    "server/tests/intent.test.ts"
+   ]
+  },
+  {
+   "name": "billingReminders",
+   "file": "server/cron/billingReminders.ts",
+   "exports": [
+    "runOnce"
+   ],
+   "consumers": [
+    "server/tests/billing-reminders.test.ts"
+   ]
+  },
+  {
+   "name": "downgradeExpired",
+   "file": "server/cron/downgradeExpired.ts",
+   "exports": [
+    "runOnce"
+   ],
+   "consumers": [
+    "server/tests/billing-reminders.test.ts"
+   ]
+  },
+  {
+   "name": "expandRecurring",
+   "file": "server/cron/expandRecurring.ts",
+   "exports": [
+    "expandAllSeries"
+   ],
+   "consumers": []
+  },
+  {
+   "name": "runWinbackAutomations",
+   "file": "server/cron/runWinbackAutomations.ts",
+   "exports": [
+    "runOnce"
+   ],
+   "consumers": [
+    "server/tests/winback-cron.test.ts"
+   ]
+  },
+  {
+   "name": "sendReminders",
+   "file": "server/cron/sendReminders.ts",
+   "exports": [
+    "runOnce"
+   ],
+   "consumers": [
+    "server/tests/reminders.test.ts"
+   ]
+  },
+  {
+   "name": "settlementReconciliation",
+   "file": "server/cron/settlementReconciliation.ts",
+   "exports": [
+    "runOnce"
+   ],
+   "consumers": []
+  }
+ ],
+ "ui_surfaces": [
+  {
+   "route": "/",
+   "file": "src/pages/Landing.tsx",
+   "api_calls": [],
+   "plan_gates": [],
+   "dead_calls": [],
+   "note": "marketing; landing copy at :1029 promises automatic refunds (contradicts src/api/public.ts:1283-1285)",
+   "localStorage_smell": false
+  },
+  {
+   "route": "/discover",
+   "file": "src/pages/Discover.tsx",
+   "api_calls": [
+    "/api/public/discover"
+   ],
+   "plan_gates": [],
+   "dead_calls": [],
+   "localStorage_smell": false
+  },
+  {
+   "route": "/:slug",
+   "file": "src/pages/PublicTenantSite.tsx",
+   "api_calls": [
+    "/api/public/page",
+    "/api/public/business-hours"
+   ],
+   "plan_gates": [],
+   "dead_calls": [],
+   "localStorage_smell": false
+  },
+  {
+   "route": "/:slug/book",
+   "file": "src/pages/PublicBooking.tsx",
+   "api_calls": [
+    "/api/public/services",
+    "/api/public/staff",
+    "/api/public/availability",
+    "/api/public/bookings",
+    "/api/public/turnstile-config"
+   ],
+   "plan_gates": [],
+   "dead_calls": [],
+   "localStorage_smell": false
+  },
+  {
+   "route": "/embed/booking",
+   "file": "src/pages/EmbedBooking.tsx",
+   "api_calls": [],
+   "plan_gates": [],
+   "dead_calls": [],
+   "localStorage_smell": false
+  },
+  {
+   "route": "/q/:token",
+   "file": "src/pages/QueueStatus.tsx",
+   "api_calls": [
+    "/api/public/queue-status/"
+   ],
+   "plan_gates": [],
+   "dead_calls": [],
+   "localStorage_smell": false
+  },
+  {
+   "route": "/my-bookings",
+   "file": "src/pages/ConsumerBookings.tsx",
+   "api_calls": [
+    "/api/consumer/loyalty/",
+    "/api/public/telegram-config",
+    "/api/consumer/account/deletion"
+   ],
+   "plan_gates": [],
+   "dead_calls": [],
+   "localStorage_smell": false
+  },
+  {
+   "route": "/dashboard/*",
+   "file": "src/pages/Dashboard/index.tsx",
+   "api_calls": [
+    "/api/tenant/dashboard",
+    "/api/tenant/analytics"
+   ],
+   "plan_gates": [
+    "staff→STAFF_NAV only"
+   ],
+   "dead_calls": [],
+   "note": "analytics fetched :641-650 into weeklyRevenue/weeklyDaily (:597-598) and never rendered (E-ar-01)",
+   "localStorage_smell": false
+  },
+  {
+   "route": "/admin",
+   "file": "src/pages/Admin.tsx",
+   "api_calls": [
+    "/api/admin/stats",
+    "/api/admin/funnel",
+    "/api/admin/stuck-tenants",
+    "/api/admin/winback-leads",
+    "/api/admin/winback-leads/",
+    "/api/admin/tenants",
+    "/api/admin/tenants/"
+   ],
+   "plan_gates": [],
+   "dead_calls": [],
+   "localStorage_smell": false
+  },
+  {
+   "route": "/dashboard/automations",
+   "file": "src/pages/Dashboard/Automations.tsx",
+   "api_calls": [
+    "/api/tenant/subscription",
+    "/api/tenant/settings"
+   ],
+   "plan_gates": [],
+   "dead_calls": [],
+   "localStorage_smell": false
+  },
+  {
+   "route": "/dashboard/billing",
+   "file": "src/pages/Dashboard/Billing.tsx",
+   "api_calls": [
+    "/api/tenant/events/price-seen",
+    "/api/tenant/subscription/checkout"
+   ],
+   "plan_gates": [],
+   "dead_calls": [],
+   "localStorage_smell": false
+  },
+  {
+   "route": "/dashboard/bookings",
+   "file": "src/pages/Dashboard/Bookings.tsx",
+   "api_calls": [
+    "/api/public/page",
+    "/api/bookings",
+    "/api/bookings/"
+   ],
+   "plan_gates": [],
+   "dead_calls": [],
+   "localStorage_smell": true
+  },
+  {
+   "route": "/dashboard/marketing (CustomerHealth tab)",
+   "file": "src/pages/Dashboard/CustomerHealth.tsx",
+   "api_calls": [
+    "/api/tenant/subscription",
+    "/api/tenant/customers",
+    "/api/tenant/settings/upfront-phones",
+    "/api/tenant/promo-codes",
+    "/api/tenant/customers/"
+   ],
+   "plan_gates": [],
+   "dead_calls": [],
+   "localStorage_smell": true
+  },
+  {
+   "route": "/dashboard/inventory",
+   "file": "src/pages/Dashboard/InventoryPage.tsx",
+   "api_calls": [
+    "/api/tenant/inventory"
+   ],
+   "plan_gates": [],
+   "dead_calls": [],
+   "localStorage_smell": false
+  },
+  {
+   "route": "/dashboard/marketing",
+   "file": "src/pages/Dashboard/MarketingDeck.tsx",
+   "api_calls": [
+    "/api/tenant/ai/weekly-posts"
+   ],
+   "plan_gates": [],
+   "dead_calls": [
+    "GET /api/tenant/ai/weekly-posts — no server route (always fallback)"
+   ],
+   "localStorage_smell": true
+  },
+  {
+   "route": "/dashboard/media",
+   "file": "src/pages/Dashboard/MediaLibraryPage.tsx",
+   "api_calls": [
+    "/api/tenant/media",
+    "/api/tenant/upload",
+    "/api/tenant/media/"
+   ],
+   "plan_gates": [],
+   "dead_calls": [],
+   "localStorage_smell": false
+  },
+  {
+   "route": "/dashboard/queue",
+   "file": "src/pages/Dashboard/QueueConsole.tsx",
+   "api_calls": [
+    "/api/tenant/queue",
+    "/api/tenant/queue/advance/"
+   ],
+   "plan_gates": [],
+   "dead_calls": [],
+   "localStorage_smell": false
+  },
+  {
+   "route": "/dashboard/services",
+   "file": "src/pages/Dashboard/ServicesPage.tsx",
+   "api_calls": [
+    "/api/tenant/services",
+    "/api/tenant/services/"
+   ],
+   "plan_gates": [],
+   "dead_calls": [],
+   "localStorage_smell": false
+  },
+  {
+   "route": "/dashboard/settings",
+   "file": "src/pages/Dashboard/Settings.tsx",
+   "api_calls": [
+    "/api/tenant/subscription",
+    "/api/tenant/settings",
+    "/api/tenant/business-hours",
+    "/api/tenant/domain",
+    "/api/tenant/provision/confirm-hours",
+    "/api/tenant/quiet-hours",
+    "/api/tenant/account/deletion",
+    "/api/tenant/quiet-hours/stats"
+   ],
+   "plan_gates": [],
+   "dead_calls": [],
+   "localStorage_smell": false
+  },
+  {
+   "route": "/dashboard/staff",
+   "file": "src/pages/Dashboard/StaffPage.tsx",
+   "api_calls": [
+    "/api/tenant/staff",
+    "/api/tenant/services",
+    "/api/tenant/staff/",
+    "/api/tenant/staff/invite"
+   ],
+   "plan_gates": [],
+   "dead_calls": [],
+   "localStorage_smell": false
+  },
+  {
+   "route": "/dashboard (walk-in sheet)",
+   "file": "src/pages/Dashboard/WalkInSheet.tsx",
+   "api_calls": [
+    "/api/tenant/services",
+    "/api/tenant/staff",
+    "/api/tenant/bookings/walk-in"
+   ],
+   "plan_gates": [],
+   "dead_calls": [],
+   "localStorage_smell": false
+  },
+  {
+   "route": "/dashboard/website-builder",
+   "file": "src/pages/Dashboard/WebsiteBuilder.tsx",
+   "api_calls": [
+    "/api/tenant/site",
+    "/api/tenant/page",
+    "/api/tenant/ai/consent",
+    "/api/tenant/pro-site/files",
+    "/api/tenant/site/publish",
+    "/api/tenant/site/builds",
+    "/api/tenant/site/builds/",
+    "/api/tenant/site/ai-chat"
+   ],
+   "plan_gates": [
+    "Pro: /api/tenant/pro-site",
+    "Pro: /api/tenant/site publish"
+   ],
+   "dead_calls": [],
+   "localStorage_smell": true
+  }
+ ],
+ "infra_constraints": [
+  {
+   "constraint": "single process: one Express server serves API+SPA; all crons in-process; no message queue, no workers",
+   "file": "ARCHITECTURE.md / server.ts",
+   "line": "ARCHITECTURE.md:27-30; server.ts:241-320",
+   "impact": "G3 kill-gate source (docs/feature-selection.md:67); blocks two-way sync, continuous ETL, bulk sends at scale; CEO to-do queue+worker plan in docs/Gap.md:359-507"
+  },
+  {
+   "constraint": "in-process node-cron, no distributed lock: two running instances double-fire all 7 crons",
+   "file": "server.ts",
+   "line": 241,
+   "impact": "deploy safety: exactly one web instance allowed; first motivation for the queue migration"
+  },
+  {
+   "constraint": "libSQL/Turso single-writer; local file:sqlite.db in dev",
+   "file": "src/db/index.ts; ARCHITECTURE.md",
+   "line": "ARCHITECTURE.md:14,271",
+   "impact": "write serialization via BEGIN IMMEDIATE + withBusyRetry backoff (src/api/public.ts:731-734,896); replica lag rules out embedded-replica read path for booking correctness"
+  },
+  {
+   "constraint": "booking correctness is application-enforced (interval-overlap conflict check inside tx), no DB-level exclusion constraints",
+   "file": "src/api/public.ts",
+   "line": "716-728,902-914",
+   "impact": "every new scheduling entity (waitlist, buffers, sequencing) must ride the same BEGIN IMMEDIATE pattern"
+  },
+  {
+   "constraint": "rate limiters are in-memory per process",
+   "file": "express-rate-limit (per-surface limiters)",
+   "line": "docs/REPO_MAP.md:257",
+   "impact": "limits do not share across web instances — another single-instance constraint"
+  },
+  {
+   "constraint": "published Pro builds written to local disk storage/pro-builds/{tenantId}/{buildId}/",
+   "file": "src/api/site-settings.ts",
+   "line": "16-18,203",
+   "impact": "not shared across instances; multi-node serving needs object storage (CEO plan doc/Gap.md:478-486)"
+  },
+  {
+   "constraint": "payments: Chapa is the only acquirer; telebirr/mobile-money push; no stored instrument; ALLOW_UNVERIFIED_PAYMENTS=true TEMPORARY in prod env",
+   "file": "server/lib/chapa.ts; render.yaml",
+   "line": "render.yaml:26; server/lib/chapa.ts:81-136",
+   "impact": "money-path rules for every E-pm-* ruling: capture-at-booking only; refunds manual (src/api/public.ts:1283-1285)"
+  },
+  {
+   "constraint": "mailer is a logged stub without SMTP_HOST but adapter records stub send as success",
+   "file": "server/lib/mailer.ts",
+   "line": "31-34",
+   "impact": "email delivery stats flatter reality (COMPARE-02 §G caveat)"
+  },
+  {
+   "constraint": "SMS is a real SMSEthiopia HTTPS call (REPO_MAP stub claim is stale; tree wins)",
+   "file": "server/lib/sms.ts",
+   "line": "31,90-98",
+   "impact": "SMS-shaped automations score PARTIAL not blocked; unmetered to merchant (COMPARE-02 A.2)"
+  }
+ ],
+ "dead_surfaces": [
+  {
+   "route_or_call": "GET /api/tenant/ai/weekly-posts (client fetch)",
+   "file": "src/pages/Dashboard/MarketingDeck.tsx",
+   "line": 30,
+   "why_dead": "no server route registered anywhere in endpoint scan — deck always renders localStorage-keyed fallback"
+  },
+  {
+   "route_or_call": "localStorage keys tenantName/tenantSlug/tenantCategory read by MarketingDeck/CustomerHealth/MarketPulse/WinBack widgets",
+   "file": "src/pages/Dashboard/MarketingDeck.tsx",
+   "line": "12-24",
+   "why_dead": "never setItem() by production code (only tests) — interpolated strings fall back to generic copy"
+  },
+  {
+   "route_or_call": "CTA links to '/settings' from EmpireChecklist and FirstShareHero",
+   "file": "src/components/dashboard/EmpireChecklist.tsx; src/components/FirstShareHero.tsx",
+   "line": "70; 195",
+   "why_dead": "no top-level /settings route in src/App.tsx (125-147); lands on NotFound; dashboard owns /dashboard/settings (index.tsx:412)"
+  },
+  {
+   "route_or_call": "GET /api/tenant/export/csv",
+   "file": "src/api/tenant.ts",
+   "line": 2122,
+   "why_dead": "zero UI callers in src/** — endpoint live, no button"
+  },
+  {
+   "route_or_call": "src/db/tenantRepo.ts",
+   "file": "src/db/tenantRepo.ts",
+   "line": 1,
+   "why_dead": "no importers in src/server scan (REPO_MAP:252 confirmed; AGENTS.md:29-30 makes helpers optional)"
+  },
+  {
+   "route_or_call": "tenant_closures write path",
+   "file": "src/db/schema.ts",
+   "line": "110-115",
+   "why_dead": "table enforced on every public availability read (src/api/public.ts:508-522,651-662) but no endpoint/UI writes it (seed.ts + tests only) — E-ms-03"
+  }
+ ],
+ "disagreements": [
+  {
+   "doc_claim": "docs/REPO_MAP.md:244,274 — auth_prefix.ts unmounted file, \"kept intentionally\"",
+   "tree_truth": "file deleted from src/api/ (AGENTS.md:20 says deleted on purpose — resurrection prohibited)",
+   "resolution": "tree wins; REPO_MAP stale"
+  },
+  {
+   "doc_claim": "docs/REPO_MAP.md:276 — AtmosphereCanvas.tsx unreachable, delete",
+   "tree_truth": "already deleted",
+   "resolution": "tree wins"
+  },
+  {
+   "doc_claim": "docs/REPO_MAP.md:31,277-279 — \"2 dark crons NOT scheduled\"",
+   "tree_truth": "both now scheduled: settlementReconciliation server.ts:285, billingReminders server.ts:310; 7 crons total, log line server.ts:319",
+   "resolution": "tree wins (as COMPARE-00:33 recorded)"
+  },
+  {
+   "doc_claim": "docs/REPO_MAP.md:254,280 — sms.ts fake-success stub, provider commented out",
+   "tree_truth": "live SMSEthiopia POST sms.ts:31,90-98; unconfigured → success:false (81-84)",
+   "resolution": "tree wins (COMPARE-00:34)"
+  },
+  {
+   "doc_claim": "docs/REPO_MAP.md:289 — QueueConsole unreachable by staff",
+   "tree_truth": "STAFF_NAV includes Queue (src/pages/Dashboard/index.tsx:40)",
+   "resolution": "tree wins"
+  },
+  {
+   "doc_claim": "docs/REPO_MAP.md:291 — Automations toggles never hydrated",
+   "tree_truth": "hydration effect fetches /api/tenant/settings on mount (src/pages/Dashboard/Automations.tsx:76-95)",
+   "resolution": "tree wins"
+  },
+  {
+   "doc_claim": "docs/REPO_MAP.md:293 — EmpireChecklist photo/firstBooking hardcoded done:false",
+   "tree_truth": "steps now derived from provision/status + media + booking counts (EmpireChecklist.tsx:38-78)",
+   "resolution": "tree wins"
+  },
+  {
+   "doc_claim": "docs/REPO_MAP.md:279 — settlementReconciliation runs at import, no guard",
+   "tree_truth": "isDirectRun guard present (settlementReconciliation.ts:51-60)",
+   "resolution": "tree wins"
+  },
+  {
+   "doc_claim": "docs/REPO_MAP.md:246 — 133 endpoints/119 unique; COMPARE-00:35 — 136 registrations",
+   "tree_truth": "134 route-handler registrations in today's tree (this map's endpoints array)",
+   "resolution": "tree wins; delta vs COMPARE-00 is counting method (they included sub-mount aliases)"
+  },
+  {
+   "doc_claim": "AGENTS.md:47 / docs/feature-selection.md:6 — EXECUTION_PLAN.md required reading",
+   "tree_truth": "EXECUTION_PLAN.md and ROADMAP.md absent from working tree (staged deletion, docs/feature-selection.md:23-29)",
+   "resolution": "session cites surviving law files + git HEAD where needed"
+  }
+ ]
+}
