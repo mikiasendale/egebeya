@@ -8,7 +8,7 @@
 - **Graph:** 8,087 nodes · 20,329 directed edges · 341 communities (built `--directed`; 261 communities shown in report, 80 thin omitted)
 - **Outputs:** `graphify-out/graph.html` (interactive, aggregated community view) · `graphify-out/graph.json` (raw) · `graphify-out/GRAPH_REPORT.md` (audit)
 - **Caveats:** 1,340 dangling edges from malformed image-chunk extractions (cosmetic). AST extraction does not emit router→handler `calls` edges (Express `app.use()` pattern) — handler→lib edges were verified by file reads where the graph is silent.
-- **Graph corrections:** `server/lib/loyalty.ts` in=0 is **stale** (callers use dynamic `await import()`); `src/db/tenantRepo.ts` in=0 is **correct** (grep-verified dead).
+- **Graph corrections:** `server/lib/loyalty.ts` in=0 is **stale** (callers use dynamic `await import()`); `src/db/tenantRepo.ts` in=0 was **correct** (grep-verified dead — since DELETED, FSD-004).
 
 ## 2. Entry points
 
@@ -249,7 +249,7 @@ All 12 paths duplicate auth.ts (check-slug, register, login, refresh, me, forgot
 
 One line each; full detail in §Group refs → file-historian pass. ⚠ = stub/dead/gap.
 
-**Boot (§1):** `server.ts` entrypoint+crons · `src/api/index.ts` mount table · `src/db/index.ts` libSQL client · `src/db/migrations.ts` idempotent DDL · `src/db/schema.ts` table truth · `src/db/tenantRepo.ts` ⚠ dead scaffolding · `src/db/health.ts` circuit breaker.
+**Boot (§1):** `server.ts` entrypoint+crons · `src/api/index.ts` mount table · `src/db/index.ts` libSQL client · `src/db/migrations.ts` idempotent DDL · `src/db/schema.ts` table truth · `src/db/health.ts` circuit breaker.
 
 **Libs (§2, all `server/lib/`):** `ai.ts` Gemini wrapper (static fallback) · `analytics.ts` trackEvent+funnel math · `billing.ts` Pro-billing truth · `chapa.ts` gateway client (fail-fast) · `consumers.ts` end-customer upsert · `demoTenant.ts` demo exclusion · `loyalty.ts` punch-card engine (gated-dark by LOYALTY_ENABLED) · `mailer.ts` nodemailer (stub w/o SMTP_HOST) · `mailTemplates.ts` en/am content · `mediaUrls.ts` CDN rewrite · `notificationStats.ts` delivery metrics · `notifications.ts` dispatch hub · `otp.ts` OTP lifecycle · `plans.ts` plan self-heal · `queue.ts` queue engine · `securityLog.ts` audit log (in=51) · `settlements.ts` settlement status · `siteTemplates.ts` category packs · `sms.ts` ⚠ stub — provider call commented out · `telegram.ts` bot channel · `timezone.ts` Addis/Ethiopian time · `trial.ts` 14-day Pro trial (CLI only) · `turnstile.ts` CAPTCHA verify (fail-open when unset).
 
@@ -272,7 +272,7 @@ One line each; full detail in §Group refs → file-historian pass. ⚠ = stub/d
 | Where | Category | Fix |
 |---|---|---|
 | `src/api/auth_prefix.ts:60-739` ⚠ | Unreachable file — 12 legacy auth endpoints, imported nowhere (intentional parity copy) | Delete when confident; nothing references it |
-| `src/db/tenantRepo.ts` ⚠ | Unreachable file — tenant-scoped repo layer never adopted; routers scope inline | Adopt (security win) or delete |
+| `src/db/tenantRepo.ts` | DELETED per FSD-004 (2026-09-12) — looked like the isolation layer, zero importers; inline `eq(tenantId, …)` is the law | — |
 | `src/components/AtmosphereCanvas.tsx` ⚠ | Unreachable file — zero imports | Delete |
 | `server/cleanup-orphans.ts` ⚠ | Manual-only script, not in package.json | Add npm script or archive |
 | `server/cron/billingReminders.ts` ⚠ | Env/unprovisioned — dunning designed for external crontab that doesn't exist (render.yaml has no jobs) | Add Render cron job or document |

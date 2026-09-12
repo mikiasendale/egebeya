@@ -99,10 +99,13 @@ discovered the tenant from one of two sources, in priority order:
 If no slug resolves, the tenant lookup returns 404. A suspended tenant returns
 403 with code `TENANT_SUSPENDED`.
 
-**All** tenant-scoped API handlers (both public and admin) use
-`src/db/tenantRepo.ts` functions that always include `and(eq(… tenantId, tenantId))`
-in the WHERE clause — there is no single un-scoped query path. The isolation
-guarantee comes from the query layer, not a separate middleware.
+**All** tenant-scoped API handlers (both public and admin) enforce isolation
+inline: every DB query includes `and(eq(<table>.tenantId, tenantId))` in its
+WHERE clause — there is no single un-scoped query path. There is **no**
+repository layer: `src/db/tenantRepo.ts` was deleted (FSD-004) because it
+looked like one while nothing called it. The guarantee is convention +
+enforcement at every call site + auth/CSRF middleware, verified by
+`server/tests/cross-tenant-isolation.test.ts`.
 
 ---
 
@@ -256,7 +259,7 @@ sites — known debt, consolidate during P3.1.)*
 |---------|--------------|
 | **Rate limiting** | `express-rate-limit` (registered per surface: auth=20/15 min, booking=30/10 min, webhook=100/1 min, etc.). All limiters log to `security_events`. |
 | **XSS / clickjacking** | `helmet` (content-security-policy disabled for the Puck preview). |
-| **Tenant isolation** | Every DB query includes `tenant_id` in the WHERE clause via `tenantRepo.ts` helpers. No global query can cross tenant boundaries. |
+| **Tenant isolation** | Every DB query includes `tenant_id` in the WHERE clause inline (`eq(tenantId, …)` is the law, AGENTS.md). No repository layer exists (`tenantRepo.ts` deleted per FSD-004); `cross-tenant-isolation.test.ts` verifies the guarantee. |
 | **HMAC webhook verification** | Constant-time comparison (`crypto.timingSafeEqual`) ensures Chapa is the genuine sender. |
 | **Webhook idempotency** | `UNIQUE(provider, event_id)` insert makes duplicate delivery a clean `200 duplicate` — but side effects are not yet wrapped in the same transaction (see Webhook flow note above); fix tracked as P1.2. |
 | **Password handling** | `bcrypt.js` (rounds=10); email reset + OTP phone flows (register-with-phone, verify-otp, reset-password-via-sms) — 6-digit codes, 10-min TTL, attempt lockout, send/verify rate limits. ⚠️ Audit found codes stored plaintext; hashing is task P0.5. |

@@ -227,7 +227,7 @@ server.ts                  Express app + static serving + node-cron scheduling
 src/db/index.ts            Dual-environment Drizzle client (Turso vs local SQLite)
 src/db/schema.ts           All 38 Drizzle tables
 src/db/migrations.ts       Idempotent boot-time schema bootstrap + ALTERs
-src/db/tenantRepo.ts       Light tenant-scoped query helpers (adopt deliberately)
+src/db/                    schema truth, migrations, libSQL client (tenantRepo.ts deleted — FSD-004)
 src/api/                   Express route modules (crm, bookings, loyalty, admin, intent, …)
 server/lib/                Domain engines (loyalty gate, queue, billing, settlements, demo-tenant exclusion, …)
 server/cron/               One-off cron runners (sendReminders, winback, intent, …)
