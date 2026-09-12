@@ -2123,6 +2123,15 @@ router.get('/export/csv', async (req, res) => {
   const { tenantId } = (req as any).user;
   const { type = 'bookings', startDate, endDate } = req.query;
 
+  // #67 — reject unknown export types BEFORE any CSV header is written; a
+  // 400 must arrive as clean JSON, not a half-streamed text/csv body.
+  const VALID_EXPORT_TYPES = ['bookings', 'customers', 'services', 'staff', 'payments'];
+  if (!VALID_EXPORT_TYPES.includes(String(type))) {
+    return res.status(400).json({
+      error: `Invalid export type. Supported: ${VALID_EXPORT_TYPES.join(', ')}`,
+    });
+  }
+
   try {
     // Set CSV headers
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
@@ -2308,14 +2317,22 @@ router.get('/export/csv', async (req, res) => {
 
         const { startDate, endDate, status } = req.query;
         const whereConditions = [eq(payments.tenantId, tenantId)];
-        if (startDate) whereConditions.push(gte(payments.id, startDate as string));
-        if (endDate) whereConditions.push(lte(payments.id, endDate as string));
+        // #67 — payments.id is a UUID: comparing it to 'YYYY-MM-DD' filtered
+        // on the primary key as if it were a date. Window on createdAt
+        // (epoch ms UTC) with full Addis days, inclusive of endDate.
+        if (startDate) {
+          whereConditions.push(gte(payments.createdAt, parseAddisDate(String(startDate)).getTime()));
+        }
+        if (endDate) {
+          const endExclusive = parseAddisDate(String(endDate)).getTime() + 24 * 60 * 60 * 1000;
+          whereConditions.push(lt(payments.createdAt, endExclusive));
+        }
         if (status) whereConditions.push(eq(payments.status, status as string));
 
         const paymentsData = await db.select()
           .from(payments)
           .where(and(...whereConditions))
-          .orderBy(desc(payments.id))
+          .orderBy(desc(payments.createdAt))
           .all();
 
         for (const payment of paymentsData) {
@@ -2327,7 +2344,7 @@ router.get('/export/csv', async (req, res) => {
             payment.method || '',
             payment.gatewayReference || '',
             payment.status,
-            '',
+            payment.createdAt ? getAddisDateString(new Date(payment.createdAt)) : '',
           ]);
         }
         break;

@@ -20,6 +20,7 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { eq } from 'drizzle-orm';
+import { parseAddisDate } from '../../server/lib/timezone';
 
 import apiRoutes from '../../src/api';
 
@@ -391,6 +392,59 @@ describe('API Marketplace', () => {
   });
 
   // ─── 401 on wrong/missing key ──────────────────────────────────
+
+  // ─── #67 Payments CSV: createdAt window on Addis days, Created filled ───
+
+  describe('Payments CSV export (#67)', () => {
+    const DAY_MS = 24 * 60 * 60 * 1000;
+    const in1 = { id: crypto.randomUUID(), ts: parseAddisDate('2026-03-02').getTime() + 30 * 60 * 1000 }; // 00:30 Addis, day 1 edge
+    const in2 = { id: crypto.randomUUID(), ts: parseAddisDate('2026-03-03').getTime() + 23.5 * 3600 * 1000 }; // 23:30 Addis, day 2 edge (inclusive)
+    const out = { id: crypto.randomUUID(), ts: parseAddisDate('2026-03-04').getTime() + 30 * 60 * 1000 }; // just past the window
+
+    beforeAll(async () => {
+      for (const p of [in1, in2, out]) {
+        await db.insert(payments).values({
+          id: p.id, tenantId, amount: 1000, status: 'success',
+          gateway: 'chapa', method: 'card', gatewayReference: `ref-${p.id.slice(0, 6)}`,
+          createdAt: p.ts,
+        });
+      }
+    });
+
+    it('filters on payments.createdAt with Addis day bounds and fills Created', async () => {
+      const res = await request(app)
+        .get('/api/tenant/export/csv')
+        .set(await authHeader())
+        .query({ type: 'payments', startDate: '2026-03-02', endDate: '2026-03-03' });
+
+      expect(res.status).toBe(200);
+      const lines = res.text.trim().split('\n');
+      expect(lines[0].split(',').pop()).toBe('Created');
+
+      const rows = lines.slice(1).map((l) => l.split(','));
+      const byId = new Map(rows.map((r) => [r[0], r]));
+      expect([...byId.keys()].sort()).toEqual([in1.id, in2.id].sort());
+      expect(byId.has(out.id)).toBe(false);
+
+      // Created populated with the Addis calendar date — the very moment
+      // 21:30 UTC on Mar 1 is Addis 00:30 Mar 2.
+      expect(byId.get(in1.id)![7]).toBe('2026-03-02');
+      expect(byId.get(in2.id)![7]).toBe('2026-03-03');
+    });
+
+    it('rejects an unknown export type with a clean 400 before writing any CSV', async () => {
+      const res = await request(app)
+        .get('/api/tenant/export/csv')
+        .set(await authHeader())
+        .query({ type: 'bogus' });
+
+      expect(res.status).toBe(400);
+      expect(res.headers['content-type']).toMatch(/application\/json/);
+      expect(res.body.error).toMatch(/Invalid export type/);
+      // No CSV bytes leaked into the error body.
+      expect(res.text).not.toContain('Appointment ID');
+    });
+  });
 
   describe('Authentication', () => {
     let validKey: string;
