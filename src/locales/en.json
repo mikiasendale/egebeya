@@ -401,11 +401,11 @@
       },
       {
         "heading": "2. Telegram Messaging Consent",
-        "body": "You opt in to Telegram messages by tapping \"ማስታወሻ በ Telegram\" on your booking confirmation and pressing Start in our bot — that tap records your consent with a timestamp. We then send booking confirmations and reminders to that chat. The bot can never message you first; every flow starts from you. Withdraw anytime by blocking the bot or writing STOP."
+        "body": "You opt in to Telegram messages by tapping \"ማስታወሻ በ Telegram\" on your booking confirmation and pressing Start in our bot — that tap records your consent with a timestamp. We then send booking confirmations and reminders to that chat. The bot can never message you first; every flow starts from you. Withdraw anytime by blocking the bot — that stops all Telegram traffic from us."
       },
       {
         "heading": "3. Marketing Consent",
-        "body": "Businesses may only send you promotions if you ticked the marketing-consent box at booking time or opted in through their customer list. The consent moment is timestamped. Opt out via STOP on any message or directly with the business."
+        "body": "Businesses may only send you promotions if you ticked the marketing-consent box at booking time or opted in through their customer list. The consent moment is timestamped. To stop marketing messages, opt out directly with the business."
       },
       {
         "heading": "4. Loyalty Tracking & Data Use",

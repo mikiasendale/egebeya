@@ -84,4 +84,20 @@ describe('i18n parity (WP2 / P3-D)', () => {
 
     expect(violations, `critical English-identical strings in am.json:\n${violations.join('\n')}`).toEqual([]);
   });
+
+  it('#44: no locale copy promises an SMS/Telegram STOP keyword (none is read)', () => {
+    // No inbound SMS reader exists in this product and the Telegram bot only
+    // handles /start — so promising "Reply STOP" anywhere is an unkept
+    // promise (PDPL consent-copy duty). The only sanctioned way to stop
+    // Telegram traffic is blocking the bot. When the T7.12 inbound STOP
+    // webhook is built, remove this guard deliberately.
+    const STOP_CLAIM = /\bSTOP\b/i;
+    const violations: string[] = [];
+    for (const [locale, leaves] of [['en', leafValues(en)], ['am', leafValues(am)]] as const) {
+      for (const [path, value] of Object.entries(leaves)) {
+        if (STOP_CLAIM.test(value)) violations.push(`${locale}:${path}`);
+      }
+    }
+    expect(violations, `unkept STOP promises in locales:\n${violations.join('\n')}`).toEqual([]);
+  });
 });

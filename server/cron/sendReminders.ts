@@ -119,8 +119,8 @@ export async function runOnce(tenantId?: string): Promise<number> {
           template: 'reminder',
           to: { phone: appt.customerPhone },
           text: reminderLocale === 'am'
-            ? `ሰላም ${appt.customerName}፣ ቀጠሮዎ በ ${ethiopianDateStr} ነው። እርስዎን በጉጉት እንጠብቃለን! መረጃዊ መረጃ ለመሰጥት መረጃ ይበልጡታል። Reply STOP ይሆን`
-            : `Hi ${appt.customerName}, your appointment is at ${ethiopianDateStr}. We look forward to seeing you! Reply STOP to opt out.`,
+            ? `ሰላም ${appt.customerName}፣ ቀጠሮዎ በ ${ethiopianDateStr} ነው። እርስዎን በጉጉት እንጠብቃለን!`
+            : `Hi ${appt.customerName}, your appointment is at ${ethiopianDateStr}. We look forward to seeing you!`,
           tenantId: appt.tenantId,
           refType: 'appointment',
           refId: appt.id,

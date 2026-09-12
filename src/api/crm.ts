@@ -176,8 +176,10 @@ router.get('/promo-codes', async (req, res) => {
  *
  * Body: { message: string }
  *
- * Every message automatically appends an "Reply STOP" opt-out keyword
- * so customers can opt out of future marketing messages.
+ * Opt-out is MANUAL (#44): no inbound SMS reader exists in this product, so
+ * no message may promise SMS keyword opt-out. A customer opts out by asking
+ * the business directly, and the merchant updates consent via
+ * PATCH /api/tenant/customers/:phone/marketing-opt-in.
  */
 router.post('/marketing/blast', async (req, res) => {
   const { tenantId } = (req as any).user;
@@ -203,8 +205,7 @@ router.post('/marketing/blast', async (req, res) => {
       ))
       .all();
 
-    const OPT_OUT_SUFFIX = ' Reply STOP to opt out.';
-    const fullText = message.trim() + OPT_OUT_SUFFIX;
+    const fullText = message.trim();
 
     let sent = 0;
     const errors: { phone: string; error: string }[] = [];

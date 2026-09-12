@@ -202,6 +202,24 @@ describe('CRM: Customers, Promo Codes, Marketing', () => {
     expect(res.body.skipped).toBe(0);
   });
 
+  it('#44: blast SMS text contains the message and never promises a STOP keyword', async () => {
+    const { sendSms } = await import('../../server/lib/sms');
+    (sendSms as any).mockClear(); // earlier blast tests already pushed calls
+    const blastMessage = 'Honesty check: no unkept opt-out promises.';
+    const res = await request(app)
+      .post('/api/tenant/marketing/blast')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ message: blastMessage });
+
+    expect(res.status).toBe(200);
+    const calls = (sendSms as any).mock.calls as any[][];
+    expect(calls.length).toBeGreaterThan(0);
+    for (const [args] of calls) {
+      expect(args.text).toContain(blastMessage);
+      expect(args.text).not.toMatch(/\bSTOP\b/i);
+    }
+  });
+
   it('V8: merchant_card-only customer is excluded from the blast recipient list', async () => {
     // The card-holder has a customer_stats row (a completed visit happened)
     // AND a consumer profile stamped at merchant-card issuance — but they
