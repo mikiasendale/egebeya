@@ -1194,6 +1194,9 @@ router.get('/settings', async (req, res) => {
       name: tenant.name,
       slug: tenant.slug,
       domain: tenant.domain,
+      // #48 — the deck needs the real category to ask marketing-snippet for
+      // a post; a plain column, same whitelist spirit as name/slug.
+      category: tenant.category ?? null,
       ...(tenant.settings as any || {}),
     });
   } catch (error) {

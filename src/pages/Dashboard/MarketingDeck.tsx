@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { authFetch } from '../../lib/api';
 import { GracePeriodOverlay } from '../../components/GracePeriodOverlay';
@@ -9,46 +9,108 @@ interface MarketingDeckProps {
   businessName?: string | null;
 }
 
-function getFallbackPost(businessName?: string | null): string {
-  const category = localStorage.getItem('tenantCategory') || 'service provider';
+interface DeckPost {
+  text: string;
+  // #48 (decision #77): the ✨ badge is only ever true for text the AI route
+  // actually generated. Template suggestions say what they are.
+  ai: boolean;
+}
+
+function templatePost(businessName?: string | null, category = 'service provider'): string {
   if (!businessName) return '';
   return `Discover ${businessName} — your trusted ${category} in Addis Ababa. Book now!`;
 }
 
 export function MarketingDeck({ subscriptionStatus = null, businessName = null }: MarketingDeckProps) {
-  const { t } = useTranslation();
-  const [posts, setPosts] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { t, i18n } = useTranslation();
+  const [posts, setPosts] = useState<DeckPost[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [copied, setCopied] = useState(false);
+  const [generating, setGenerating] = useState(false);
 
   const tenantSlug = localStorage.getItem('tenantSlug') || '';
 
+  // Real inputs for POST /api/tenant/ai/marketing-snippet, cached from the
+  // authenticated owner endpoints — never the phantom localStorage keys.
+  const metaRef = useRef<{ category: string | null; services: string[] }>({
+    category: null,
+    services: [],
+  });
+
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      try {
-        const res = await authFetch('/api/tenant/ai/weekly-posts');
-        if (!res.ok) throw new Error('Failed to load');
-        const data = await res.json();
-        if (!cancelled) {
-          const items = Array.isArray(data) && data.length > 0
-            ? data.map((p: any) => typeof p === 'string' ? p : p.text || p.content || '')
-            : [getFallbackPost(businessName)];
-          setPosts(items.filter(Boolean));
-        }
-      } catch {
-        if (!cancelled) {
-          setPosts([getFallbackPost(businessName)].filter(Boolean));
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
+    Promise.all([
+      authFetch('/api/tenant/settings').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      authFetch('/api/tenant/services').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    ]).then(([settings, list]) => {
+      if (cancelled) return;
+      metaRef.current = {
+        category: typeof settings?.category === 'string' && settings.category.trim()
+          ? settings.category.trim()
+          : null,
+        services: Array.isArray(list)
+          ? list.map((s: any) => (typeof s?.name === 'string' ? s.name : '')).filter(Boolean).slice(0, 8)
+          : [],
+      };
+    });
     return () => { cancelled = true; };
+  }, []);
+
+  // The template slot always mirrors the freshest business name; AI posts
+  // generated this session stay available until the next visit.
+  useEffect(() => {
+    setPosts((prev) => {
+      const aiPosts = prev.filter((p) => p.ai);
+      const text = templatePost(businessName, metaRef.current.category || 'service provider');
+      const next = text ? [...aiPosts, { text, ai: false }] : aiPosts;
+      setCurrentIndex((i) => Math.min(i, Math.max(0, next.length - 1)));
+      return next;
+    });
   }, [businessName]);
 
-  const currentPost = posts[currentIndex] || '';
+  const currentPost = posts[currentIndex]?.text || '';
+  const currentIsAi = posts[currentIndex]?.ai === true;
+
+  async function generateWithAi() {
+    if (!businessName || generating) return;
+    setGenerating(true);
+    try {
+      const res = await authFetch('/api/tenant/ai/marketing-snippet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          businessName,
+          category: metaRef.current.category || 'service provider',
+          services: metaRef.current.services,
+          locale: String((i18n && i18n.language) || 'en').startsWith('am') ? 'am' : 'en',
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}) as any);
+        if (res.status === 403 && body?.code === 'AI_CONSENT_REQUIRED') {
+          showToast('AI consent required', 'Enable AI features in settings first.', 'destructive');
+        } else if (res.status === 402 || res.status === 403) {
+          showToast('Not available on your plan', 'AI posts are a Pro feature.', 'destructive');
+        } else {
+          showToast('Could not generate', body?.error || 'Please try again.', 'destructive');
+        }
+        return;
+      }
+      const data = await res.json();
+      const snippet = typeof data?.snippet === 'string' ? data.snippet.trim() : '';
+      if (snippet) {
+        setPosts((prev) => {
+          setCurrentIndex(0);
+          return [{ text: snippet, ai: true }, ...prev.filter((p) => !p.ai || p.text !== snippet)];
+        });
+        setCopied(false);
+      }
+    } catch {
+      showToast('Could not generate', 'Please try again.', 'destructive');
+    } finally {
+      setGenerating(false);
+    }
+  }
 
   const handleCopy = async () => {
     try {
@@ -98,7 +160,7 @@ export function MarketingDeck({ subscriptionStatus = null, businessName = null }
               className="text-lg font-bold"
               style={{ fontFamily: 'var(--font-display)', color: 'var(--color-ink)' }}
             >
-              {t('marketing.title', 'AI Marketing Posts')}
+              {t('marketing.title', 'Marketing Posts')}
             </h2>
             <p
               className="text-xs mt-0.5"
@@ -131,16 +193,10 @@ export function MarketingDeck({ subscriptionStatus = null, businessName = null }
       </header>
 
       <div className="p-5">
-        {loading ? (
-          <div className="space-y-3">
-            {[1, 2, 3].map((n) => (
-              <div
-                key={n}
-                className="skeleton-wave"
-                style={{ height: '4rem', borderRadius: 'var(--rd-card)' }}
-              />
-            ))}
-          </div>
+        {posts.length === 0 ? (
+          <p className="text-sm" style={{ color: 'var(--color-ink-soft)' }}>
+            {t('marketing.waiting', 'Your business name is still loading…')}
+          </p>
         ) : (
           <>
             {/* Card */}
@@ -160,9 +216,10 @@ export function MarketingDeck({ subscriptionStatus = null, businessName = null }
               </p>
             </div>
 
-            {/* AI Badge */}
+            {/* Provenance badge — honest about where the text came from (#48) */}
             <div className="mt-3 flex items-center gap-2">
               <span
+                data-testid={currentIsAi ? 'badge-ai' : 'badge-template'}
                 className="inline-flex items-center gap-1.5 px-3 py-1"
                 style={{
                   fontFamily: 'var(--font-receipt)',
@@ -174,8 +231,26 @@ export function MarketingDeck({ subscriptionStatus = null, businessName = null }
                   borderRadius: 'var(--rd-card)',
                 }}
               >
-                ✨ Generated by Egebeya AI
+                {currentIsAi
+                  ? t('marketing.aiBadge', '✨ Generated by Egebeya AI')
+                  : t('marketing.templateBadge', 'Template suggestion')}
               </span>
+              <button
+                type="button"
+                onClick={generateWithAi}
+                disabled={!businessName || generating}
+                data-testid="generate-ai-btn"
+                className="inline-flex items-center gap-1.5 px-3 py-1 text-sm font-bold rounded-[var(--rd-card)] transition-colors disabled:opacity-60"
+                style={{
+                  fontFamily: 'var(--font-display)',
+                  backgroundColor: 'var(--color-telebirr)',
+                  color: 'var(--color-paper-bleached)',
+                }}
+              >
+                {generating
+                  ? t('marketing.generating', 'Generating…')
+                  : t('marketing.generate', 'Generate with AI')}
+              </button>
             </div>
 
             {/* Navigation arrows */}

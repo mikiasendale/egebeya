@@ -782,5 +782,19 @@
     "searchPlaceholder": "ንግድ ወይም አገልግሎት ይፈልጉ...",
     "search": "ፈልግ",
     "clearSearch": "ፍለጋውን አጽዳ"
+  },
+  "marketing": {
+    "title": "የግብይት ጽሑፎች",
+    "subtitle": "ለመለጠፍ ያንሸራትቱ",
+    "prev": "ቀዳሚ ጽሑፍ",
+    "next": "ቀጣይ ጽሑፍ",
+    "copy": "ወደ ቅንጥብ ቅዱ",
+    "copied": "✓ ተቀድቷል",
+    "shareTelegram": "በቴሌግራም ያጋሩ",
+    "aiBadge": "✨ በ Egebeya AI የተፈጠረ",
+    "templateBadge": "የምሳሌ ጽሑፍ",
+    "generate": "በ AI ፍጠር",
+    "generating": "በመፍጠር ላይ…",
+    "waiting": "የንግድ ስምዎ እየቀመለ ነው…"
   }
 }
