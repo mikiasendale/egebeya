@@ -614,7 +614,9 @@ router.get('/subscription', async (req, res) => {
 /**
  * POST /api/tenant/subscription/checkout — owner-only.
  *
- * Starts a Chapa-hosted checkout for a 30-day Pro subscription (500 ETB),
+ * Starts a Chapa-hosted checkout for a 30-day Pro subscription (price from
+ * PRO_PLAN_PRICE_BIRR / pricing rows — server/lib/billing.ts; never quote a
+ * number here),
  * records a 'pending' payment row (identified by meta.purpose =
  * 'pro_subscription'), and returns the checkout URL the owner is sent to.
  * Completion is confirmed by the Chapa webhook (see src/api/payments.ts),

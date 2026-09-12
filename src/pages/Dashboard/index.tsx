@@ -130,7 +130,10 @@ function DashboardInner() {
   const [sidebarHovered, setSidebarHovered] = useState(false);
   const isMobile = useIsMobile();
 
-  // Stub logout
+  // Real logout (#64): POST /api/auth/logout revokes the presented refresh-token
+  // family server-side (src/api/auth.ts:959-996; legacy fallback bumps
+  // tokenVersion). Local session keys are cleared even if the call fails —
+  // the server-side revocation is what makes the session actually dead.
   const handleLogout = async () => {
     try {
       await authFetch('/api/auth/logout', { method: 'POST' });
