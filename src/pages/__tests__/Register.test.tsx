@@ -59,6 +59,15 @@ vi.mock('../../lib/api', () => ({
     if (url.includes('/api/tenant/provision/status')) {
       return makeStatusResponse();
     }
+    if (url.includes('/api/tenant/business-hours')) {
+      // #62 — non-default hours on every day: the hero must print THESE.
+      return {
+        ok: true,
+        json: async () => [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({
+          dayOfWeek, openTime: '08:30', closeTime: '19:45', isClosed: false,
+        })),
+      } as any;
+    }
     if (/\/api\/tenant\/provision$/.test(url)) {
       if (provisionShouldFail) {
         throw new Error('network down');
@@ -248,7 +257,9 @@ describe('FirstShareHero (P2.5)', () => {
     expect(writeText).toHaveBeenCalledWith('http://localhost:3000/selam-salon-ab12');
     expect(screen.getByText('ተቀድቷል ✓')).toBeTruthy();
 
-    expect(screen.getByText(/9:00–18:00/)).toBeTruthy();
+    // #62 — hero prints the tenant's fetched window, never a fabricated 9:00–18:00.
+    expect(await screen.findByText(/08:30–19:45/)).toBeTruthy();
+    expect(screen.queryByText(/9:00–18:00/)).toBeNull();
     expect(screen.getByText(/adjust/).closest('a')!.getAttribute('href')).toBe('/dashboard/settings');
     expect(screen.getByTestId('edit-site-link').getAttribute('href')).toBe('/dashboard/website');
   });

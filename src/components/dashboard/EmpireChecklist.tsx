@@ -9,6 +9,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronRight, Circle } from 'lucide-react';
 import { authFetch } from '../../lib/api';
+import { addisWeekday, summarizeDayHours, type DayHours } from '../FirstShareHero';
 
 interface Step {
   key: string;
@@ -41,9 +42,10 @@ export function EmpireChecklist() {
         // photo: done when the tenant has uploaded media.
         // firstBooking: done when the tenant has at least one booking.
         // Both are derived from real data — never optimistically flipped.
-        const [mediaRes, bookingsRes] = await Promise.all([
+        const [mediaRes, bookingsRes, hoursRes] = await Promise.all([
           authFetch('/api/tenant/media').catch(() => null),
           authFetch('/api/bookings').catch(() => null),
+          authFetch('/api/tenant/business-hours').catch(() => null),
         ]);
         if (cancelled) return;
         const hasMedia = mediaRes?.ok
@@ -52,6 +54,10 @@ export function EmpireChecklist() {
         const hasBooking = bookingsRes?.ok
           ? (await bookingsRes.json().catch(() => [])).length > 0
           : false;
+        const hoursLabel = summarizeDayHours(
+          hoursRes?.ok ? ((await hoursRes.json().catch(() => null)) as DayHours[] | null) : null,
+          addisWeekday(),
+        );
 
         setSteps([
           {
@@ -66,7 +72,7 @@ export function EmpireChecklist() {
           {
             key: 'hoursConfirmed',
             label: 'Confirm your hours · ሰዓታትዎን ያረጋግጡ',
-            hint: 'Drafted 9:00–18:00 · adjust and confirm',
+            hint: hoursLabel ? `${hoursLabel} · adjust and confirm` : 'Set your opening window · adjust and confirm',
             to: '/dashboard/settings',
             done: byStep.hoursConfirmed === true,
           },

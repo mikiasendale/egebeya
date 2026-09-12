@@ -7,11 +7,44 @@
  *
  * Motion law: opacity/transform only, ≤250ms.
  */
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Check, Copy, Send } from 'lucide-react';
 import { showToast } from './ui/toast-helper';
 import { authFetch } from '../lib/api';
+
+/** One row of tenant_business_hours, defensively typed — null means unknown. */
+export interface DayHours {
+  dayOfWeek: number;
+  openTime: string | null;
+  closeTime: string | null;
+  isClosed: boolean | number | null;
+}
+
+const ADDIS_WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+/** Today's weekday (0=Sun) as experienced in Africa/Addis_Ababa, not the browser's tz. */
+export function addisWeekday(now: Date = new Date()): number {
+  const short = new Intl.DateTimeFormat('en-US', {
+    weekday: 'short',
+    timeZone: 'Africa/Addis_Ababa',
+  }).format(now);
+  const idx = ADDIS_WEEKDAYS.indexOf(short);
+  return idx < 0 ? now.getDay() : idx;
+}
+
+/**
+ * The tenant's real window for `weekday`, or null when it is genuinely
+ * unknown — the hero must never print a fabricated 9:00–18:00 (#62).
+ */
+export function summarizeDayHours(hours: DayHours[] | null, weekday: number): string | null {
+  if (!Array.isArray(hours)) return null;
+  const today = hours.find((h) => h && typeof h.dayOfWeek === 'number' && h.dayOfWeek === weekday);
+  if (!today) return null;
+  if (today.isClosed) return 'ዝግ · Closed';
+  if (!today.openTime || !today.closeTime) return null;
+  return `${today.openTime}–${today.closeTime}`;
+}
 
 /** P3.5: fire-and-forget site_shared beacon — analytics never blocks sharing. */
 function trackSiteShared(via: string): void {
@@ -67,6 +100,23 @@ export function TillPrintText({ text, className, style, testId }: {
 
 export function FirstShareHero({ businessName, slug }: FirstShareHeroProps) {
   const [copied, setCopied] = useState(false);
+  const [hours, setHours] = useState<DayHours[] | null>(null);
+
+  // The share moment mounts while the tenant is still TENANT_PREPARING — the
+  // public /business-hours endpoint 404s at exactly that stage, so read the
+  // owner-scoped one (the session exists here; Settings uses the same route).
+  useEffect(() => {
+    let cancelled = false;
+    authFetch('/api/tenant/business-hours')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!cancelled && Array.isArray(data)) setHours(data);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [slug]);
+
+  const dayLabel = useMemo(() => summarizeDayHours(hours, addisWeekday()), [hours]);
 
   const url = useMemo(() => publicSiteUrl(slug), [slug]);
   const telegramUrl = `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(shareMessage(businessName, url))}`;
@@ -187,11 +237,14 @@ export function FirstShareHero({ businessName, slug }: FirstShareHeroProps) {
         አርትዖት መፍጠር · Edit your site instead
       </Link>
 
-      {/* Hours notice — the one honest caveat */}
+      {/* Hours notice — the tenant's real window, or nothing until known */}
       <p className="text-xs text-ink-soft text-center max-w-xs">
         ሰዓታትዎ{' '}
-        <strong className="text-ink">9:00–18:00</strong>{' '}
-        ተብሏል ·{' '}
+        {dayLabel && (
+          <>
+            <strong className="text-ink">{dayLabel}</strong> ተብሏል ·{' '}
+          </>
+        )}
         <Link to="/dashboard/settings" className="underline underline-offset-2 text-primary-deep font-medium">
           ያስተካክሉ · adjust
         </Link>
