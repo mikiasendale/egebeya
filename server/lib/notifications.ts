@@ -20,7 +20,8 @@
  *    customer_stats.marketing_opt_in (enforced in runWinbackAutomations).
  *
  * Env flags (per-channel registry enables):
- *   NOTIFY_EMAIL_ENABLED     default 'true'  (mailer stubs safely without SMTP_HOST)
+ *   NOTIFY_EMAIL_ENABLED     default 'true'  (without SMTP_HOST the email
+ *                            channel reports status 'disabled' — never 'sent')
  *   NOTIFY_SMS_ENABLED       default 'true'  (sms.ts stubs without SMS_API_KEY)
  *   NOTIFY_TELEGRAM_ENABLED  default 'true' when TELEGRAM_BOT_TOKEN is set,
  *                            otherwise the channel registers as unconfigured
@@ -102,7 +103,7 @@ function envFlag(name: string, fallback: boolean): boolean {
 
 // ── Built-in channels ────────────────────────────────────────────────────
 
-/** Wraps server/lib/mailer.ts — unchanged semantics (stubs without SMTP_HOST). */
+/** Wraps server/lib/mailer.ts — an unconfigured SMTP maps to 'disabled' (smtp_unconfigured), not 'sent'. */
 export const emailChannel: NotificationChannel = {
   name: 'email',
   isEnabled: () => envFlag('NOTIFY_EMAIL_ENABLED', true),
@@ -114,9 +115,12 @@ export const emailChannel: NotificationChannel = {
         subject: req.subject ?? '(Egebeya)',
         text: req.text,
       });
+      if (info.status === 'disabled') {
+        return { ok: false, status: 'disabled', error: 'smtp_unconfigured' };
+      }
       return {
         ok: true,
-        providerId: info?.messageId ?? undefined,
+        providerId: info.messageId,
         status: 'sent',
       };
     } catch (err: any) {

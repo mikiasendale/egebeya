@@ -131,6 +131,23 @@ describe('NotificationAdapter (P3.1)', () => {
     }
   });
 
+  it('unconfigured SMTP maps to a disabled outcome, not a fake sent (#43)', async () => {
+    const { sendMail } = await import('../lib/mailer');
+    (sendMail as any).mockImplementationOnce(async () => ({ status: 'disabled' }));
+
+    const outcome = await notify({
+      channel: 'email',
+      template: 'adapter_test',
+      to: { email: 'unconfigured@example.com' },
+      subject: 'x',
+      text: 'y',
+    });
+    expect(outcome.ok).toBe(false);
+    expect(outcome.status).toBe('disabled');
+    expect(outcome.error).toBe('smtp_unconfigured');
+    expect(outcome.providerId).toBeUndefined();
+  });
+
   it('writes a notification_log row per dispatch attempt', async () => {
     const marker = crypto.randomUUID().slice(0, 8);
     await notify({

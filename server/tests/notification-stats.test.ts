@@ -44,8 +44,10 @@ describe('aggregateNotificationStats (P3.3)', () => {
       // sms this week — disabled rows don't poison the rate
       { channel: 'sms', status: 'disabled', createdAt: now },
       { channel: 'sms', status: 'sent', createdAt: now + 5000 },
-      // email all-time
+      // email all-time — an unconfigured-SMTP 'disabled' row is excluded
+      // from the denominator exactly like a disabled sms row (#43)
       { channel: 'email', status: 'sent', createdAt: now + 6000 },
+      { channel: 'email', status: 'disabled', createdAt: now + 7000 },
     ];
 
     const stats = aggregateNotificationStats(rows, []);
@@ -60,6 +62,10 @@ describe('aggregateNotificationStats (P3.3)', () => {
     const sms = stats.channels.find((c) => c.channel === 'sms')!;
     expect(sms.disabled).toBe(1);
     expect(sms.successRate).toBe(1);
+
+    const email = stats.channels.find((c) => c.channel === 'email')!;
+    expect(email.disabled).toBe(1);
+    expect(email.successRate).toBe(1); // 1 sent / (1 sent), disabled excluded
 
     // Weeks are bucketed by Monday-anchored weekStart.
     const tgThisWeek = stats.weeks.find(

@@ -27,11 +27,19 @@ function redact(addr: string | undefined): string {
   return `${local.slice(0, 3)}***${domain}`;
 }
 
-export const sendMail = async (options: nodemailer.SendMailOptions) => {
+export interface MailResult {
+  status: 'sent' | 'disabled';
+  /** Present only when status is 'sent'. */
+  messageId?: string;
+}
+
+export const sendMail = async (options: nodemailer.SendMailOptions): Promise<MailResult> => {
   if (!host) {
-    console.log('[MAILER STUB] Would send email to:', redact(String(options.to ?? '')));
-    console.log('[MAILER STUB] Subject:', options.subject);
-    return { messageId: 'stub-message-id' };
+    // Unconfigured SMTP is NOT a send. Report 'disabled' so the notification
+    // ledger never records a delivery that did not happen (#43).
+    console.log('[MAILER] SMTP_HOST unset — email disabled for this environment; would send to:', redact(String(options.to ?? '')));
+    console.log('[MAILER] Subject:', options.subject);
+    return { status: 'disabled' };
   }
 
   try {
@@ -40,7 +48,7 @@ export const sendMail = async (options: nodemailer.SendMailOptions) => {
       ...options
     });
     console.log('Message sent: %s', info.messageId);
-    return info;
+    return { status: 'sent', messageId: info.messageId };
   } catch (error) {
     console.error('Error sending email:', error);
     throw error;
