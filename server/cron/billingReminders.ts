@@ -23,6 +23,7 @@ import { eq, and } from 'drizzle-orm';
 import crypto from 'crypto';
 import { logSecurityEvent } from '../lib/securityLog';
 import { notify, type SendOutcome } from '../lib/notifications';
+import { bothLocaleTrees } from '../lib/cronCopy';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -30,45 +31,14 @@ export interface ReminderStage {
   key: string;
   /** Offset in days from subscription endsAt. */
   offsetDays: number;
-  subjectAm: string;
-  subjectEn: string;
-  bodyAm: string;
-  bodyEn: string;
 }
 
+/** Stage copy lives in src/locales under notifications.billingStages.<key> — no Amharic literals in cron code (#46). */
 const STAGES: ReminderStage[] = [
-  {
-    key: 'renewal_3d',
-    offsetDays: -3,
-    subjectAm: 'የPro ክፍያዎ በ3 ቀናት ውስጥ ይታደሳል',
-    subjectEn: 'Your Egebeya Pro plan renews in 3 days',
-    bodyAm: 'የPro ክፍያዎ በ3 ቀናት ውስጥ ይታደሳል። ለመቀጠል ወደ /dashboard/billing ይግቡ።',
-    bodyEn: 'Your Pro subscription renews in 3 days. Visit /dashboard/billing to renew and keep your Pro features.',
-  },
-  {
-    key: 'renewal_due',
-    offsetDays: 0,
-    subjectAm: 'የPro ክፍያዎ ዛሬ ይጠበቃል',
-    subjectEn: 'Your Egebeya Pro payment is due today',
-    bodyAm: 'የPro ክፍያዎ ዛሬ ይጠበቃል። እባክዎ ወደ /dashboard/billing ግብዣ ይክፈሉ።',
-    bodyEn: 'Your Pro payment is due today. Renew at /dashboard/billing to avoid losing Pro features.',
-  },
-  {
-    key: 'past_due_2d',
-    offsetDays: 2,
-    subjectAm: 'የPro ክፍያዎ ወደ ኋላ ቀርቷል',
-    subjectEn: 'Your Egebeya Pro payment is past due',
-    bodyAm: 'ክፍያዎ ወደ ኋላ ቀርቷል። በምኅጃ ጊዜ ውስጥ የሚሰጡ ተግባራት እስከሚቆሙ ቀሪ ጊዜ አለ።',
-    bodyEn: 'Your payment is past due. You are in a short grace period — renew now to keep Pro access.',
-  },
-  {
-    key: 'past_due_5d',
-    offsetDays: 5,
-    subjectAm: 'የመጨረሻ ማስጠንቀቂያ — Pro እየተቋረጠ ነው',
-    subjectEn: 'Final notice — Pro access ends soon',
-    bodyAm: 'ይህ የመጨረሻ ማስጠንቀቂያ ነው። ካልኰፈሉ Pro ተግባራት በቅርቡ ይቆማሉ።',
-    bodyEn: 'This is the final notice. Without payment, Pro features will be removed within days.',
-  },
+  { key: 'renewal_3d', offsetDays: -3 },
+  { key: 'renewal_due', offsetDays: 0 },
+  { key: 'past_due_2d', offsetDays: 2 },
+  { key: 'past_due_5d', offsetDays: 5 },
 ];
 
 export interface BillingReminderRunOptions {
@@ -144,12 +114,13 @@ export async function runOnce(opts: BillingReminderRunOptions = {}): Promise<num
         // configured channel today; Telegram owner notices can ride the same
         // seam once a tenant-owner chat link exists (marker row already
         // carries the `channel` column for it).
+        const stageCopy = bothLocaleTrees('notifications', 'billingStages', stage.key);
         const outcome: SendOutcome = await dispatch({
           channel: 'email',
           template: `billing_${stage.key}`,
           to: { email: owner.email },
-          subject: `${stage.subjectAm} · ${stage.subjectEn}`,
-          text: `${stage.bodyAm}\n\n${stage.bodyEn}`,
+          subject: `${stageCopy.am.subject} · ${stageCopy.en.subject}`,
+          text: `${stageCopy.am.body}\n\n${stageCopy.en.body}`,
           tenantId: sub.tenantId,
           refType: 'subscription',
           refId: String(cycleStart),

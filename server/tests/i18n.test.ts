@@ -100,4 +100,23 @@ describe('i18n parity (WP2 / P3-D)', () => {
     }
     expect(violations, `unkept STOP promises in locales:\n${violations.join('\n')}`).toEqual([]);
   });
+
+  it('#46: no Amharic copy lives only in server/cron code (bodies belong in locales)', () => {
+    // Customer-facing Amharic copy is a first-language-review artifact and
+    // must live in the locale files where parity is enforced — never as
+    // inline literals in cron code. (server/lib/mailTemplates.ts is exempt:
+    // its copy is covered by the email-templates parity test.)
+    const fs = require('fs');
+    const path = require('path');
+    const AMHARIC = /[\u1200-\u137F]/;
+    const dir = path.resolve(__dirname, '../cron');
+    const violations: string[] = [];
+    for (const f of fs.readdirSync(dir).filter((x: string) => x.endsWith('.ts') || x.endsWith('.js'))) {
+      const lines = fs.readFileSync(path.join(dir, f), 'utf8').split('\n');
+      lines.forEach((line: string, i: number) => {
+        if (AMHARIC.test(line)) violations.push(`server/cron/${f}:${i + 1}`);
+      });
+    }
+    expect(violations, `Amharic literals in server/cron:\n${violations.join('\n')}`).toEqual([]);
+  });
 });

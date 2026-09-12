@@ -746,5 +746,34 @@
     ],
     "contactHeading": "6. Contact",
     "contactBody": "Report a barrier or request help at"
+  },
+  "notifications": {
+    "reminderSms": {
+      "body": "Hi {{name}}, your appointment is at {{date}}. We look forward to seeing you!"
+    },
+    "reminderTelegram": {
+      "body": "Hi {{name}}, a reminder that your appointment is at {{date}}. See you soon!"
+    },
+    "billingStages": {
+      "renewal_3d": {
+        "subject": "Your Egebeya Pro plan renews in 3 days",
+        "body": "Your Pro subscription renews in 3 days. Visit /dashboard/billing to renew and keep your Pro features."
+      },
+      "renewal_due": {
+        "subject": "Your Egebeya Pro payment is due today",
+        "body": "Your Pro payment is due today. Renew at /dashboard/billing to avoid losing Pro features."
+      },
+      "past_due_2d": {
+        "subject": "Your Egebeya Pro payment is past due",
+        "body": "Your payment is past due. You are in a short grace period — renew now to keep Pro access."
+      },
+      "past_due_5d": {
+        "subject": "Final notice — Pro access ends soon",
+        "body": "This is the final notice. Without payment, Pro features will be removed within days."
+      }
+    },
+    "winbackSms": {
+      "body": "Hi {{name}}, we miss you! Come back with 10% off using code {{code}}. Book: {{link}}"
+    }
   }
 }

@@ -32,6 +32,7 @@ import {
 import { eq, and, lt, sql } from 'drizzle-orm';
 import crypto from 'crypto';
 import { notify, type SendOutcome } from '../lib/notifications';
+import { copyLeaf, fill } from '../lib/cronCopy';
 
 /** Customers contacted in one run. Bounded to protect VPS RAM. */
 const CHUNK_SIZE = 50;
@@ -169,9 +170,11 @@ export async function runOnce(deps: WinbackDeps = {}): Promise<number> {
     }
 
     // Bilingual (Amharic first) winback message with a direct booking link.
+    // Copy lives in the locale files (notifications.winbackSms) — #46.
     const name = c.customerName?.trim() || 'there';
     const link = `https://${c.tenantSlug}.egebeya.et`;
-    const text = `ሰላም ${name}፣ እንደገና እንገናኝብሃለን! የልዩ የ10% ቅናጻ ${code} በመጠቀም ይመልሱ። ${link} / Hi ${name}, we miss you! Come back with 10% off using code ${code}. Book: ${link}`;
+    const values = { name, code, link };
+    const text = `${fill(copyLeaf('am', 'notifications', 'winbackSms', 'body'), values)} / ${fill(copyLeaf('en', 'notifications', 'winbackSms', 'body'), values)}`;
 
     let outcome: SendOutcome;
     try {

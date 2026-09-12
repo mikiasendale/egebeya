@@ -5,6 +5,22 @@ import { applyTemplate } from '../lib/mailTemplates';
 import { logSecurityEvent } from '../lib/securityLog';
 import { formatEthiopianDateTime } from '../lib/timezone';
 import { notify, type SendOutcome } from '../lib/notifications';
+import { copyLeaf, fill } from '../lib/cronCopy';
+
+/**
+ * Reminder SMS/Telegram bodies live in the locale files — no Amharic copy may
+ * live only in server code (i18n guard scans server/cron/ for am literals).
+ * Placeholders use {{name}} / {{date}}.
+ */
+function reminderText(template: 'reminderSms' | 'reminderTelegram', locale: 'en' | 'am', values: { name: string; date: string }): string {
+  const body = copyLeaf(locale, 'notifications', template, 'body');
+  if (!body) {
+    // Parity test guarantees both locales carry the key; fall back to en
+    // rather than sending nothing.
+    return fill(copyLeaf('en', 'notifications', template, 'body'), values);
+  }
+  return fill(body, values);
+}
 
 /**
  * Cron job to send appointment reminders (email + SMS + Telegram) and clean
@@ -31,9 +47,7 @@ async function notifyTelegramReminder(
   locale: 'en' | 'am',
   ethiopianDateStr: string,
 ): Promise<SendOutcome> {
-  const text = locale === 'am'
-    ? `ሰላም ${appt.customerName}፣ ቀጠሮዎ በ ${ethiopianDateStr} ነው። እንጠብቃለን!`
-    : `Hi ${appt.customerName}, a reminder that your appointment is at ${ethiopianDateStr}. See you soon!`;
+  const text = reminderText('reminderTelegram', locale, { name: appt.customerName, date: ethiopianDateStr });
   return notify({
     channel: 'telegram',
     template: 'reminder',
@@ -118,9 +132,7 @@ export async function runOnce(tenantId?: string): Promise<number> {
           channel: 'sms',
           template: 'reminder',
           to: { phone: appt.customerPhone },
-          text: reminderLocale === 'am'
-            ? `ሰላም ${appt.customerName}፣ ቀጠሮዎ በ ${ethiopianDateStr} ነው። እርስዎን በጉጉት እንጠብቃለን!`
-            : `Hi ${appt.customerName}, your appointment is at ${ethiopianDateStr}. We look forward to seeing you!`,
+          text: reminderText('reminderSms', reminderLocale, { name: appt.customerName, date: ethiopianDateStr }),
           tenantId: appt.tenantId,
           refType: 'appointment',
           refId: appt.id,

@@ -746,5 +746,34 @@
     ],
     "contactHeading": "6. ለማግኘት",
     "contactBody": "መሰንጠቂያ ያጋጠመዎት ካለ ወይም እርዳታ ከፈለጉ"
+  },
+  "notifications": {
+    "reminderSms": {
+      "body": "ሰላም {{name}}፣ ቀጠሮዎ በ {{date}} ነው። በጉጉት እንጠብቅዎታለን።"
+    },
+    "reminderTelegram": {
+      "body": "ሰላም {{name}}፣ ቀጠሮዎ በ {{date}} ነው። እንጠብቃለን!"
+    },
+    "billingStages": {
+      "renewal_3d": {
+        "subject": "የPro ክፍያዎ በ3 ቀናት ውስጥ ይታደሳል",
+        "body": "የPro ክፍያዎ በ3 ቀናት ውስጥ ይታደሳል። ለመቀጠል ወደ /dashboard/billing ይግቡ።"
+      },
+      "renewal_due": {
+        "subject": "የPro ክፍያዎ ዛሬ ይጠበቃል",
+        "body": "የPro ክፍያዎ ዛሬ ይጠበቃል። እባክዎ ወደ /dashboard/billing ግብዣ ይክፈሉ።"
+      },
+      "past_due_2d": {
+        "subject": "የPro ክፍያዎ ወደ ኋላ ቀርቷል",
+        "body": "ክፍያዎ ወደ ኋላ ቀርቷል። በምኅጃ ጊዜ ውስጥ የሚሰጡ ተግባራት እስከሚቆሙ ቀሪ ጊዜ አለ።"
+      },
+      "past_due_5d": {
+        "subject": "የመጨረሻ ማስጠንቀቂያ — Pro እየተቋረጠ ነው",
+        "body": "ይህ የመጨረሻ ማስጠንቀቂያ ነው። ካልኰፈሉ Pro ተግባራት በቅርቡ ይቆማሉ።"
+      }
+    },
+    "winbackSms": {
+      "body": "ሰላም {{name}}፣ እንደገና እንገናኝብሃለን! የልዩ የ10% ቅናጻ {{code}} በመጠቀም ይመልሱ። {{link}}"
+    }
   }
 }
