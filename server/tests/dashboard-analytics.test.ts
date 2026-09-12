@@ -107,6 +107,9 @@ describe('Owner Home dashboard (WP2.3/2.4)', () => {
     expect(res.status).toBe(200);
     const body = res.body;
 
+    // #51 — the merchant's own name rides the whitelisted payload (never PII).
+    expect(body.tenantName).toBe('Mobile Shop');
+
     // today = confirmed + pending only (the completed row is excluded).
     expect(body.today).toHaveLength(2);
     expect(body.confirmedAppointments).toBe(1);

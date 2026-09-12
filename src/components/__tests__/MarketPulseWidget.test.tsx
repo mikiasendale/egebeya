@@ -46,7 +46,6 @@ describe('MarketPulseWidget', () => {
     vi.clearAllMocks();
     localStorage.clear();
     localStorage.setItem('tenantSlug', 'test-salon');
-    localStorage.setItem('tenantName', 'Test Salon');
   });
 
   afterEach(() => {
@@ -61,7 +60,7 @@ describe('MarketPulseWidget', () => {
       return Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
     });
 
-    const { container } = render(<MarketPulseWidget />);
+    const { container } = render(<MarketPulseWidget businessName="Test Salon" />);
     await waitFor(() => {
       // After the Pro gate resolves, the widget renders null for Free users.
       expect(container.childElementCount).toBe(0);
@@ -80,7 +79,7 @@ describe('MarketPulseWidget', () => {
       return Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
     });
 
-    render(<MarketPulseWidget />);
+    render(<MarketPulseWidget businessName="Test Salon" />);
     await waitFor(() => {
       expect(screen.getAllByText(/High Demand/).length).toBeGreaterThan(0);
     });
@@ -108,7 +107,7 @@ describe('MarketPulseWidget', () => {
 
     const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
 
-    render(<MarketPulseWidget />);
+    render(<MarketPulseWidget businessName="Test Salon" />);
     await waitFor(() => {
       expect(screen.getAllByText(/Broadcast Flash Sale/).length).toBeGreaterThan(0);
     });
@@ -132,7 +131,7 @@ describe('MarketPulseWidget', () => {
       return Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
     });
 
-    render(<MarketPulseWidget />);
+    render(<MarketPulseWidget businessName="Test Salon" />);
     await waitFor(() => {
       expect(screen.getAllByText(/No hot demand right now/).length).toBeGreaterThan(0);
     });
@@ -150,7 +149,7 @@ describe('MarketPulseWidget', () => {
       return Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
     });
 
-    render(<MarketPulseWidget />);
+    render(<MarketPulseWidget businessName="Test Salon" />);
     await waitFor(() => {
       // Falls back to the calm empty state, not an error blast.
       expect(screen.getAllByText(/No hot demand right now/).length).toBeGreaterThan(0);

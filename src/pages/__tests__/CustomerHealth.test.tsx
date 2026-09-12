@@ -76,7 +76,6 @@ describe('CustomerHealth', () => {
     vi.clearAllMocks();
     localStorage.clear();
     localStorage.setItem('tenantSlug', 'mysalon');
-    localStorage.setItem('tenantName', 'My Salon');
   });
 
   afterEach(() => {
@@ -91,7 +90,7 @@ describe('CustomerHealth', () => {
       return Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
     });
 
-    render(<CustomerHealth />);
+    render(<CustomerHealth businessName="My Salon" />);
     await waitFor(() => {
       expect(screen.getByText('Pro feature')).toBeInTheDocument();
     });
@@ -101,7 +100,7 @@ describe('CustomerHealth', () => {
   it('renders customers grouped by health tag for a Pro owner', async () => {
     mockProOwner();
 
-    render(<CustomerHealth />);
+    render(<CustomerHealth businessName="My Salon" />);
     await waitFor(() => {
       expect(screen.getByText('Loyal Lucy')).toBeInTheDocument();
     });
@@ -118,7 +117,7 @@ describe('CustomerHealth', () => {
   it('renders a 15% holiday voucher button for vip_loyal customers', async () => {
     mockProOwner();
 
-    render(<CustomerHealth />);
+    render(<CustomerHealth businessName="My Salon" />);
     await waitFor(() => {
       expect(screen.getByText('Loyal Lucy')).toBeInTheDocument();
     });
@@ -130,7 +129,7 @@ describe('CustomerHealth', () => {
   it('renders a 10% comeback discount button for at_risk_churn customers', async () => {
     mockProOwner();
 
-    render(<CustomerHealth />);
+    render(<CustomerHealth businessName="My Salon" />);
     await waitFor(() => {
       expect(screen.getByText('Gone Guy')).toBeInTheDocument();
     });
@@ -142,7 +141,7 @@ describe('CustomerHealth', () => {
   it('renders a "Require Upfront Telebirr" toggle for high_no_show_risk customers', async () => {
     mockProOwner();
 
-    render(<CustomerHealth />);
+    render(<CustomerHealth businessName="My Salon" />);
     await waitFor(() => {
       expect(screen.getByText('Flaky Fred')).toBeInTheDocument();
     });
@@ -155,7 +154,7 @@ describe('CustomerHealth', () => {
     const user = userEvent.setup();
     mockProOwner();
 
-    render(<CustomerHealth />);
+    render(<CustomerHealth businessName="My Salon" />);
     await waitFor(() => {
       expect(screen.getByText('Flaky Fred')).toBeInTheDocument();
     });
@@ -181,7 +180,7 @@ describe('CustomerHealth', () => {
     const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
     mockProOwner();
 
-    render(<CustomerHealth />);
+    render(<CustomerHealth businessName="My Salon" />);
     await waitFor(() => {
       expect(screen.getByText('Loyal Lucy')).toBeInTheDocument();
     });

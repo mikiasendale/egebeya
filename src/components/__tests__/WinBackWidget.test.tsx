@@ -26,7 +26,6 @@ describe('WinBackWidget', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.setItem('tenantSlug', 'test-salon');
-    localStorage.setItem('tenantName', 'Test Salon');
   });
 
   it('renders inactive customers after loading', async () => {
@@ -35,7 +34,7 @@ describe('WinBackWidget', () => {
       json: () => Promise.resolve(mockCustomers),
     });
 
-    render(<WinBackWidget />);
+    render(<WinBackWidget businessName="Test Salon" />);
 
     await waitFor(() => {
       expect(screen.getAllByText('Abebe Bikila').length).toBeGreaterThan(0);
@@ -50,7 +49,7 @@ describe('WinBackWidget', () => {
       json: () => Promise.resolve(mockCustomers),
     });
 
-    render(<WinBackWidget />);
+    render(<WinBackWidget businessName="Test Salon" />);
 
     await waitFor(() => {
       expect(screen.getAllByText(/40d ago/).length).toBeGreaterThan(0);
@@ -65,7 +64,7 @@ describe('WinBackWidget', () => {
       json: () => Promise.resolve(mockCustomers),
     });
 
-    render(<WinBackWidget />);
+    render(<WinBackWidget businessName="Test Salon" />);
 
     await waitFor(() => {
       const buttons = screen.getAllByText('Send Win-Back');
@@ -81,7 +80,7 @@ describe('WinBackWidget', () => {
 
     const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
 
-    render(<WinBackWidget />);
+    render(<WinBackWidget businessName="Test Salon" />);
 
     await waitFor(() => {
       expect(screen.getAllByText('Abebe Bikila').length).toBeGreaterThan(0);
@@ -107,7 +106,7 @@ describe('WinBackWidget', () => {
 
     vi.spyOn(window, 'open').mockImplementation(() => null);
 
-    render(<WinBackWidget />);
+    render(<WinBackWidget businessName="Test Salon" />);
 
     await waitFor(() => {
       expect(screen.getAllByText('Send Win-Back').length).toBeGreaterThan(0);
@@ -126,7 +125,7 @@ describe('WinBackWidget', () => {
   it('shows error state on fetch failure', async () => {
     mockAuthFetch.mockResolvedValue({ ok: false });
 
-    render(<WinBackWidget />);
+    render(<WinBackWidget businessName="Test Salon" />);
 
     await waitFor(() => {
       expect(screen.getAllByText('Could not load inactive customers').length).toBeGreaterThan(0);
@@ -139,7 +138,7 @@ describe('WinBackWidget', () => {
       json: () => Promise.resolve([]),
     });
 
-    render(<WinBackWidget />);
+    render(<WinBackWidget businessName="Test Salon" />);
 
     await waitFor(() => {
       expect(screen.getAllByText(/No inactive customers/).length).toBeGreaterThan(0);

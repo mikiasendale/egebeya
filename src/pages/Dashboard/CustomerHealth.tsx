@@ -46,7 +46,7 @@ function generateCode(prefix: string): string {
   return `${prefix}${suffix}`;
 }
 
-export function CustomerHealth() {
+export function CustomerHealth({ businessName }: { businessName?: string | null }) {
   const [summary, setSummary] = useState<SubscriptionSummary | null>(null);
   const [proGateLoading, setProGateLoading] = useState(true);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -112,7 +112,6 @@ export function CustomerHealth() {
   }, [isPro, loadData]);
 
   const tenantSlug = localStorage.getItem('tenantSlug') || '';
-  const businessName = localStorage.getItem('tenantName') || 'our business';
 
   const grouped = useMemo(() => {
     const map = new Map<HealthTag, Customer[]>();
@@ -142,6 +141,7 @@ export function CustomerHealth() {
   }, []);
 
   const sendVoucher = useCallback(async (c: Customer) => {
+    if (!businessName) return;
     setBusyPhone(c.phone);
     try {
       const code = await createPromo(15, 'HOLIDAY');
@@ -158,6 +158,7 @@ export function CustomerHealth() {
   }, [createPromo, tenantSlug, businessName]);
 
   const sendComeback = useCallback(async (c: Customer) => {
+    if (!businessName) return;
     setBusyPhone(c.phone);
     try {
       const code = await createPromo(10, 'COMEBACK');

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { db } from '../../src/db';
-import { services as servicesTable, appointments, payments, inventoryItems } from '../../src/db/schema';
+import { services as servicesTable, appointments, payments, inventoryItems, tenants } from '../../src/db/schema';
 import { eq, and, gte, lt, sql, lte } from 'drizzle-orm';
 import { requireAuth } from '../../src/api/middleware/auth';
 import { nonceCsp } from '../middleware/nonceCsp';
@@ -31,6 +31,8 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  *    Home revenue card renders without any client-side money math.
  *  - `walkInEnabled` mirrors the server's walk-in role gate (owner only) so
  *    the mobile FAB only appears to accounts that may actually use it.
+ *  - `tenantName` is the merchant's own business name (never consumer PII) —
+ *    the single honest source behind every "at <business>" message (#51).
  */
 type ScheduledAppointment = {
   id: string;
@@ -41,6 +43,7 @@ type ScheduledAppointment = {
 };
 
 type DashboardResponse = {
+  tenantName: string | null;
   today: ScheduledAppointment[];
   todayAppointments: number;
   confirmedAppointments: number;
@@ -66,7 +69,7 @@ router.get('/', async (_req: any, res: any) => {
   const dayStart = parseAddisDate(getAddisDateString(new Date())).getTime();
   const dayEnd = dayStart + DAY_MS;
 
-  const [appts, paymentsRows] = await Promise.all([
+  const [appts, paymentsRows, tenantRow] = await Promise.all([
     db
       .select({
         id: appointments.id,
@@ -102,7 +105,10 @@ router.get('/', async (_req: any, res: any) => {
       )
       .groupBy(payments.appointmentId)
       .all(),
+    db.select({ name: tenants.name }).from(tenants).where(eq(tenants.id, tenantId)).all(),
   ]);
+
+  const tenantName = tenantRow[0]?.name ?? null;
 
   const paymentTotals = new Map(
     paymentsRows.map((row) => [row.appointmentId, Number(row.total)]),
@@ -153,6 +159,7 @@ router.get('/', async (_req: any, res: any) => {
   }
 
   return res.json({
+    tenantName,
     today: schedule,
     todayAppointments: schedule.length,
     confirmedAppointments: schedule.filter((r) => r.status === 'confirmed').length,

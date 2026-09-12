@@ -20,7 +20,7 @@ function customerDisplayName(c: InactiveCustomer): string {
   return c.name?.trim() || c.phone;
 }
 
-export function WinBackWidget() {
+export function WinBackWidget({ businessName }: { businessName?: string | null }) {
   const { t } = useTranslation();
   const [customers, setCustomers] = useState<InactiveCustomer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,9 +51,9 @@ export function WinBackWidget() {
   }, []);
 
   const tenantSlug = localStorage.getItem('tenantSlug') || '';
-  const businessName = localStorage.getItem('tenantName') || 'our business';
 
   function sendWinBack(c: InactiveCustomer) {
+    if (!businessName) return;
     const name = customerDisplayName(c);
     const msg = `Hi ${name}, we miss you at ${businessName}! Use code WIN10 for 10% off your next visit.`;
     const url = `https://t.me/share/url?url=https://${tenantSlug}.egebeya.et&text=${encodeURIComponent(msg)}`;
@@ -157,7 +157,7 @@ export function WinBackWidget() {
                   <button
                     type="button"
                     onClick={() => sendWinBack(c)}
-                    disabled={alreadySent}
+                    disabled={alreadySent || !businessName}
                     className="flex-shrink-0 inline-flex items-center justify-center px-4 min-h-[44px] text-sm font-bold rounded-[var(--rd-card)] transition-colors"
                     style={{
                       fontFamily: 'var(--font-display)',

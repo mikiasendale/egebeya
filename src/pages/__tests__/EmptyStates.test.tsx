@@ -32,7 +32,6 @@ describe('Empty States', () => {
     vi.clearAllMocks();
     localStorage.clear();
     localStorage.setItem('tenantSlug', 'test-salon');
-    localStorage.setItem('tenantName', 'Test Salon');
   });
 
   afterEach(() => {
@@ -79,7 +78,7 @@ describe('Empty States', () => {
       return Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
     });
 
-    render(<CustomerHealth />);
+    render(<CustomerHealth businessName="Test Salon" />);
     await waitFor(() => {
       expect(screen.getAllByText('No customers yet.').length).toBeGreaterThan(0);
     });

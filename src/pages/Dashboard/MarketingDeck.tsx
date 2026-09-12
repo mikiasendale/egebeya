@@ -6,15 +6,16 @@ import { showToast } from '../../components/ui/toast-helper';
 
 interface MarketingDeckProps {
   subscriptionStatus?: string | null;
+  businessName?: string | null;
 }
 
-function getFallbackPost(): string {
-  const businessName = localStorage.getItem('tenantName') || 'your business';
+function getFallbackPost(businessName?: string | null): string {
   const category = localStorage.getItem('tenantCategory') || 'service provider';
+  if (!businessName) return '';
   return `Discover ${businessName} — your trusted ${category} in Addis Ababa. Book now!`;
 }
 
-export function MarketingDeck({ subscriptionStatus = null }: MarketingDeckProps) {
+export function MarketingDeck({ subscriptionStatus = null, businessName = null }: MarketingDeckProps) {
   const { t } = useTranslation();
   const [posts, setPosts] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,19 +34,19 @@ export function MarketingDeck({ subscriptionStatus = null }: MarketingDeckProps)
         if (!cancelled) {
           const items = Array.isArray(data) && data.length > 0
             ? data.map((p: any) => typeof p === 'string' ? p : p.text || p.content || '')
-            : [getFallbackPost()];
+            : [getFallbackPost(businessName)];
           setPosts(items.filter(Boolean));
         }
       } catch {
         if (!cancelled) {
-          setPosts([getFallbackPost()]);
+          setPosts([getFallbackPost(businessName)].filter(Boolean));
         }
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [businessName]);
 
   const currentPost = posts[currentIndex] || '';
 

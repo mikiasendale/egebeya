@@ -72,6 +72,7 @@ export interface DashboardData {
   completedRevenueCents: number;
   completedRevenueEtb: number;
   walkInEnabled: boolean;
+  tenantName: string | null;
 }
 
 /**
@@ -97,6 +98,16 @@ function useIsMobile() {
  * the schedule/revenue card and the new-booking banner read the same feed.
  */
 const DashboardDataContext = React.createContext<DashboardData | null>(null);
+
+/**
+ * #51 — the tenant's real business name (from GET /api/tenant/dashboard),
+ * provided once so every share-message surface consumes the same truth.
+ */
+const BusinessNameContext = React.createContext<string | null>(null);
+
+function useBusinessName(): string | null {
+  return React.useContext(BusinessNameContext);
+}
 
 function useDashboardContext(): DashboardData | null {
   return React.useContext(DashboardDataContext);
@@ -137,6 +148,9 @@ function DashboardInner() {
 
   // ── WP2.4: live Home feed — poll the dashboard every 30s, vibrate + banner
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
+  // #51 — single honest source for "at <business>" message copy: the server's
+  // whitelisted tenantName, threaded down as a prop. Never localStorage.
+  const [businessName, setBusinessName] = useState<string | null>(null);
   const [banner, setBanner] = useState<DashboardAppointment | null>(null);
   const [walkInOpen, setWalkInOpen] = useState(false);
   const [inventoryLowStock, setInventoryLowStock] = useState(false);
@@ -235,6 +249,9 @@ function DashboardInner() {
       lastIdsRef.current = nowIds;
 
       setDashboard(data);
+      if (typeof data.tenantName === 'string' && data.tenantName) {
+        setBusinessName(data.tenantName);
+      }
 
       // Only alert on bookings that appeared between this poll and the last —
       // never on the initial load. Consumer browsers leak a small vibration
@@ -259,6 +276,22 @@ function DashboardInner() {
     const id = setInterval(pollDashboard, 30_000);
     return () => clearInterval(id);
   }, [isMobile, role, pollDashboard]);
+
+  // #51 — desktop Home never polls the dashboard feed, so hydrate the business
+  // name with one read; the mobile poll refreshes the same state.
+  useEffect(() => {
+    if (role === 'staff') return;
+    let cancelled = false;
+    authFetch('/api/tenant/dashboard')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!cancelled && data && typeof data.tenantName === 'string' && data.tenantName) {
+          setBusinessName(data.tenantName);
+        }
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [role]);
 
   // Auto-dismiss the new-booking banner after a few seconds.
   useEffect(() => {
@@ -392,28 +425,30 @@ function DashboardInner() {
           {/* P2.5 "Finish your empire" checklist — driven by provision flags. */}
           {role !== 'staff' && <EmpireChecklist />}
           <DashboardDataContext.Provider value={dashboard}>
-            <Routes>
-              <Route path="/" element={<OverviewOrRedirect isMobile={isMobile} />} />
-              <Route path="/bookings" element={<Bookings />} />
-              <Route path="/queue" element={<QueueConsole />} />
-              <Route path="/services" element={<ServicesPage />} />
-              <Route path="/staff" element={<StaffPage />} />
-              <Route path="/shop" element={<ShopPage />} />
-              <Route path="/website-builder" element={<WebsiteBuilder />} />
-              {/* Legacy editor routes redirect to the unified builder */}
-              <Route path="/website" element={<Navigate to="/dashboard/website-builder" replace />} />
-              <Route path="/code" element={<Navigate to="/dashboard/website-builder" replace />} />
-              <Route path="/media" element={<MediaLibraryPage />} />
-              <Route path="/marketing" element={<MarketingDeck />} />
-              <Route path="/inventory" element={<InventoryPage onLowStock={setInventoryLowStock} />} />
-              <Route path="/customer-health" element={<CustomerHealth />} />
-              <Route path="/automations" element={<Automations />} />
-              <Route path="/billing" element={<Billing />} />
-              <Route path="/settings" element={<SettingsComponent />} />
-              {/* P5.4 G5: gated-feature enumeration (locked-but-labeled). */}
-              <Route path="/more" element={<VelvetRopeMore />} />
-              <Route path="*" element={<Navigate to="/dashboard/bookings" replace />} />
-            </Routes>
+            <BusinessNameContext.Provider value={businessName}>
+              <Routes>
+                <Route path="/" element={<OverviewOrRedirect isMobile={isMobile} />} />
+                <Route path="/bookings" element={<Bookings />} />
+                <Route path="/queue" element={<QueueConsole />} />
+                <Route path="/services" element={<ServicesPage />} />
+                <Route path="/staff" element={<StaffPage />} />
+                <Route path="/shop" element={<ShopPage />} />
+                <Route path="/website-builder" element={<WebsiteBuilder />} />
+                {/* Legacy editor routes redirect to the unified builder */}
+                <Route path="/website" element={<Navigate to="/dashboard/website-builder" replace />} />
+                <Route path="/code" element={<Navigate to="/dashboard/website-builder" replace />} />
+                <Route path="/media" element={<MediaLibraryPage />} />
+                <Route path="/marketing" element={<MarketingDeck businessName={businessName} />} />
+                <Route path="/inventory" element={<InventoryPage onLowStock={setInventoryLowStock} />} />
+                <Route path="/customer-health" element={<CustomerHealth businessName={businessName} />} />
+                <Route path="/automations" element={<Automations />} />
+                <Route path="/billing" element={<Billing />} />
+                <Route path="/settings" element={<SettingsComponent />} />
+                {/* P5.4 G5: gated-feature enumeration (locked-but-labeled). */}
+                <Route path="/more" element={<VelvetRopeMore />} />
+                <Route path="*" element={<Navigate to="/dashboard/bookings" replace />} />
+              </Routes>
+            </BusinessNameContext.Provider>
           </DashboardDataContext.Provider>
 
           {/* T4.4 anti-surprise: during the post-expiry grace window the
@@ -476,6 +511,7 @@ function ShopPage() {
 
 /** Mobile-only Home — today's schedule + today's revenue + live booking feed. */
 function MobileHome({ dashboard }: { dashboard: DashboardData | null }) {
+  const businessName = useBusinessName();
   const { t } = useTranslation();
   const revenueEtb = typeof dashboard?.completedRevenueEtb === 'number' ? dashboard.completedRevenueEtb : null;
 
@@ -501,9 +537,9 @@ function MobileHome({ dashboard }: { dashboard: DashboardData | null }) {
         </div>
       </div>
 
-      <MarketPulseWidget />
+      <MarketPulseWidget businessName={businessName} />
 
-      <WinBackWidget />
+      <WinBackWidget businessName={businessName} />
 
       <section className="bg-paper-bleached rounded-xl border border-ink-rule">
         <header className="px-5 py-4 border-b border-ink-rule">
@@ -588,6 +624,7 @@ function OverviewOrRedirect({ isMobile }: { isMobile: boolean }) {
 }
 
 function Overview() {
+  const businessName = useBusinessName();
   const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
   const [counts, setCounts] = useState<{ bookings: number; services: number; staff: number }>(
     { bookings: 0, services: 0, staff: 0 },
@@ -684,11 +721,11 @@ function Overview() {
 
         <QuickActions />
 
-        <MarketPulseWidget />
+        <MarketPulseWidget businessName={businessName} />
 
-        <MarketingDeck />
+        <MarketingDeck businessName={businessName} />
 
-        <WinBackWidget />
+        <WinBackWidget businessName={businessName} />
 
         <RecentActivity items={recent} loading={loadingRecent} />
      </div>
