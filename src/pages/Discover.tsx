@@ -1,4 +1,5 @@
 ﻿import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
 import { ReportBlockLinks } from '../components/ReportBlockLinks';
@@ -42,6 +43,7 @@ function initials(name: string): string {
  * trailing page.
  */
 export function Discover() {
+  const { t } = useTranslation();
   const [businesses, setBusinesses] = useState<DiscoverBusiness[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -60,6 +62,16 @@ export function Discover() {
     qTimer.current = setTimeout(function () { setDebouncedQ(search.trim()); }, 300);
     return function () { if (qTimer.current) clearTimeout(qTimer.current); };
   }, [search]);
+
+  // #66 — Search SUBMITS the query (it used to erase it): flush the debounce
+  // and force a refetch via the nonce even when the text is unchanged.
+  const [searchNonce, setSearchNonce] = useState(0);
+  function submitSearch() {
+    if (qTimer.current) clearTimeout(qTimer.current);
+    setDebouncedQ(search.trim());
+    setOffset(0);
+    setSearchNonce(function (n) { return n + 1; });
+  }
 
   // Reset to page 0 whenever a filter changes.
   useEffect(function () { setOffset(0); }, [debouncedQ, cityFilter, activeCategory]);
@@ -93,7 +105,7 @@ export function Discover() {
       }
     })();
     return function () { cancelled = true; };
-  }, [debouncedQ, cityFilter, activeCategory, offset]);
+  }, [debouncedQ, cityFilter, activeCategory, offset, searchNonce]);
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
   const currentPage = Math.floor(offset / PAGE_SIZE) + 1;
@@ -112,23 +124,32 @@ export function Discover() {
       <div className="bg-ink">
         <Navbar />
         <div className="pt-24 pb-16 px-4 text-center max-w-3xl mx-auto">
-          <h1 className="text-4xl md:text-5xl font-extrabold text-paper mb-6">Discover Local Businesses</h1>
-          <p className="text-xl text-paper/70 mb-8">Book appointments at the best salons, clinics, and service providers in Ethiopia.</p>
+          <h1 className="text-4xl md:text-5xl font-extrabold text-paper mb-6">{t('discover.title')}</h1>
+          <p className="text-xl text-paper/70 mb-8">{t('discover.subtitle')}</p>
           <div className="flex bg-paper-bleached rounded-full p-2 max-w-2xl mx-auto border border-ink-rule">
             <input
               type="text"
               value={search}
               onChange={function (e) { setSearch(e.target.value); }}
-              placeholder="Search for a business or service..."
-              aria-label="Search for a business or service"
+              placeholder={t('discover.searchPlaceholder')}
+              aria-label={t('discover.searchPlaceholder')}
               className="flex-1 px-6 py-3 outline-none text-ink rounded-l-full"
               style={{ fontFamily: 'var(--font-body)' }}
             />
+            {search && (
+              <button
+                type="button"
+                onClick={function () { setSearch(''); }}
+                aria-label={t('discover.clearSearch')}
+                data-testid="discover-clear-search"
+                className="px-3 text-ink-soft hover:text-ink font-bold"
+              >✕</button>
+            )}
             <button
               type="button"
-              onClick={function () { setSearch(''); }}
+              onClick={submitSearch}
               className="bg-telebirr text-paper px-8 py-3 rounded-full font-bold hover:opacity-90 transition-colors"
-            >Search</button>
+            >{t('discover.search')}</button>
           </div>
           <div className="mt-4 flex items-center justify-center gap-2">
             <input
@@ -210,7 +231,7 @@ export function Discover() {
                   window.location.hostname.includes('127.0.0.1'));
               const href = isLocal
                 ? `${window.location.origin}/${business.slug}/book`
-                : `http://${business.slug}.egebeya.et`;
+                : `https://${business.slug}.egebeya.et`;
               return (
                 <div key={business.id} className="group">
                   <a href={href} className="block">

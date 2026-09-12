@@ -775,5 +775,12 @@
     "winbackSms": {
       "body": "Hi {{name}}, we miss you! Come back with 10% off using code {{code}}. Book: {{link}}"
     }
+  },
+  "discover": {
+    "title": "Discover Local Businesses",
+    "subtitle": "Book appointments at the best salons, clinics, and service providers in Ethiopia.",
+    "searchPlaceholder": "Search for a business or service...",
+    "search": "Search",
+    "clearSearch": "Clear search"
   }
 }
