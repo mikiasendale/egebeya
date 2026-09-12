@@ -119,4 +119,16 @@ describe('i18n parity (WP2 / P3-D)', () => {
     }
     expect(violations, `Amharic literals in server/cron:\n${violations.join('\n')}`).toEqual([]);
   });
+
+  it('#45: refund copy matches reality — no automatic-refund promise', () => {
+    // The code issues refunds manually (public.ts refundNote; paid days are
+    // non-refundable per account-deletion policy). The landing page must
+    // promise exactly that — copy and cancel response must agree.
+    const enRefund = leafValues(en)['proofForm.refund'];
+    const amRefund = leafValues(am)['proofForm.refund'];
+    expect(enRefund).toBeTruthy();
+    expect(amRefund).toBeTruthy();
+    expect(enRefund).not.toMatch(/automatic|auto-?refund/i);
+    expect(amRefund).not.toContain('በራስ-ሰር'); // 'automatically' in Amharic
+  });
 });

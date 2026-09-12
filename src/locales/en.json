@@ -60,7 +60,7 @@
     "verified": "Telebirr deposit verified — the booking row is held.",
     "pressStamp": "Press the stamp to see how the deposit clears the slot.",
     "pressStampShort": "press the stamp",
-    "refund": "Refunded automatically if the business cancels."
+    "refund": "Refunds are issued manually by the business if it cancels."
   },
   "tariffSection": {
     "heading": "Today's tariff.",
