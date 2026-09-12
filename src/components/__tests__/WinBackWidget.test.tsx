@@ -72,13 +72,20 @@ describe('WinBackWidget', () => {
     });
   });
 
-  it('opens Telegram link with correct URL-encoded text', async () => {
-    mockAuthFetch.mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve([mockCustomers[0]]),
+  it('opens Telegram only AFTER minting a real single-use WIN10-XXXX code, carrying that code', async () => {
+    const seq: string[] = [];
+    mockAuthFetch.mockImplementation(async (url: string, init?: any) => {
+      if (String(url).includes('/api/tenant/promo-codes')) {
+        seq.push('promo-post');
+        return { ok: true, json: () => Promise.resolve({ id: 'p1' }) } as any;
+      }
+      return { ok: true, json: () => Promise.resolve([mockCustomers[0]]) } as any;
     });
 
-    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => {
+      seq.push('open');
+      return null;
+    });
 
     render(<WinBackWidget businessName="Test Salon" />);
 
@@ -89,11 +96,25 @@ describe('WinBackWidget', () => {
     const sendBtns = screen.getAllByText('Send Win-Back');
     fireEvent.click(sendBtns[0]);
 
-    expect(openSpy).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(openSpy).toHaveBeenCalledTimes(1));
+
+    // The chat opens only after a real promo row exists.
+    expect(seq).toEqual(['promo-post', 'open']);
+
+    const post = mockAuthFetch.mock.calls.find((c) => String(c[0]).includes('/api/tenant/promo-codes'));
+    expect(post).toBeTruthy();
+    const body = JSON.parse(post![1].body);
+    expect(body.code).toMatch(/^WIN10-[A-Z0-9]{4}$/);
+    expect(body.discountType).toBe('percent');
+    expect(body.discountValue).toBe(10);
+    expect(body.maxUses).toBe(1);
+
     const url = openSpy.mock.calls[0][0] as string;
     expect(url).toContain('https://t.me/share/url');
     expect(url).toContain('https://test-salon.egebeya.et');
-    expect(url).toContain(encodeURIComponent('Hi Abebe Bikila, we miss you at Test Salon! Use code WIN10 for 10% off your next visit.'));
+    // The share text carries the MINTED code — never the old literal WIN10.
+    expect(url).toContain(encodeURIComponent(`Use code ${body.code} for 10% off your next visit.`));
+    expect(url).not.toContain(encodeURIComponent('Use code WIN10 for'));
 
     openSpy.mockRestore();
   });

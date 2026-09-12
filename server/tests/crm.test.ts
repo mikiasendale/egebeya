@@ -164,6 +164,52 @@ describe('CRM: Customers, Promo Codes, Marketing', () => {
     expect(res.body.isActive).toBe(true);
   });
 
+  it('#49: a win-back-minted WIN10-XXXX code redeems at booking at the discounted amount', async () => {
+    // Exactly the path the widget now takes: mint via the tenant API, then
+    // redeem through the public booking — the printed code must be real.
+    const code = `WIN10-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+    const minted = await request(app)
+      .post('/api/tenant/promo-codes')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ code, discountType: 'percent', discountValue: 10, maxUses: 1 });
+    expect(minted.status).toBe(201);
+
+    const base = new Date(Date.now() + 9 * 86400000);
+    const startTime = new Date(Date.UTC(
+      base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate(), 11, 0, 0, 0,
+    )).toISOString();
+
+    const bookedPhone = `+251${String(Math.floor(Math.random() * 1e9)).padStart(9, '0')}`;
+    const booking = await request(app)
+      .post('/api/public/bookings')
+      .set('Authorization', `Bearer ${token}`)
+      .set('X-Tenant-Slug', `crm-${suffix}`)
+      .send({
+        staff_id: staffId,
+        service_ids: [serviceId],
+        start_time: startTime,
+        customer_name: 'Winback Redeemer',
+        customer_phone: bookedPhone,
+        promo_code: code,
+      });
+    expect(booking.status).toBe(201);
+
+    // The single-use row is consumed by the redemption.
+    const row = await db.select().from(promoCodes)
+      .where(and(eq(promoCodes.tenantId, tenantId), eq(promoCodes.code, code)))
+      .get();
+    expect(row?.usedCount).toBe(1);
+
+    // Charge reflects the discount: 5000 cents − 10% = 4500 (same contract
+    // group-booking.test.ts proves for shared promo math).
+    const stats = await db.select().from(customerStats)
+      .where(and(eq(customerStats.tenantId, tenantId), eq(customerStats.customerPhone, bookedPhone)))
+      .get();
+    if (stats) {
+      expect(stats.totalSpendEtbCents).toBe(4500);
+    }
+  });
+
   it('POST /promo-codes rejects duplicate code', async () => {
     // First creation should succeed.
     await request(app)

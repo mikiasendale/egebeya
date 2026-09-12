@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { authFetch } from '../../lib/api';
+import { createPromo } from '../../lib/promoMint';
+import { showToast } from '../ui/toast-helper';
 
 interface InactiveCustomer {
   phone: string;
@@ -26,6 +28,7 @@ export function WinBackWidget({ businessName }: { businessName?: string | null }
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sentIds, setSentIds] = useState<Set<string>>(new Set());
+  const [busyPhone, setBusyPhone] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -52,13 +55,23 @@ export function WinBackWidget({ businessName }: { businessName?: string | null }
 
   const tenantSlug = localStorage.getItem('tenantSlug') || '';
 
-  function sendWinBack(c: InactiveCustomer) {
+  // #49 — the shared "code" must be a real, single-use WIN10-XXXX row before
+  // the chat opens; redeeming what we print must work at booking time.
+  async function sendWinBack(c: InactiveCustomer) {
     if (!businessName) return;
     const name = customerDisplayName(c);
-    const msg = `Hi ${name}, we miss you at ${businessName}! Use code WIN10 for 10% off your next visit.`;
-    const url = `https://t.me/share/url?url=https://${tenantSlug}.egebeya.et&text=${encodeURIComponent(msg)}`;
-    setSentIds((prev) => new Set(prev).add(c.phone));
-    window.open(url, '_blank');
+    setBusyPhone(c.phone);
+    try {
+      const code = await createPromo(10, 'WIN10-');
+      const msg = `Hi ${name}, we miss you at ${businessName}! Use code ${code} for 10% off your next visit.`;
+      const url = `https://t.me/share/url?url=https://${tenantSlug}.egebeya.et&text=${encodeURIComponent(msg)}`;
+      setSentIds((prev) => new Set(prev).add(c.phone));
+      window.open(url, '_blank');
+    } catch {
+      showToast('Could not create discount', 'Please try again.', 'destructive');
+    } finally {
+      setBusyPhone(null);
+    }
   }
 
   return (
@@ -157,7 +170,7 @@ export function WinBackWidget({ businessName }: { businessName?: string | null }
                   <button
                     type="button"
                     onClick={() => sendWinBack(c)}
-                    disabled={alreadySent || !businessName}
+                    disabled={alreadySent || !businessName || busyPhone === c.phone}
                     className="flex-shrink-0 inline-flex items-center justify-center px-4 min-h-[44px] text-sm font-bold rounded-[var(--rd-card)] transition-colors"
                     style={{
                       fontFamily: 'var(--font-display)',
@@ -166,7 +179,7 @@ export function WinBackWidget({ businessName }: { businessName?: string | null }
                       cursor: alreadySent ? 'default' : 'pointer',
                     }}
                   >
-                    {alreadySent ? 'Sent' : 'Send Win-Back'}
+                    {alreadySent ? 'Sent' : busyPhone === c.phone ? 'Creating code…' : 'Send Win-Back'}
                   </button>
                 </li>
               );

@@ -15,6 +15,7 @@ import { authFetch } from '../../lib/api';
 import { showToast } from '../../components/ui/toast-helper';
 import { isProActive, type SubscriptionSummary } from '../../lib/subscription';
 import { HEALTH_TAGS, type HealthTag } from '../../lib/customer-health';
+import { createPromo } from '../../lib/promoMint';
 import { StaffRedirect } from './StaffRedirect';
 import { LoyaltyCardIssuer } from '../../components/dashboard/LoyaltyCardIssuer';
 
@@ -39,11 +40,6 @@ function daysSince(ts: number | null): number {
 
 function displayName(c: Customer): string {
   return c.name?.trim() || c.phone;
-}
-
-function generateCode(prefix: string): string {
-  const suffix = Math.random().toString(36).slice(2, 6).toUpperCase();
-  return `${prefix}${suffix}`;
 }
 
 export function CustomerHealth({ businessName }: { businessName?: string | null }) {
@@ -124,22 +120,6 @@ export function CustomerHealth({ businessName }: { businessName?: string | null 
     return map;
   }, [customers]);
 
-  const createPromo = useCallback(async (percent: number, prefix: string) => {
-    const code = generateCode(prefix);
-    const res = await authFetch('/api/tenant/promo-codes', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        code,
-        discountType: 'percent',
-        discountValue: percent,
-        maxUses: 1,
-      }),
-    });
-    if (!res.ok) throw new Error('Promo creation failed');
-    return code;
-  }, []);
-
   const sendVoucher = useCallback(async (c: Customer) => {
     if (!businessName) return;
     setBusyPhone(c.phone);
@@ -155,7 +135,7 @@ export function CustomerHealth({ businessName }: { businessName?: string | null 
     } finally {
       setBusyPhone(null);
     }
-  }, [createPromo, tenantSlug, businessName]);
+  }, [tenantSlug, businessName]);
 
   const sendComeback = useCallback(async (c: Customer) => {
     if (!businessName) return;
@@ -172,7 +152,7 @@ export function CustomerHealth({ businessName }: { businessName?: string | null 
     } finally {
       setBusyPhone(null);
     }
-  }, [createPromo, tenantSlug, businessName]);
+  }, [tenantSlug, businessName]);
 
   const toggleUpfront = useCallback(async (c: Customer) => {
     const currentlyRequired = upfrontPhones.has(c.phone);
