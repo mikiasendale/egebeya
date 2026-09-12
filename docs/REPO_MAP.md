@@ -263,7 +263,7 @@ One line each; full detail in §Group refs → file-historian pass. ⚠ = stub/d
 
 **Client libs (§7):** `api.ts` authFetch bridge (⚠ apiFetch alias dead) · `auth.ts` role hints (⚠ isOwner/getRole dead exports) · `customer-health.ts` · `envGuards.ts` boot guard · `ethiopianCalendar.ts` · `motionGuard.ts` · `phone.ts` · `puck.config.tsx` · `sanitizePublishedCode.ts` · `subscription.ts` · `utils.ts` · `widgetRoutes.ts` · `blocks/schema.ts`.
 
-**Scripts (§9):** `scripts/{backup-db (⚠ upload hook stub), grant-trial, motion-law.mjs, ops-check}.ts` · `qa_runner.ts` (manual E2E) · `server/seed.ts` · `server/cleanup-orphans.ts` ⚠ manual-only · `drizzle.config.ts` (⚠ hardcoded file:sqlite.db) · `vite.config.ts` · `vitest.config.ts` · `render.yaml` (⚠ ALLOW_UNVERIFIED_PAYMENTS=true TEMPORARY) · `src/main.tsx` · `src/i18n.ts`.
+**Scripts (§9):** `scripts/{backup-db (⚠ upload hook stub), grant-trial, motion-law.mjs, ops-check}.ts` · `qa_runner.ts` (manual E2E) · `server/seed.ts` · `server/cleanup-orphans.ts` ⚠ manual-only · `drizzle.config.ts` (⚠ hardcoded file:sqlite.db) · `vite.config.ts` · `vitest.config.ts` · `render.yaml` (ALLOW_UNVERIFIED_PAYMENTS="false" — ruling 1 closed the escape hatch) · `src/main.tsx` · `src/i18n.ts`.
 
 **Tests (§8):** 92 server suites + 25 frontend suites — `chain-helpers.ts` boots the real app; notable: cross-tenant-isolation, webhook security HMAC, plan gates, Ethiopian calendar edge cases, block schema, queue advance, billing chains. The 4 chain tests flagged for "syntax errors" by the AST pass parse cleanly under tsc — false positive.
 
@@ -300,7 +300,7 @@ One line each; full detail in §Group refs → file-historian pass. ⚠ = stub/d
 | `src/api/ai-chat.ts:94,128` | Env-gated — /site/ai-chat 500s without OPENROUTER_API_KEY | Set key or hide UI tap (ValuePricingSheet already gates) |
 | `src/api/telegram.ts:36` | Env-gated — webhook 401-always without TELEGRAM_WEBHOOK_SECRET | Set secret in prod env |
 | `src/api/consumer.ts:48` | Env-gated — request-code 502s without TELEGRAM_BOT_TOKEN | Set token or hide consumer login entry |
-| `render.yaml` | Unprovisioned — ALLOW_UNVERIFIED_PAYMENTS="true" flagged TEMPORARY | Flip false after Chapa verify |
+| `render.yaml` | RESOLVED (2026-09-12) — council ruling 1: ALLOW_UNVERIFIED_PAYMENTS flipped to "false" | Deploy only after CHAPA_SECRET_KEY + CHAPA_WEBHOOK_SECRET confirmed in the Render dashboard |
 | `src/db/migrations.ts` (context) | Known in-sync burden — tenant.ts:1739 duplicates expandRecurring logic | Consolidate into lib |
 
 ## 6. Query cheat sheet
