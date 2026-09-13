@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Egebeya · index_13 · The Noticewall Market</title>
 <!--
-IDENTITY VARIANT INDEX-13 — THE NOTICEWALL MARKET · design director's own direction: the product's kebele/receipt world executed with Fresha's job-to-be-done (masonry wall of pinned receipt slips, take-a-number serials, till-total truth strip, cash-book hood tabs, flat inks, AA fix on the Book green). RECOLOR PASS: the sage/mustard/brick muddle was replaced with "the lamp-lit wall" — owner register at night, customer register in daylight (see #egb-lamplight).
+IDENTITY VARIANT INDEX-13 — THE NOTICEWALL MARKET · design director's own direction: the product's kebele/receipt world executed with Fresha's job-to-be-done (masonry wall of pinned receipt slips, take-a-number serials, till-total truth strip, cash-book hood tabs, flat inks, AA fix on the Book green). PALETTE VARIANT: "Indigo Noticeboard · Madder, Saffron & Pine" (see #egb-indigo-noticeboard) — the sage incumbent replaced with oatmeal limewash + indigo-black drawing + a madder/saffron/pine triad.
 DIRECTION CONTRACT (React port — direction B "Two Registers", user-picked)
 BRIEF: 60% Fresha conversion architecture · 30% incumbent previews/10-react Merkato wall ·
 10% imagination. The hero (phone → live-site morph + mini-builder + deposit handshake) is
@@ -36,16 +36,16 @@ so the register switch is diegetic, never decorative:
 SHARED DNA ACROSS THE BOUNDARY (the anti-incoherence layer): one photo grade (sepia sun),
 receipt-mono for every numeral, Ethiopic faces for Amharic, telebirr green owns the Book
 action in BOTH registers. Only density, radius and shadow change per register.
-COLORIZE — "the lamp-lit wall": the two-register story is now a real day/night cut,
-not two shades of the same muddle. OWNER register = the wall after dark: roasted
-near-black limewash (#1B1512), warm cream ink (#F4EDE1), tungsten lamplight gold
-(#E8A93C) on every rule and the lane, and ember vermilion (#E4592C) for the commit
-action — paper receipts and cream builder cards are the only bright objects, so they
-read as pinned notes under a lamp. CUSTOMER register = unchanged daylight: bleached
-paper, espresso ink, telebirr green owns Book, lamplight gold carries the coping rule
-so both registers stay one world. Hood identity keeps the material code (Bole habesha
-green, Kazanchis lamp gold, Merkato ember red) always paired with text. Green stays
-scarce — Book only. All structural tokens, type, layout, components and copy untouched.
+COLORIZE — "Indigo Noticeboard · Madder, Saffron & Pine": the wall is warm oatmeal
+limewash (#EAE0CD) — a clean high-key ground, not sage — and indigo-black (#1E2338)
+does all the drawing: ink, hairlines, the fascia, the money band, the footer. The
+accent is a disciplined triad, one role each: MADDER red (#B23A2E) for the commit
+action, stamps and the kicker rule (scarce heat); SAFFRON (#D69A2D) for lamplight —
+the lane, the loader square, the Pro board head, the coping rule that carries the
+customer register; PINE/TEAL (#135E4E / #0B6B4F) for the Book/deposit action and
+every money numeral. Hood identity is drawn from the same triad (Bole teal, Kazanchis
+saffron, Merkato madder) always paired with text. Flat inks only — every ramp removed
+to match the sibling variants. Green stays scarce — Book only.
 STACK: same as 10-react (React 19 + motion/react via esm.sh, Babel standalone, no build).
 -->
 
@@ -796,94 +796,92 @@ STACK: same as 10-react (React 19 + motion/react via esm.sh, Babel standalone, n
 @media(max-width:680px){.fgrid{columns:1}.fcard{rotate:0deg !important}
   .ftruth{margin:30px 12px 0;padding:22px 18px 16px}}
 </style>
-<style id="egb-lamplight">
-/* ══ RECOLOR · "THE LAMP-LIT WALL" ═════════════════════════════════════
-   The old scheme was the expected kebele cliché: sage plaster + mustard +
-   brick + flag green — four warm neutrals fighting to be the accent. This
-   pass makes the page's own "two registers" story visible as an actual
-   day/night cut instead:
-     OWNER register  = the wall after dark. Roasted near-black limewash,
-                       cream receipts pinned hard against it, tungsten
-                       lamplight on every rule, ember-vermilion for the
-                       commit action. Paper glows; the wall recedes.
-     CUSTOMER register = unchanged daylight: bleached paper, espresso ink,
-                       telebirr green owns Book, lamplight gold carries the
-                       coping rule so the two registers stay one world.
-   Everything structural (type, layout, components, copy) is untouched —
-   only the color layer changes, driven from the same tokens. */
+<style id="egb-indigo-noticeboard">
+/* ══ PALETTE VARIANT INDEX-13 · "INDIGO NOTICEBOARD · Madder, Saffron & Pine"
+   The sage/brick/mustard incumbent was the expected kebele cliché — four warm
+   neutrals with no light in them. This is the artist's take on the same wall:
+   a warm oatmeal limewash grounds the page; indigo-black does the drawing
+   (ink, rules, the fascia, the money band); and a disciplined triad carries
+   the accent — MADDER red for commit/heat, SAFFRON for lamplight and the lane,
+   PINE/TEAL for the Book/deposit action. Gerards red stays scarce, green stays
+   the action, saffron stays light. Flat inks only — every ramp removed to match
+   the sibling variants (10 Plum, 11 Clay, 12 Paprika). Type, layout, components
+   and copy are untouched; only the color layer moves, from the same tokens. */
 .merkato{
-  --wall:#1B1512;                 /* roasted black-brown limewash */
-  --on-dark:#F4EDE1;              /* warm cream, the night register's ink */
-  --on-dark-soft:#B6A493;         /* lamplit secondary */
-  --on-dark-faint:#8A7869;        /* faintest label */
-  --rule-dark:rgba(244,237,225,.14);
-  --rule-dark-strong:rgba(244,237,225,.26);
-  --gold:#E8A93C; --gold-deep:#B9801F;   /* tungsten lamplight */
-  --red:#E4592C; --red-deep:#C2472A;     /* ember vermilion */
-  --nw-gold:#E8A93C; --nw-red:#C2472A;   /* carry the lamp into the day register */
-  color:var(--on-dark);
+  --wall:#EAE0CD;                 /* warm oatmeal limewash */
+  --ink:#1E2338;                  /* indigo-black: the drawing */
+  --ink-soft:#5F5B6B;             /* indigo-tinted secondary */
+  --cream:#FBF7ED;
+  --gold:#D69A2D; --gold-deep:#A9760F;   /* saffron lamplight */
+  --red:#B23A2E; --red-deep:#8E2B22;     /* madder */
+  --green:#135E4E; --tb:#0B6B4F;         /* pine + teal (Book/deposit) */
+  --plate:#FBF7ED; --plate-edge:rgba(30,35,56,.12);
+  --line:rgba(30,35,56,.12); --line-strong:rgba(30,35,56,.24);
+  --nw-paper:#EFE7D6; --nw-bleached:#F8F3E7; --nw-ink:#1E2338; --nw-soft:#6A6250;
+  --nw-counter:#1A2036; --nw-green:#0B6B4F; --nw-green-deep:#07432F;
+  --nw-red:#B23A2E; --nw-gold:#D69A2D; --nw-rule:rgba(30,35,56,.16);
   background:
-    radial-gradient(1300px 560px at 76% -10%, rgba(232,169,60,.16), transparent 60%),
-    radial-gradient(1000px 480px at -10% 34%, rgba(228,89,44,.07), transparent 56%),
+    radial-gradient(1200px 500px at 85% -5%, rgba(255,255,255,.5), transparent 60%),
+    radial-gradient(900px 420px at -10% 30%, rgba(214,154,45,.10), transparent 55%),
     var(--wall);
-  scrollbar-color:#7A5C49 #14100D;
+  scrollbar-color:#5F5B6B #EAE0CD;
 }
-.merkato ::selection{background:rgba(232,169,60,.30);color:var(--on-dark)}
+.merkato ::selection{background:rgba(214,154,45,.45);color:var(--ink)}
 
-/* ── the wall itself: dark limewash, lamp top-left, grime where the street is ── */
-.wallbg__plaster{background:
-  radial-gradient(1300px 560px at 74% -8%, rgba(232,169,60,.15), transparent 60%),
-  radial-gradient(1000px 460px at -8% 34%, rgba(228,89,44,.06), transparent 56%),
-  var(--wall)}
-.wallbg__courses{background:repeating-linear-gradient(180deg,
-  rgba(244,237,225,.03) 0 54px,
-  rgba(0,0,0,.24) 54px 56px,
-  rgba(244,237,225,.012) 56px 110px,
-  rgba(0,0,0,.20) 110px 112px)}
-.wallbg__seams{opacity:.5;
-  background:repeating-linear-gradient(180deg,transparent 0 54.5px,rgba(0,0,0,.36) 54.5px 55.5px)}
-.wallbg__sun{background:linear-gradient(118deg,rgba(232,169,60,.12),rgba(232,169,60,.03) 42%,transparent 66%)}
-.wallbg__street{height:26%;background:linear-gradient(0deg,rgba(0,0,0,.55),transparent)}
-.wallbg__vignette{background:radial-gradient(140% 105% at 50% 42%,transparent 52%,rgba(0,0,0,.5))}
+/* fascia, CTAs, doors — flat madder/pine, no ramps */
+.mk-nav{background:rgba(18,22,38,.93);border-bottom-color:rgba(30,35,56,.5)}
+.mk-nav-cta{background:var(--red);background-image:none;box-shadow:0 1px 2px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.16)}
+.mk-nav-cta:hover{background:#9E3328}
+.btn-red{background:var(--red);background-image:none}
+.btn-red:hover{box-shadow:0 2px 4px rgba(30,35,56,.16),0 12px 28px rgba(30,35,56,.20)}
+.btn-ghost{background:rgba(251,247,237,.72);color:var(--ink)}
+.btn-ghost:hover{background:var(--ink);color:var(--cream)}
+.stage__trust{color:#0B6B4F}
+.door--owner .door__panel{background:var(--red-deep);background-image:none}
+.door--cust .door__panel{background:var(--green);background-image:none}
 
-/* the fascia melts into the night; the CTA is the ember */
-.mk-nav{background:rgba(12,9,7,.86);border-bottom-color:rgba(244,237,225,.08)}
-.mk-nav-cta{background:linear-gradient(180deg,#F0693C,var(--red));box-shadow:0 1px 2px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.22)}
-.mk-nav-cta:hover{background:linear-gradient(180deg,#F5764A,#D24E22)}
-
-/* hero type, lit from the wall */
-.stage h1{color:var(--on-dark);text-shadow:0 2px 26px rgba(0,0,0,.4)}
-.h1-lat{color:var(--gold) !important}
-.kicker,.stage__sub,.stage__note,.doors-head p,.workshop-head small,
-.owner-strip__note,.stage__caption .mono{color:var(--on-dark-soft)}
-.stage__trust{color:#5BD894}
-.btn-ghost{background:rgba(251,248,242,.94);color:var(--ink)}
-.btn-ghost:hover{background:#fff;color:var(--ink);transform:translateY(-1px)}
-.btn-red{background:linear-gradient(180deg,#F0693C,#C2472A)}
-.btn-red:hover{box-shadow:0 2px 4px rgba(0,0,0,.35),0 12px 28px rgba(0,0,0,.42)}
-
-/* paper stays paper: re-assert espresso ink on every pinned/light surface
-   so the night register's cream text never bleeds onto a cream card */
-.ws-art,.mini,.mini__head,.mini__list,.device,.device__screen,.tool,.board,.pinned-stub{color:var(--ink)}
-
-/* return-to-owner: the lane is the lamplight; the bands deepen with it */
-.lane-item .mono{color:#7A2E14}
-.lane-item:nth-child(odd) .lane-step{color:#5C1F0C}
-.workshop-head > .mono{color:var(--on-dark-soft) !important}
-.boards-band{background:
-  radial-gradient(1100px 420px at 50% -8%,rgba(232,169,60,.10),transparent 60%),
-  linear-gradient(180deg,#211913,#2A2018) !important;
+/* the money moment: indigo band, saffron rule, flat */
+.boards-band{background:var(--nw-counter) !important;background-image:none !important;
   border-top-color:var(--gold) !important}
-.boards-head p{color:#CDB4A0}
-.door{border-color:var(--rule-dark)}
-.door--owner .door__panel{background:#A83A18 !important}
-.door--cust .door__panel{background:#1C5A41 !important}
+.boards-head p{color:#C9C2B6}
+.boards-head h2 .h1-lat{color:var(--gold)}
+.board--pro .btn{background:#14182A;background-image:none}
+.paymark--tb{color:#0B6B4F;border-color:rgba(11,107,79,.35)}
 
-/* day register: rebind the hood material hues to the new ember/lamp key
-   (color + label always, never color alone) */
-.fresha{--hd-kazanchis:#B07A1C;--hd-merkato:#C2472A}
-.fhoods a::before{color:var(--gold-deep)}
-.fhoods a:hover{color:#0A7A40}
+/* lane + footer */
+.lane-item{border-right-color:rgba(30,35,56,.28)}
+.lane-item .mono{color:#5C1A13}
+.lane-item:nth-child(odd) .lane-step{background:rgba(178,58,46,.16);color:#5C1A13}
+.footer{background:#14182A}
+
+/* chips: one tint per role, flat */
+.chip--green{background:#E3F0EA;color:#0B5B47;box-shadow:inset 0 0 0 1px rgba(11,107,79,.30)}
+.chip--tb{background:#E1EFEA;color:#0B5B47;box-shadow:inset 0 0 0 1px rgba(11,107,79,.36)}
+.chip--gold{background:#F6EBD4;color:#8A6210;box-shadow:inset 0 0 0 1px rgba(169,118,15,.32)}
+.chip--demo{box-shadow:inset 0 0 0 1px rgba(178,58,46,.5);color:var(--red-deep)}
+
+/* builder + workshop instruments: rebind the old green literals to pine/teal */
+.mini__add{color:#0B5B47;background:rgba(11,107,79,.10);border-color:rgba(11,107,79,.30)}
+.mini__add:hover{background:rgba(11,107,79,.16)}
+.mini__in:focus{box-shadow:0 0 0 3px rgba(11,107,79,.12)}
+.staff-days i,.hours-grid .hcell{background:#DCEAE4;box-shadow:inset 0 0 0 1px rgba(11,107,79,.24)}
+.staff-days i.off,.hours-grid .hcell.off{background:transparent;box-shadow:inset 0 0 0 1px var(--line)}
+.hours-grid .hcell i{background:var(--green)}
+.toggle{background:#DCEAE4;border-color:rgba(11,107,79,.30);box-shadow:inset 0 1px 3px rgba(11,107,79,.16)}
+.deposit-rows .ok{color:#0B6B4F}
+.device__url b{color:#0B6B4F}
+
+/* day register: same oatmeal paper, indigo drawing, hood hues from the triad
+   (material color + text label, never color alone) */
+.fresha{background:#FBF7ED;color:#1E2338;
+  --hd-bole:#0B6B4F;--hd-kazanchis:#A9760F;--hd-merkato:#B23A2E;--hd-all:#1E2338;
+  --hd-bole-lite:#7FC4A8;--hd-kazanchis-lite:#E4C079;--hd-merkato-lite:#E0A08F}
+.fresha ::selection{background:rgba(11,107,79,.18)}
+.fsh h2,.fcard__name,.fhoods h3,.fhoods h4,.fempty .am-serif{color:#1E2338}
+.fsh__sub,.fcard__lat,.fcard__meta,.fcard__from,.fhoods a,.fcard__foot{color:#6A6250}
+.fhoods a::before{color:#8A6210}
+.fsearch:focus-within{box-shadow:0 0 0 3px rgba(11,107,79,.12)}
+.fhoods a:hover{color:#0B6B4F}
 </style>
 </head>
 <body>
