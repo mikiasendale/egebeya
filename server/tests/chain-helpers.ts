@@ -136,6 +136,13 @@ export async function seedBusiness(tenantId: string, opts: {
     name: opts.staffName ?? 'Chain Staff',
     active: true,
   });
+  // Replace, don't append: provision already seeds TEMPLATE_BUSINESS_HOURS
+  // (Sunday closed), so inserting a second week here would leave duplicate
+  // (tenantId, dayOfWeek) rows. assertSlotAllowed reads the day with .get(),
+  // which could then return the closed Sunday row and 422 the booking — a
+  // Sunday-only flake. This fixture means "the business is open", so make its
+  // rows the only ones.
+  await db.delete(hoursTable).where(eq(hoursTable.tenantId, tenantId));
   await db.insert(hoursTable).values(
     [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({
       id: crypto.randomUUID(),

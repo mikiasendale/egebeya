@@ -19,7 +19,20 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import request from 'supertest';
 import express from 'express';
+
+// F.4 asserts WHO the booking email is addressed to. Asserting on sendMail's
+// call args is env-independent; the old console-log stub only fired when
+// SMTP_HOST was unset, so a configured .env silently broke the assertion.
+vi.mock('../../server/lib/mailer', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../server/lib/mailer')>();
+  return {
+    ...actual,
+    sendMail: vi.fn(async () => ({ status: 'sent', messageId: 'mock-owner-notify' })),
+  };
+});
+
 import apiRoutes from '../../src/api';
+import { sendMail } from '../../server/lib/mailer';
 import { db } from '../../src/db';
 import {
   tenants, users, services, staff, appointments, payments,
@@ -153,6 +166,7 @@ describe('Security hardening (Feature F)', () => {
     let svcId: string;
     let stfId: string;
     let ownerEmail: string;
+    let staffEmail: string;
 
     beforeAll(async () => {
       tenantId = crypto.randomUUID();
@@ -161,6 +175,7 @@ describe('Security hardening (Feature F)', () => {
       svcId = crypto.randomUUID();
       stfId = crypto.randomUUID();
       ownerEmail = `owner-${Date.now()}@egebeya.test`;
+      staffEmail = `staff-${Date.now()}@egebeya.test`;
 
       await db.insert(tenants).values({
         id: tenantId, name: 'Owner Routing', slug,
@@ -175,7 +190,7 @@ describe('Security hardening (Feature F)', () => {
         },
         {
           id: staffUserId, tenantId, name: 'Staff User', phone: `+251${String(Math.floor(Math.random() * 1e9)).padStart(9, '0')}`,
-          email: `staff-${Date.now()}@egebeya.test`, passwordHash: pwHash, role: 'staff', createdAt: Date.now(),
+          email: staffEmail, passwordHash: pwHash, role: 'staff', createdAt: Date.now(),
         },
       ]);
 
@@ -202,7 +217,7 @@ describe('Security hardening (Feature F)', () => {
     });
 
     it('booking notification email is sent to the owner, not staff', async () => {
-      const mailSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      (sendMail as any).mockClear();
 
       // Create a booking via public API
       const futureDate = new Date(Date.now() + 2 * 86400000);
@@ -224,41 +239,16 @@ describe('Security hardening (Feature F)', () => {
 
       expect(res.status).toBe(201);
 
-      // Small delay to let async mailer calls flush
-      await new Promise(r => setTimeout(r, 100));
+      // notify() is fire-and-forget; poll briefly for the send to land.
+      const { waitFor } = await import('./chain-helpers');
+      await waitFor(async () => (sendMail as any).mock.calls.length > 0, 2000);
 
-      // Get the actual owner from DB
-      const owner = await db.select().from(users).where(
-        and(eq(users.tenantId, tenantId), eq(users.role, 'owner')),
-      ).get();
+      const recipients = (sendMail as any).mock.calls.map((c: any[]) => c[0]?.to);
 
-      // Check that the mailer stub was called
-      const logCalls = mailSpy.mock.calls;
-      const mailerCalls = logCalls.filter(c => {
-        const msg = c.join(' ');
-        return msg.includes('MAILER STUB') || msg.includes('Would send email');
-      });
-
-      // The mailer stub logs the redacted email. At least one mailer call
-      // should have been made (the owner notification)
-      expect(mailerCalls.length).toBeGreaterThanOrEqual(1);
-
-      // Verify the owner's email (redacted) appears in at least one call
-      if (owner?.email) {
-        const localPart = owner.email.split('@')[0];
-        const domainPart = '@' + owner.email.split('@')[1];
-        const redactedExpectation = `${localPart.slice(0, 3)}***${domainPart}`;
-
-        const ownerMatches = mailerCalls.filter(c => {
-          const msg = c.join(' ');
-          return msg.includes(redactedExpectation);
-        });
-
-        // The owner should be in the mailer calls
-        expect(ownerMatches.length).toBeGreaterThanOrEqual(1);
-      }
-
-      mailSpy.mockRestore();
+      // The owner notification must have been sent to the OWNER's address.
+      expect(recipients).toContain(ownerEmail);
+      // And never to the staff member's address.
+      expect(recipients).not.toContain(staffEmail);
     });
   });
 });
