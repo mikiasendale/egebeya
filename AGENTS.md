@@ -32,6 +32,8 @@ Verified-green but uncommitted work does not exist. Every task ends: test, money
 
 
 ## Always do
+- Feature selection per docs/feature-selection.md; agents prepare briefs, never picks. Decisions
+  are recorded in docs/decisions/ before and after; an unrecorded pick or skip did not happen.
 - Read docs/REPO_MAP.md to get general understanding of the repo.
 - Every UI string in BOTH am.json AND en.json, same commit.
 - Migrations idempotent; guarded plain ADD COLUMN (libsql silently swallows IF NOT EXISTS).
