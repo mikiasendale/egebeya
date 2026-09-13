@@ -1,0 +1,2165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Egebeya · index_13 · The Noticewall Market</title>
+<!--
+IDENTITY VARIANT INDEX-13 — THE NOTICEWALL MARKET · design director's own direction: the product's kebele/receipt world executed with Fresha's job-to-be-done (masonry wall of pinned receipt slips, take-a-number serials, till-total truth strip, cash-book hood tabs, flat inks, AA fix on the Book green). RECOLOR PASS: the sage/mustard/brick muddle was replaced with "the lamp-lit wall" — owner register at night, customer register in daylight (see #egb-lamplight).
+DIRECTION CONTRACT (React port — direction B "Two Registers", user-picked)
+BRIEF: 60% Fresha conversion architecture · 30% incumbent previews/10-react Merkato wall ·
+10% imagination. The hero (phone → live-site morph + mini-builder + deposit handshake) is
+KEPT INTACT — the user asked for it explicitly.
+TWO REGISTERS, ONE STORY: the page's scroll journey is the product's own two-audience story,
+so the register switch is diegetic, never decorative:
+  OWNER register  (the incumbent Merkato wall): sage plaster, enamel plates, 2px corners,
+                  hairlines, mono numerals, stamps. Opens the page: loader, fascia nav,
+                  hero morph stage.
+  REGISTER BOUNDARY (no interstitial, no wipe — user direction): the register change is a
+                  plain content boundary. Customer register opens directly; the kicker line
+                  (የደንበኛው እይታ · the customer's view) carries the wayfinding; the background
+                  shift + a 6px tej-gold coping rule on .fresha's top edge carry the
+                  transition. The gold lane + owner note carry the return.
+  CUSTOMER register (the Fresha register): warm-white ground, air, rounded cards, soft
+                  shadows, pill controls, search-first. Live search + hood chips filter the
+                  venue grid; venue cards are photo-led with from-price, next-free-slot in
+                  mono, Telebirr-deposit chips and a green Book pill whose hover/click slams
+                  the ተያዟል SLOT HELD stamp. Truth strip (Fresha's stats band) uses rolling
+                  odometer digits: slots held today (demo-labeled), businesses on the wall
+                  (live — drops a card when the hero build loop mounts one), phone calls to
+                  book: 0. Browse-by-hood text-link grid (Fresha's browse-by-city pattern).
+                  NO fabricated ratings or reviews — product truth: slots, deposits, open
+                  hours instead of stars.
+  RETURN TO OWNER: lane band + "THE OWNER'S SIDE · YOUR TURN TO HANG A PLAQUE" strip, then
+                  the incumbent register: doors, workshop exhibits, price boards,
+                  Habesha-clock footer.
+SHARED DNA ACROSS THE BOUNDARY (the anti-incoherence layer): one photo grade (sepia sun),
+receipt-mono for every numeral, Ethiopic faces for Amharic, telebirr green owns the Book
+action in BOTH registers. Only density, radius and shadow change per register.
+COLORIZE — "the lamp-lit wall": the two-register story is now a real day/night cut,
+not two shades of the same muddle. OWNER register = the wall after dark: roasted
+near-black limewash (#1B1512), warm cream ink (#F4EDE1), tungsten lamplight gold
+(#E8A93C) on every rule and the lane, and ember vermilion (#E4592C) for the commit
+action — paper receipts and cream builder cards are the only bright objects, so they
+read as pinned notes under a lamp. CUSTOMER register = unchanged daylight: bleached
+paper, espresso ink, telebirr green owns Book, lamplight gold carries the coping rule
+so both registers stay one world. Hood identity keeps the material code (Bole habesha
+green, Kazanchis lamp gold, Merkato ember red) always paired with text. Green stays
+scarce — Book only. All structural tokens, type, layout, components and copy untouched.
+STACK: same as 10-react (React 19 + motion/react via esm.sh, Babel standalone, no build).
+-->
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Ethiopic:wght@600;700;900&family=Noto+Sans+Ethiopic:wght@400;600;700&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@19.1.0",
+    "react/jsx-runtime": "https://esm.sh/react@19.1.0/jsx-runtime",
+    "react-dom/client": "https://esm.sh/react-dom@19.1.0/client?deps=react@19.1.0",
+    "motion/react": "https://esm.sh/motion@12.23.24/react?deps=react@19.1.0"
+  }
+}
+</script>
+<script src="https://unpkg.com/@babel/standalone@7.26.4/babel.min.js"></script>
+<style>
+/* ══ Merkato world tokens (scoped to .merkato) ═══════════════════════ */
+.merkato{
+  --wall:#DDE2D2; --ink:#211D15; --ink-soft:#6B6353; --cream:#F7F4EA;
+  --gold:#DFA635; --gold-deep:#A97718; --red:#C24618; --red-deep:#98330E;
+  --green:#22684C; --tb:#0E9E52; --plate:#FCFAF3; --plate-edge:rgba(35,31,23,.12);
+  --line:rgba(35,31,23,.10);
+  --line-strong:rgba(35,31,23,.22);
+  /* real light: contact, gather, ambience — three soft layers, never a hard offset */
+  --sun:0 1px 2px rgba(35,31,23,.07),0 6px 18px rgba(35,31,23,.09),0 18px 44px rgba(35,31,23,.07);
+  --sun-lg:0 2px 4px rgba(35,31,23,.07),0 14px 36px rgba(35,31,23,.12),0 36px 72px rgba(35,31,23,.09);
+  --f-am-serif:"Noto Serif Ethiopic","Noto Sans Ethiopic",serif;
+  --f-am:"Noto Sans Ethiopic",system-ui,sans-serif;
+  --f-disp:"Bricolage Grotesque",system-ui,sans-serif;
+  --f-body:"Inter",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,monospace;
+  background:
+    radial-gradient(1200px 500px at 85% -5%, rgba(255,255,255,.45), transparent 60%),
+    radial-gradient(900px 420px at -10% 30%, rgba(185,127,26,.10), transparent 55%),
+    var(--wall);
+  color:var(--ink);
+  font-family:var(--f-body);
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:clip;
+}
+.merkato *{box-sizing:border-box;margin:0;padding:0}
+.merkato ::selection{background:rgba(223,166,53,.55);color:var(--ink)}
+.merkato{scrollbar-color:#7A5C49 #DDE2D2}
+.merkato a{color:inherit;text-decoration:none}
+.merkato :focus-visible{outline:3px dashed var(--ink);outline-offset:3px;border-radius:4px}
+.merkato img{display:block;max-width:100%}
+.wrap{max-width:1200px;margin:0 auto;padding:0 24px}
+.am{font-family:var(--f-am)}
+.am-serif{font-family:var(--f-am-serif)}
+.mono{font-family:var(--f-mono)}
+.merkato .chip{
+  display:inline-flex;align-items:center;gap:6px;
+  font-family:var(--f-am);font-weight:600;font-size:.71rem;letter-spacing:.02em;
+  border-radius:6px;padding:4px 10px;white-space:nowrap;
+  box-shadow:0 1px 2px rgba(35,31,23,.06);
+}
+.chip--ink{background:var(--ink);color:var(--cream)}
+.chip--green{background:#EAF3EE;color:#1D5A42;box-shadow:inset 0 0 0 1px rgba(34,104,76,.28)}
+.chip--tb{background:#E7F5EC;color:#0B7A40;box-shadow:inset 0 0 0 1px rgba(14,158,82,.32)}
+.chip--gold{background:#F6ECDA;color:#8A6210;box-shadow:inset 0 0 0 1px rgba(169,119,24,.3)}
+.chip--ghost{box-shadow:inset 0 0 0 1px var(--line-strong);color:var(--ink-soft);background:rgba(252,250,243,.7)}
+.chip--demo{box-shadow:inset 0 0 0 1px rgba(194,70,24,.5);color:var(--red-deep);background:transparent}
+
+/* ══ fascia nav ══ */
+.mk-nav{position:sticky;top:0;z-index:60;background:rgba(26,22,15,.92);backdrop-filter:blur(10px) saturate(140%);color:var(--cream);border-bottom:1px solid rgba(249,244,234,.10);box-shadow:0 8px 24px rgba(35,31,23,.10)}
+.mk-nav-in{max-width:1200px;margin:0 auto;padding:0 24px;height:62px;display:flex;align-items:center;gap:28px}
+.brand{display:flex;align-items:baseline;gap:10px}
+.brand__am{font-family:var(--f-am-serif);font-weight:700;font-size:1.3rem;line-height:1;color:var(--cream)}
+.brand__lat{font-family:var(--f-disp);font-weight:600;font-size:.74rem;letter-spacing:.16em;text-transform:uppercase;color:var(--gold)}
+.mk-nav-links{display:flex;gap:24px;margin-left:auto}
+.mk-nav-links a{font-family:var(--f-am);font-weight:600;font-size:.85rem;color:rgba(249,245,233,.78);transition:color .15s ease-out}
+.mk-nav-links a:hover{color:#fff}
+.mk-nav-cta{font-family:var(--f-disp);font-weight:600;font-size:.88rem;background:var(--red);color:#fff;border-radius:9px;padding:9px 18px;background:linear-gradient(180deg,#CE5224,var(--red));box-shadow:0 1px 2px rgba(0,0,0,.25),inset 0 1px 0 rgba(255,255,255,.18);transition:background .15s ease-out}
+.mk-nav-cta:hover{background:linear-gradient(180deg,#D95A2B,#C64415)}
+@media(max-width:860px){.mk-nav-links{display:none}}
+@media(min-width:1000px) and (max-height:940px){.stage__sub{display:none}}
+
+/* ══ morph stage ══ */
+.stage{position:relative;height:300vh}
+.stage__viewport{position:sticky;top:0;height:100vh;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.stage__copy-pos{position:absolute;top:50%;transform:translateY(-50%);left:5vw;width:40vw;z-index:5;pointer-events:none}
+.stage__copy{text-align:left}
+.stage__copy .kicker{justify-content:flex-start}
+.stage__copy .stage__ctas{justify-content:flex-start}
+.stage__copy .btn{pointer-events:auto}
+
+/* ══ the painted plaster wall behind everything ══
+   Not a texture — a wall built the way Merkato walls are built: plaster courses
+   with visible seams, sun fading it from the top-left, and painted ray work. */
+.wallbg{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.wallbg__plaster{
+  position:absolute;inset:0;
+  background:
+    radial-gradient(1300px 560px at 82% -6%, rgba(255,255,255,.55), transparent 62%),
+    radial-gradient(1000px 460px at -8% 34%, rgba(169,119,24,.07), transparent 56%),
+    var(--wall);
+}
+/* plaster courses: whisper-soft tonal banding — felt, not seen */
+.wallbg__courses{
+  position:absolute;inset:-2px;
+  background:repeating-linear-gradient(180deg,
+    rgba(255,255,255,.05) 0 54px,
+    rgba(35,31,23,.04) 54px 56px,
+    rgba(255,255,255,.02) 56px 110px,
+    rgba(35,31,23,.03) 110px 112px);
+}
+.wallbg__seams{position:absolute;inset:0;opacity:.4;
+  background:repeating-linear-gradient(180deg, transparent 0 54.5px, rgba(35,31,23,.08) 54.5px 55.5px);
+}
+/* sun bleach: stronger at top-left where the sun hits, like real exterior walls */
+.wallbg__sun{position:absolute;inset:0;background:linear-gradient(118deg, rgba(255,250,230,.30), rgba(255,250,230,.07) 42%, transparent 66%)}
+/* bottom grime: walls are darker where the street touches them */
+.wallbg__street{position:absolute;left:0;right:0;bottom:0;height:22%;
+  background:linear-gradient(0deg, rgba(35,31,23,.12), transparent)}
+/* the wall recedes: lens vignette + the shadow the nav casts on its own wall */
+.wallbg__vignette{position:absolute;inset:0;
+  background:radial-gradient(140% 105% at 50% 42%, transparent 58%, rgba(35,31,23,.11))}
+.wallbg__navshadow{position:absolute;top:0;left:0;right:0;height:84px;
+  background:linear-gradient(180deg, rgba(35,31,23,.14), transparent)}
+/* artifacts resting on the wall — real facts from the seed tenants, quiet paper */
+.wallbg-art{position:absolute;inset:0;z-index:1;pointer-events:none}
+.ws-art{position:absolute;background:rgba(252,250,243,.94);border:1px solid var(--line);border-radius:10px;box-shadow:0 1px 2px rgba(35,31,23,.06),0 14px 34px rgba(35,31,23,.12);padding:12px 16px 10px;display:flex;flex-direction:column;gap:4px;min-width:215px;backdrop-filter:blur(2px)}
+.ws-t{font-family:var(--f-am);font-weight:600;font-size:.71rem;letter-spacing:.05em;border-bottom:1px solid var(--line);padding-bottom:6px;margin-bottom:2px;color:var(--ink)}
+.ws-r{display:flex;justify-content:space-between;gap:16px;font-family:var(--f-am);font-weight:500;font-size:.78rem;color:var(--ink-soft)}
+.ws-r b{font-family:var(--f-mono);font-weight:600;font-size:.73rem;color:var(--ink)}
+.ws-pin{display:none}
+.ws-art--hours{left:39vw;right:auto;bottom:2vh;transform:rotate(1deg)}
+.ws-art--prices{left:47vw;top:13vh;transform:rotate(1deg)}
+.ws-sticker{display:none}
+@media(max-width:999px){
+  .stage__copy-pos{top:4vh;left:0;right:0;width:auto;transform:none;display:flex;justify-content:center}
+  .stage__copy{text-align:center;max-width:92vw}
+  .stage__copy .kicker{justify-content:center}
+  .stage__copy .stage__ctas{justify-content:center}
+  .stage__viewport{align-items:flex-end;padding-bottom:3vh}
+  .device{height:50vh !important;width:min(92vw,420px) !important;border-radius:20px !important}
+  .stage__sub{display:none}
+  /* the mini-builder collapses to a summary strip on phones — tap opens the real builder */
+  .mini{max-width:min(92vw,440px);padding:10px 14px}
+  .mini__row--svc{display:none}
+  .mini__list{display:none}
+  .mini__note{display:none}
+  .mini__pub{padding:9px;font-size:.82rem}
+  /* no free band exists between copy and device on phones — artifacts yield entirely */
+  .wallbg-art{display:none}
+}
+.kicker{display:inline-flex;align-items:center;gap:10px;font-family:var(--f-am);font-weight:600;font-size:.74rem;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:14px}
+.kicker::before{content:"";width:26px;height:3px;background:var(--red);border-radius:2px}
+.stage h1{font-family:var(--f-am-serif);font-weight:700;font-size:clamp(2.4rem,5.6vw,4.2rem);line-height:1.08;letter-spacing:-.015em;text-wrap:balance}
+.stage h1 .h1-lat{display:block;font-family:var(--f-disp);font-weight:700;font-size:.66em;letter-spacing:-.02em;color:var(--red-deep);margin-top:10px}
+.stage__sub{margin:12px auto 0;max-width:58ch;color:var(--ink-soft);font-size:1.02rem}
+.stage__ctas{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:18px}
+.btn{display:inline-flex;align-items:center;gap:10px;font-family:var(--f-disp);font-weight:600;font-size:.98rem;border-radius:10px;padding:13px 24px;transition:transform .15s ease-out,box-shadow .15s ease-out;box-shadow:0 1px 2px rgba(35,31,23,.18),0 8px 22px rgba(35,31,23,.16)}
+.btn:active{transform:translateY(1px);box-shadow:0 1px 2px rgba(35,31,23,.18)}
+.btn-red{background:linear-gradient(180deg,#D0521F,#B93F12);color:#fff}
+.btn-red:hover{transform:translateY(-1px);box-shadow:0 2px 4px rgba(35,31,23,.16),0 12px 28px rgba(35,31,23,.18)}
+.btn-ghost{background:rgba(252,250,243,.65);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line-strong)}
+.btn-ghost:hover{background:var(--ink);color:var(--cream);box-shadow:none;transform:translateY(-1px)}
+.btn small{font-family:var(--f-am);font-weight:600;font-size:.72rem;opacity:.8}
+.stage__note{margin-top:14px;display:inline-flex;align-items:center;gap:10px;font-family:var(--f-mono);font-size:.72rem;color:var(--ink-soft)}
+.stage__trust{display:block;margin-top:12px;font-size:.62rem;letter-spacing:.14em;color:#0B7A40;font-weight:700}
+/* ── the mini-builder: a working tool, not a prop ── */
+.mini{margin-top:14px;width:100%;max-width:420px;background:rgba(252,250,243,.82);backdrop-filter:blur(6px);border:1px solid var(--line);border-radius:14px;box-shadow:var(--sun);padding:11px 14px 10px;text-align:left;pointer-events:auto}
+.mini__head{display:flex;justify-content:space-between;align-items:baseline;font-family:var(--f-am);font-weight:600;font-size:.82rem;border-bottom:1px solid var(--line);padding-bottom:7px;margin-bottom:8px}
+.mini__head .mono{font-size:.6rem;color:var(--ink-soft);letter-spacing:.08em;text-transform:uppercase}
+.mini__row{display:flex;flex-direction:column;gap:3px;margin-bottom:7px}
+.mini__row--svc{flex-direction:row;gap:8px;align-items:flex-end}
+.mini__row--svc label{display:flex;flex-direction:column;gap:4px;flex:1}
+.mini__row--svc label:last-of-type{flex:0 0 92px}
+.mini__k{font-family:var(--f-am);font-weight:600;font-size:.68rem;color:var(--ink-soft)}
+.mini__in{font-family:var(--f-body);font-size:.88rem;padding:7px 9px;border:1px solid var(--line-strong);border-radius:8px;background:rgba(255,255,255,.85);color:var(--ink);outline:none;transition:border-color .15s ease-out;width:100%}
+.mini__in:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(34,104,76,.12)}
+.mini__in--num{text-align:right;font-family:var(--f-mono)}
+.mini__add{font-family:var(--f-am);font-weight:700;font-size:.78rem;padding:9px 13px;border-radius:8px;background:rgba(34,104,76,.1);color:#1D5A42;border:1px solid rgba(34,104,76,.3);cursor:pointer;white-space:nowrap}
+.mini__add:hover{background:rgba(34,104,76,.16)}
+.mini__err{font-family:var(--f-am);font-size:.72rem;color:var(--red-deep);margin:2px 0 8px}
+.mini__list{list-style:none;display:flex;flex-direction:column;gap:0;margin-bottom:10px}
+.mini__list li{display:flex;align-items:center;gap:10px;font-family:var(--f-am);font-weight:600;font-size:.82rem;padding:6px 2px;border-top:1px solid var(--line)}
+.mini__list li span:first-child{flex:1}
+.mini__list .mono{font-family:var(--f-mono);font-weight:600;font-size:.76rem}
+.mini__del{background:none;border:none;color:var(--ink-soft);font-size:1rem;cursor:pointer;padding:0 4px;line-height:1}
+.mini__del:hover{color:var(--red)}
+.mini__pub{width:100%;font-family:var(--f-disp);font-weight:600;font-size:.86rem;padding:9px;border-radius:9px;background:linear-gradient(180deg,#2C7A59,var(--green));color:#F2F7F0;border:none;cursor:pointer;box-shadow:0 1px 2px rgba(20,40,30,.3),0 6px 16px rgba(20,40,30,.16)}
+.mini__pub:disabled{opacity:.45;cursor:not-allowed}
+.mini__pub:not(:disabled):hover{transform:translateY(-1px)}
+.mini__note{font-family:var(--f-am);font-size:.66rem;color:var(--ink-soft);margin-top:6px;text-align:center}
+.stage__note i{width:8px;height:8px;border-radius:50%;background:var(--tb);animation:pulse 2.2s ease-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+/* the morphing device: phone → browser.
+   Physical case: soft rim gradient, inner highlight, real bezel — the screen
+   sits INSIDE the case, never bleeding to the edge. */
+.device{
+  position:relative;z-index:4;
+  background:linear-gradient(180deg,#FDFBF5,#F3EFE3);
+  border:1px solid rgba(35,31,23,.14);
+  box-shadow:var(--sun-lg),inset 0 1px 0 rgba(255,255,255,.7),inset 0 -1px 0 rgba(35,31,23,.05);
+  padding:7px;
+  will-change:width,height,border-radius;
+  display:flex;flex-direction:column;overflow:hidden;
+}
+.device__chrome{display:flex;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid var(--line);background:rgba(35,31,23,.03)}
+.device__chrome--phone{border-bottom:none;background:transparent;padding:5px 12px 3px}
+.device__notch{width:64px;height:15px;border-radius:999px;background:var(--ink);margin:0 auto}
+/* status bar glyphs, drawn not written */
+.d-time{font-size:.62rem;font-weight:700;color:var(--ink);letter-spacing:.02em}
+.d-punch{width:46px;height:15px;border-radius:999px;background:var(--ink);margin:0 auto;position:relative;box-shadow:inset 0 0 3px rgba(0,0,0,.6)}
+.d-punch::after{content:"";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:6px;height:6px;border-radius:50%;background:#454052;box-shadow:inset 0 0 2px #000,0 0 0 1.5px rgba(0,0,0,.35)}
+.d-tele{display:flex;align-items:center;gap:6px}
+.d-sig{display:inline-flex;align-items:flex-end;gap:1.5px}
+.d-sig i{width:3px;background:var(--ink);border-radius:1px;display:block}
+.d-sig i:nth-child(1){height:4px}.d-sig i:nth-child(2){height:6px}.d-sig i:nth-child(3){height:8px}
+.d-sig i:nth-child(4){height:10px;opacity:.35}
+.d-wifi{opacity:.8}
+.d-batt{width:21px;height:11px;border:1px solid rgba(35,31,23,.5);border-radius:3px;position:relative;display:block}
+.d-batt::before{content:"";position:absolute;inset:1.5px;right:30%;background:var(--ink);opacity:.75;border-radius:1px}
+.d-batt::after{content:"";position:absolute;right:-3px;top:3px;width:2px;height:5px;background:rgba(35,31,23,.5);border-radius:1px}
+.d-home{position:absolute;left:50%;bottom:5px;transform:translateX(-50%);width:72px;height:4px;border-radius:999px;background:rgba(35,31,23,.30);z-index:11;pointer-events:none}
+.device__dots{display:flex;gap:6px}
+.device__dots i{width:9px;height:9px;border-radius:50%;background:var(--line)}
+.device__url{
+  flex:1;display:flex;align-items:center;gap:8px;
+  background:rgba(35,31,23,.045);border:1px solid var(--line);border-radius:8px;
+  padding:5px 12px;font-family:var(--f-mono);font-weight:500;font-size:.75rem;
+}
+.device__url b{color:#0B7A40;font-weight:700}
+.device__screen{position:relative;flex:1;min-height:0;border-radius:13px;overflow:hidden;background:var(--plate)}
+/* glass: static specular streak + a whisper of inset depth — the screen is glass, not a div */
+.device__screen::after{content:"";position:absolute;inset:0;z-index:10;pointer-events:none;border-radius:inherit;
+  background:linear-gradient(112deg,rgba(255,255,255,.11) 0%,rgba(255,255,255,.045) 16%,transparent 30%);
+  box-shadow:inset 0 1px 8px rgba(35,31,23,.07)}
+.screen-layer{position:absolute;inset:0;display:flex;flex-direction:column}
+
+/* builder screen */
+.sb-status{display:flex;justify-content:space-between;padding:8px 16px 4px;font-family:var(--f-mono);font-size:.62rem;color:var(--ink-soft)}
+.sb-head{display:flex;align-items:center;gap:8px;padding:4px 16px 10px;border-bottom:1px dashed var(--plate-edge)}
+.sb-head .am-serif{font-weight:700;font-size:.95rem}
+.sb-body{flex:1;overflow:hidden;padding:10px 16px 0;display:flex;flex-direction:column}
+.sb-name{font-family:var(--f-am-serif);font-weight:700;font-size:1.3rem;line-height:1.2;min-height:1.3em}
+.sb-name .am{display:block;font-size:.7rem;font-weight:600;color:var(--ink-soft);margin-top:2px}
+.sb-steps{display:flex;gap:5px;flex-wrap:wrap;margin:10px 0 0}
+.sb-step{font-family:var(--f-am);font-weight:600;font-size:.66rem;border-radius:5px;padding:3px 9px;background:rgba(169,119,24,.14);color:#8A6210;transition:all .25s ease-out}
+.sb-step.is-on{background:var(--ink);color:#F0D9A0}
+.sb-services{list-style:none;margin-top:10px}
+.sb-services li{display:flex;justify-content:space-between;font-family:var(--f-am);font-weight:600;font-size:.8rem;padding:4px 0;border-top:1px solid var(--line)}
+.sb-services .price{font-family:var(--f-mono);font-weight:700;font-size:.74rem}
+.sb-foot{padding:10px 16px 14px;border-top:1px solid var(--line);margin-top:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.sb-log{font-family:var(--f-mono);font-size:.62rem;color:var(--ink-soft);padding:0 16px 8px;min-height:1.1em}
+.sb-pause{align-self:flex-start;margin:0 16px 12px;font-family:var(--f-am);font-weight:600;font-size:.68rem;background:transparent;border:1px solid var(--line-strong);color:var(--ink-soft);border-radius:6px;padding:4px 11px;cursor:pointer}
+.sb-pause:hover{background:var(--ink);color:#F0D9A0;border-color:var(--ink)}
+.sb-photo{height:38%;position:relative;overflow:hidden;flex-shrink:0}
+.sb-photo img{width:100%;height:100%;object-fit:cover}
+
+/* the mount moment: a rubber ink-stamp on the finished build — gold ink on paper */
+.mount-stamp{
+  position:absolute;top:36%;right:18px;z-index:7;pointer-events:none;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  width:112px;height:112px;border-radius:50%;
+  background:rgba(252,250,243,.88);color:#A97718;
+  border:2px solid #A97718;outline:1.5px dashed rgba(169,119,24,.55);outline-offset:3px;
+  box-shadow:0 8px 22px rgba(35,31,23,.14);
+}
+.mount-stamp .am-serif{font-weight:700;font-size:1.15rem;line-height:1}
+.mount-stamp .mono{font-size:.54rem;letter-spacing:.14em;color:rgba(169,119,24,.8)}
+
+/* published site screen */
+.site-hero{height:44%;position:relative;overflow:hidden;flex-shrink:0}
+.site-hero img{width:100%;height:100%;object-fit:cover}
+.site-hero::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(35,31,23,.10),transparent 26%,rgba(20,16,10,.14) 55%,rgba(20,16,10,.52))}
+.site-hero .chip{position:absolute;left:14px;bottom:12px}
+.site-body{flex:1;padding:12px 16px 0;overflow:hidden}
+.site-name{font-family:var(--f-am-serif);font-weight:700;font-size:1.3rem}
+.site-name .am{display:block;font-family:var(--f-am);font-size:.72rem;font-weight:500;color:var(--ink-soft);margin-top:2px}
+.site-services{list-style:none;margin-top:8px}
+.site-services li{display:flex;justify-content:space-between;font-family:var(--f-am);font-weight:600;font-size:.82rem;padding:5px 0;border-top:1px solid var(--line)}
+.site-services .price{font-family:var(--f-mono);font-weight:700;font-size:.76rem}
+.site-cta{margin-top:auto;padding:10px 16px 14px;border-top:1px solid var(--line);display:flex;gap:8px;align-items:center}
+.site-cta .book{flex:1;position:relative;text-align:center;font-family:var(--f-disp);font-weight:600;font-size:.86rem;background:linear-gradient(180deg,#2C7A59,var(--green));color:#F2F7F0;border-radius:9px;padding:10px 12px;box-shadow:0 1px 2px rgba(20,40,30,.3),0 6px 16px rgba(20,40,30,.18);cursor:pointer}
+/* hover turns the button into the stamped slot-hold: perforation + telebirr stamp */
+.site-cta .book::before{content:"";position:absolute;top:4px;left:10px;right:10px;border-top:1.5px dashed rgba(249,245,233,.7);opacity:0;transform:translateY(-3px);transition:opacity .22s ease-out,transform .22s ease-out}
+.site-cta .book:hover::before{opacity:1;transform:translateY(0)}
+.book__stamp{
+  position:absolute;top:-15px;right:8px;z-index:2;pointer-events:none;
+  font-family:var(--f-mono);font-weight:700;font-size:.56rem;letter-spacing:.08em;white-space:nowrap;
+  color:var(--tb);background:var(--plate);border:2px solid var(--tb);border-radius:8px;padding:3px 8px;
+  box-shadow:2px 3px 0 rgba(35,31,23,.18);
+  opacity:0;transform:rotate(-16deg) scale(1.8);
+}
+.site-cta .book:hover .book__stamp{animation:stamp-slam .4s cubic-bezier(.2,1.2,.3,1) forwards}
+@keyframes stamp-slam{0%{opacity:0;transform:rotate(-18deg) scale(1.8)}55%{opacity:1;transform:rotate(-8deg) scale(.92)}100%{opacity:1;transform:rotate(-10deg) scale(1)}}
+
+/* ══ live deposit handshake: tap → print → stamp → tear → pin ══ */
+.tap-cursor{position:absolute;width:18px;height:18px;border-radius:50%;background:var(--ink);border:2.5px solid var(--cream);box-shadow:0 2px 6px rgba(35,31,23,.4);z-index:9;pointer-events:none}
+.site-cta .book.is-pressed{transform:scale(.965) translateY(2px);box-shadow:0 1px 0 #134A36}
+.receipt{
+  position:absolute;left:50%;bottom:16px;width:min(80%,300px);z-index:8;
+  background:var(--plate);border:1.5px solid var(--ink);border-radius:6px 6px 0 0;
+  box-shadow:0 -8px 20px rgba(35,31,23,.22);padding:12px 14px 14px;
+  font-family:var(--f-mono);font-size:.66rem;color:var(--ink);line-height:1.5;
+}
+.receipt__head{display:flex;justify-content:space-between;align-items:baseline;font-weight:700;letter-spacing:.08em;text-transform:uppercase;border-bottom:1px dashed var(--line-strong);padding-bottom:7px;margin-bottom:7px}
+.receipt__head .am{font-family:var(--f-am);letter-spacing:0}
+.receipt__row{display:flex;justify-content:space-between;gap:12px;padding:1.5px 0}
+.receipt__row .k{color:var(--ink-soft)}
+.receipt__ok{color:var(--tb);font-weight:700}
+.receipt__per{position:absolute;bottom:-2px;left:10px;right:10px;border-bottom:2px dashed rgba(35,31,23,.4)}
+.receipt__stamp{
+  position:absolute;right:10px;top:44px;pointer-events:none;
+  font-family:var(--f-mono);font-weight:700;font-size:.6rem;letter-spacing:.1em;
+  color:var(--tb);border:2px solid var(--tb);border-radius:50%;
+  width:74px;height:74px;display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.25;
+  transform:rotate(-12deg);background:rgba(251,248,240,.6);
+  animation:stamp-slam .38s cubic-bezier(.2,1.2,.3,1) both;
+}
+.pinned-stub{
+  position:absolute;left:26px;bottom:30px;z-index:9;transform:rotate(-1.5deg);
+  background:rgba(252,250,243,.96);border:1px solid var(--line);border-radius:10px;
+  padding:10px 14px 9px 16px;font-family:var(--f-mono);font-size:.6rem;color:var(--ink);line-height:1.55;
+  box-shadow:var(--sun);
+}
+.pinned-stub .stub-bolt{display:none}
+.pinned-stub .ok{color:var(--tb);font-weight:700}
+@media(max-width:999px){
+  .pinned-stub{left:18px;top:86px;bottom:auto;transform:rotate(2deg)}
+  .receipt{font-size:.6rem;padding:10px 12px 12px}
+  .receipt__stamp{width:64px;height:64px;font-size:.54rem;top:40px}
+}
+.chip--flash{animation:chip-flash 1.5s ease-in-out 2}
+@keyframes chip-flash{0%,100%{filter:none}50%{filter:brightness(1.28)}}
+
+/* ══ borrowings: Dala's opening shutter + dovetail's Ethiopic index / insight-card ══ */
+.loader{position:fixed;inset:0;z-index:120;pointer-events:none;display:flex;align-items:center;justify-content:center;background:var(--ink);color:var(--cream);border-bottom:6px solid var(--gold)}
+.loader.is-done{animation:loader-up .55s cubic-bezier(.7,0,.3,1) forwards}
+@keyframes loader-up{to{transform:translateY(-101%)}}
+.loader__in{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center}
+.loader__sq{width:15px;height:15px;background:var(--gold);animation:sq-spin 3s linear infinite}
+@keyframes sq-spin{to{transform:rotate(360deg)}}
+.loader__am{font-family:var(--f-am-serif);font-weight:700;font-size:clamp(1.6rem,4vw,2.6rem);line-height:1}
+.loader__lat{font-size:.66rem;letter-spacing:.18em;text-transform:uppercase;color:rgba(249,245,233,.6)}
+.loader__bar{position:absolute;left:1.25rem;right:1.25rem;bottom:1.125rem;display:flex;justify-content:space-between;align-items:baseline;font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:rgba(249,245,233,.6)}
+.loader__digits{font-family:var(--f-mono);font-weight:700;font-size:1.7rem;color:var(--gold);letter-spacing:.1em;min-height:1.2em}
+.loader__digits.is-open{color:var(--tb);font-size:1.1rem}
+/* Dala's masked rotate-wipe, verbatim curve, wall voice */
+@media (prefers-reduced-motion: no-preference){
+  .stage h1, .stage__copy .kicker, .stage__copy .stage__sub{overflow:hidden}
+  .stage__copy .wk{display:block;transform:translateY(115%) rotate(9deg);animation:dala-wipe .9s cubic-bezier(.76,0,.24,1) forwards}
+  .stage__copy > :nth-child(4), .stage__copy > :nth-child(5){animation:copy-rise .6s ease-out both;animation-delay:.55s}
+}
+@keyframes dala-wipe{to{transform:translateY(0) rotate(0)}}
+@keyframes copy-rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+.site-queue{margin-top:8px;padding:6px 0 2px;border-top:1.5px dashed var(--plate-edge);display:flex;gap:10px;align-items:baseline;overflow:hidden;white-space:nowrap}
+.site-queue .q-t{font-weight:700;font-size:.56rem;letter-spacing:.1em;color:#134A36}
+.site-queue .q-r{font-family:var(--f-am);font-weight:600;font-size:.64rem;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis}
+.site-queue .q-r b{font-family:var(--f-mono);font-size:.62rem;color:var(--ink)}
+.stage__caption{position:absolute;bottom:7vh;left:0;right:0;text-align:center;z-index:6;pointer-events:none}
+.stage__caption .am-serif{font-weight:700;font-size:clamp(1.3rem,2.6vw,2rem)}
+.stage__caption .mono{display:block;font-size:.72rem;color:var(--ink-soft);margin-top:6px;letter-spacing:.04em}
+
+/* ══ register boundary (no interstitial, no wipe) ══
+   The register change is a plain content boundary: the next register's hero
+   opens directly, and the background shift + one tej-gold coping rule carry
+   the transition. The coping sits on .fresha's top edge (owner → customer)
+   and the lane band does the duty on the way back (customer → owner). */
+.seam{position:relative;z-index:2}
+.seam--owner{background:var(--wall)}
+
+/* ══ CUSTOMER REGISTER — the Fresha register ══
+   Warm white, air, rounded cards, soft shadows, pill controls, search first.
+   Shared DNA kept: sepia photo grade, mono numerals, Ethiopic faces, telebirr
+   green owns the Book action. */
+/* COLORIZE — "the wall lends its materials to the shop window":
+   warm bleached-paper ground (DESIGN.md token), hood identity as material
+   hues (Bole habesha green · Kazanchis tej gold · Merkato tile red), the
+   truth band as the wall's plaster glow, telebirr deep on the money number.
+   Green stays scarce: the Book action keeps it. */
+.fresha{position:relative;z-index:1;background:#FBF8F2;color:#26211A;font-family:var(--f-body);
+  --hd-bole:#1D5A42;--hd-kazanchis:#A97718;--hd-merkato:#98330E;--hd-all:#3B2820;
+  --hd-bole-lite:#8FCBA8;--hd-kazanchis-lite:#E3C27E;--hd-merkato-lite:#E0A284}
+.fresha::before{content:"";position:absolute;top:0;left:0;right:0;height:6px;background:linear-gradient(90deg,#E9B44A,#DFA635 46%,#CE9526);z-index:3;pointer-events:none}
+.fresha *{box-sizing:border-box;margin:0;padding:0}
+.fresha ::selection{background:rgba(14,158,82,.20)}
+.fresha .wrap{max-width:1200px;margin:0 auto;padding:0 24px}
+.fsh{padding:28px 0 8px;text-align:center}
+.fsh__in{max-width:790px;margin:0 auto;padding:0 24px}
+.fsh .kicker{justify-content:center}
+.fsh h2{font-family:var(--f-disp);font-weight:700;font-size:clamp(2.2rem,5vw,3.7rem);letter-spacing:-.022em;line-height:1.05;color:#1E1A14;text-wrap:balance}
+.fsh h2 .fsh__am{display:block;font-family:var(--f-am-serif);font-weight:700}
+.fsh h2 .fsh__lat{display:block;font-family:var(--f-disp);font-size:.5em;letter-spacing:-.012em;color:#0B7A40;margin-top:10px}
+.fsh__sub{margin:15px auto 0;max-width:58ch;color:#6E675A;font-size:1rem}
+.fsearch{margin:18px auto 0;max-width:660px;display:flex;align-items:center;gap:10px;background:#fff;border:1px solid rgba(35,31,23,.26);border-radius:2px;padding:7px 7px 7px 18px;box-shadow:0 1px 2px rgba(35,31,23,.08),0 10px 26px rgba(35,31,23,.08)}
+.fsearch svg{flex-shrink:0;opacity:.55}
+.fsearch input{flex:1;min-width:0;border:none;outline:none;background:transparent;font-family:var(--f-body);font-weight:500;font-size:.98rem;color:#26211A}
+.fsearch input::placeholder{color:#6E675A}
+.fsearch:focus-within{border-color:rgba(14,158,82,.5);box-shadow:0 0 0 4px rgba(14,158,82,.10),0 12px 30px rgba(35,31,23,.09)}
+.fsearch__btn{flex-shrink:0;font-family:var(--f-disp);font-weight:600;font-size:.9rem;background:linear-gradient(180deg,#12A85B,#0B8A4A);color:#fff;border:none;border-radius:2px;padding:11px 22px;cursor:pointer}
+.fhoodchips{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:12px}
+.fhoodchips .chip{cursor:pointer;border:none;border-radius:2px;font-size:.72rem;padding:6px 14px;box-shadow:0 1px 3px rgba(35,31,23,.12)}
+.fgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:26px;padding-bottom:8px}
+.fgrid-sec{padding:16px 0 6px}
+.fcard{background:#fff;border-radius:2px;overflow:hidden;border:1px solid rgba(35,31,23,.14);box-shadow:0 1px 2px rgba(35,31,23,.07),0 10px 26px rgba(35,31,23,.08);display:flex;flex-direction:column;transition:box-shadow .22s ease-out}
+.fcard:hover{box-shadow:0 2px 4px rgba(35,31,23,.07),0 18px 44px rgba(35,31,23,.13)}
+.fcard__photo{position:relative;aspect-ratio:16/10;overflow:hidden;background:#EDEBE3;outline:1px solid rgba(35,31,23,.16);outline-offset:-7px}
+/* one camera, one grade across BOTH registers: every photograph belongs to this sun */
+.site-hero img,.sb-photo img,.fresha .fcard__photo img,.fresha .fcard__chips .chip img{filter:sepia(.16) saturate(.9) contrast(1.05) brightness(1.01)}
+.fcard__photo::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(180deg,rgba(232,169,60,.08),transparent 34%),radial-gradient(120% 90% at 50% 40%,transparent 64%,rgba(35,31,23,.14))}
+.fcard__photo img{width:100%;height:100%;object-fit:cover}
+.fcard__chips{position:absolute;top:12px;left:12px;right:12px;display:flex;gap:6px;flex-wrap:wrap;z-index:2}
+.fcard__chips .chip{border-radius:999px;box-shadow:0 1px 4px rgba(35,31,23,.16)}
+.fcard__body{padding:15px 18px 4px;display:flex;flex-direction:column;gap:4px}
+.fcard__name{font-family:var(--f-am-serif);font-weight:700;font-size:1.22rem;line-height:1.28;color:#1E1A14}
+.fcard__lat{font-family:var(--f-disp);font-weight:600;font-size:.7rem;letter-spacing:.09em;text-transform:uppercase;color:#6E675A}
+.fcard__meta{display:flex;align-items:center;gap:7px;font-size:.85rem;font-weight:500;color:#6E675A}
+/* hood material dots: color + text label, never color alone */
+.hooddot{display:inline-block;width:10px;height:10px;border-radius:2px;flex-shrink:0;box-shadow:inset 0 0 0 1px rgba(35,31,23,.35)}
+.hooddot[data-hood="bole"]{background:var(--hd-bole)}
+.hooddot[data-hood="kazanchis"]{background:var(--hd-kazanchis)}
+.hooddot[data-hood="merkato"]{background:var(--hd-merkato)}
+.hooddot[data-hood="demo"]{background:var(--hd-kazanchis)}
+.hooddot[data-hood="all"]{background:var(--hd-all)}
+.chip--ink .hooddot[data-hood="bole"]{background:var(--hd-bole-lite)}
+.chip--ink .hooddot[data-hood="kazanchis"]{background:var(--hd-kazanchis-lite)}
+.chip--ink .hooddot[data-hood="merkato"]{background:var(--hd-merkato-lite)}
+.fcard__slot{font-size:.76rem;font-weight:600;color:#0B7A40;border-top:1.5px dashed rgba(35,31,23,.18);margin-top:7px;padding-top:7px}
+.fcard__slot b{font-family:var(--f-mono);font-weight:700}
+.fcard__foot{margin-top:auto;padding:12px 18px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.fcard__from{font-size:.78rem;font-weight:600;color:#6E675A;white-space:nowrap}
+/* the money number: telebirr-deep, the receipt's voice inside the card */
+.fcard__from b{font-family:var(--f-mono);font-weight:700;font-size:.92rem;color:#063F2D}
+.fbtn{position:relative;font-family:var(--f-disp);font-weight:600;font-size:.88rem;background:linear-gradient(180deg,#12A85B,#0B8A4A);color:#fff;border:none;border-radius:2px;padding:10px 20px;cursor:pointer;box-shadow:0 1px 2px rgba(9,70,38,.30),0 6px 16px rgba(14,158,82,.20);transition:transform .15s ease-out,box-shadow .15s ease-out;white-space:nowrap}
+.fbtn:hover{transform:translateY(-1px);box-shadow:0 2px 4px rgba(9,70,38,.28),0 10px 22px rgba(14,158,82,.24)}
+.fbtn.is-pressed,.fbtn:active{transform:scale(.95);box-shadow:0 1px 0 #094626}
+.fbtn__stamp{position:absolute;top:-16px;right:6px;z-index:3;pointer-events:none;font-family:var(--f-mono);font-weight:700;font-size:.56rem;letter-spacing:.08em;white-space:nowrap;color:#0B8A4A;background:#fff;border:2px solid #0B8A4A;border-radius:2px;padding:3px 8px;box-shadow:2px 3px 0 rgba(35,31,23,.16);opacity:0;transform:rotate(-16deg) scale(1.8)}
+.fbtn.is-pressed .fbtn__stamp,.fbtn.is-done .fbtn__stamp{animation:stamp-slam .4s cubic-bezier(.2,1.2,.3,1) forwards}
+.fempty{grid-column:1/-1;text-align:center;padding:56px 24px;border:1.5px dashed rgba(35,31,23,.25);border-radius:2px;background:rgba(223,166,53,.07);color:#6E675A}
+.fempty .am-serif{display:block;font-weight:700;font-size:1.2rem;color:#26211A;margin-bottom:6px}
+.fempty button{margin-top:14px;font-family:var(--f-mono);font-weight:700;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;background:none;border:1px solid rgba(35,31,23,.25);border-radius:999px;padding:8px 18px;cursor:pointer;color:#26211A}
+.fempty button:hover{border-color:#0B8A4A;color:#0B8A4A}
+/* truth strip: the one deliberate color region — the wall's plaster glow,
+   the register speaking of the wall it hangs on */
+.ftruth{margin-top:26px;padding:30px 0 26px;
+  background:
+    radial-gradient(900px 320px at 50% -20%, rgba(185,199,166,.55), transparent 68%),
+    radial-gradient(600px 260px at 12% 120%, rgba(223,166,53,.10), transparent 60%),
+    #F3F1E7;
+  border-top:3px solid #DFA635;border-bottom:1px solid rgba(35,31,23,.12)}
+.ftruth__grid{display:grid;grid-template-columns:repeat(3,1fr);gap:26px;text-align:center}
+.fstat__label{display:block;margin-top:12px;font-family:var(--f-mono);font-size:.74rem;letter-spacing:.1em;text-transform:uppercase;color:#4A4638;font-weight:700}
+.fstat__am{display:block;margin-top:3px;font-family:var(--f-am);font-weight:600;font-size:.72rem;color:#5C554A}
+/* roles on the band: deposits speak telebirr-deep, the rest espresso */
+.ftruth__grid .fstat:nth-child(1) .odo{color:#063F2D}
+.ftruth__grid .fstat:nth-child(2) .odo,.ftruth__grid .fstat:nth-child(3) .odo{color:#1E1A14}
+.ftruth__note{margin-top:18px;text-align:center;font-family:var(--f-mono);font-size:.62rem;letter-spacing:.06em;color:#6E675A}
+.odo{display:inline-flex;font-family:var(--f-mono);font-weight:700;font-size:clamp(2.2rem,4vw,3.1rem);letter-spacing:-.01em;color:#1E1A14}
+.odo__win{display:inline-block;height:1em;overflow:hidden}
+.odo__col{display:flex;flex-direction:column;transition:transform .9s cubic-bezier(.22,.9,.28,1)}
+.odo__col span{height:1em;line-height:1}
+/* browse-by-hood index (the Fresha browse-by-city pattern, Addis hoods) */
+.fhoods{padding:34px 0 40px}
+.fhoods h3{font-family:var(--f-disp);font-weight:700;font-size:clamp(1.3rem,2.4vw,1.7rem);letter-spacing:-.01em;color:#1E1A14}
+.fhoods__cols{display:grid;grid-template-columns:repeat(4,1fr);gap:12px 36px;margin-top:14px}
+.fhoods h4{font-family:var(--f-am);font-weight:700;font-size:.8rem;letter-spacing:.05em;color:#26211A;padding-bottom:7px;border-bottom:2px solid rgba(35,31,23,.5)}
+.fhoods ul{list-style:none;margin-top:5px}
+.fhoods ul{counter-reset:egb}
+.fhoods li{counter-increment:egb}
+.fhoods a{display:block;padding:6px 0;font-size:.88rem;font-weight:500;color:#5C554A;border-bottom:1px dashed rgba(35,31,23,.08);transition:color .15s ease-out}
+.fhoods a::before{content:counter(egb,ethiopic) " · ";font-family:var(--f-mono);font-size:.72rem;color:#A97718}
+.fhoods a:hover{color:#0B8A4A}
+/* owner-side welcome strip inside the boundary band */
+.owner-strip{padding-bottom:10px}
+.owner-strip .lane{margin-top:34px}
+.owner-strip__note{text-align:center;margin-top:12px;font-size:.64rem;letter-spacing:.18em;color:var(--ink-soft)}
+@media(max-width:1020px){.fgrid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:680px){
+  .fgrid{grid-template-columns:1fr;gap:18px}
+  .ftruth__grid{grid-template-columns:1fr;gap:30px}
+  .fhoods__cols{grid-template-columns:1fr}
+  .fsearch{flex-wrap:wrap;border-radius:24px;padding:10px 12px 10px 16px}
+  .fsearch input{flex:1 1 100%;padding:8px 6px}
+  .fsearch__btn{flex:1 1 100%}
+}
+@media(max-width:900px){.fhoods__cols{grid-template-columns:repeat(2,1fr)}}
+@media (prefers-reduced-motion:reduce){
+  .odo__col{transition:none}
+}
+
+/* ══ lane ══ */
+.lane{margin:64px 0 0;background:linear-gradient(180deg,#E9B44A,#DFA635 46%,#CE9526);border-top:1px solid rgba(255,255,255,.35);border-bottom:1px solid rgba(35,31,23,.14);color:var(--ink);overflow:hidden;box-shadow:0 10px 28px rgba(35,31,23,.10)}
+.lane-track{display:flex;width:max-content;animation:lane 26s linear infinite;animation-play-state:paused}
+.lane.is-visible .lane-track{animation-play-state:running}
+.lane:hover .lane-track{animation-play-state:paused}
+.lane-item{display:inline-flex;align-items:center;gap:12px;padding:13px 26px;border-right:1px dashed rgba(35,31,23,.35);white-space:nowrap}
+.lane-step{font-family:var(--f-am);font-style:normal;font-weight:600;font-size:.72rem;background:var(--ink);color:#F0D9A0;border-radius:5px;padding:4px 10px}
+.lane-item:nth-child(odd) .lane-step{background:rgba(194,70,24,.14);color:#98330E}
+.lane-item b{font-family:var(--f-disp);font-weight:700;font-size:.88rem;letter-spacing:.1em}
+.lane-item .mono{color:var(--red-deep);font-size:.68rem}
+@keyframes lane{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+/* ══ doors ══ */
+.doors{padding:56px 0 10px}
+.doors-head{margin-bottom:24px}
+.doors-head h2{font-family:var(--f-am-serif);font-weight:700;font-size:clamp(1.9rem,4vw,2.8rem)}
+.doors-head h2 .h1-lat{display:inline;font-family:var(--f-disp);font-weight:700;font-size:.55em;color:var(--red-deep)}
+.doors-head p{color:var(--ink-soft);max-width:58ch;margin-top:10px}
+.doors-grid{display:grid;grid-template-columns:1fr 1fr;gap:26px}
+.door{position:relative;overflow:hidden;border:1px solid var(--line);border-radius:16px;display:flex;box-shadow:var(--sun)}
+.door__panel{flex:1;border-radius:15px;padding:34px 32px 30px;color:var(--cream);display:flex;flex-direction:column;position:relative;box-shadow:inset 0 1px 0 rgba(255,255,255,.22),inset 0 -18px 36px rgba(0,0,0,.18)}
+.door--owner .door__panel{background:linear-gradient(165deg,#C24A1B,#A83A10 70%)}
+.door--cust .door__panel{background:linear-gradient(165deg,#2A7355,#1C5A41 70%)}
+.door__panel::before{content:"";position:absolute;top:0;left:0;right:0;height:1px;background:rgba(255,255,255,.25)}
+.door__tag{align-self:flex-start;font-family:var(--f-mono);font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;background:rgba(0,0,0,.26);border-radius:5px;padding:4px 10px;margin-bottom:18px;border:1px solid rgba(255,255,255,.12)}
+.door h3{font-family:var(--f-am-serif);font-weight:700;font-size:clamp(1.5rem,2.6vw,1.9rem);line-height:1.15}
+.door h3 .lat{display:block;font-family:var(--f-disp);font-weight:600;font-size:.6em;margin-top:6px;opacity:.9}
+.door ol{list-style:none;margin:22px 0 26px;display:flex;flex-direction:column;gap:12px}
+.door li{display:flex;gap:13px;align-items:baseline;font-size:.93rem;line-height:1.5;color:rgba(255,255,255,.94);font-weight:500}
+.door li .geo{font-family:var(--f-am-serif);font-weight:600;flex-shrink:0;min-width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;background:rgba(0,0,0,.22);border-radius:7px;transform:translateY(4px);font-size:.85rem}
+.door .btn{margin-top:auto;align-self:flex-start;background:var(--cream);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.28),0 8px 20px rgba(0,0,0,.22);background:linear-gradient(180deg,#FFFDF6,#F3EEDF)}
+.door .btn:hover{transform:translateY(-1px)}
+@media(max-width:820px){.doors-grid{grid-template-columns:1fr}}
+
+/* ══ workshop ══ */
+.workshop{padding:56px 0 6px}
+.workshop-head{display:flex;align-items:baseline;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-bottom:26px}
+.workshop-head h2{font-family:var(--f-am-serif);font-weight:700;font-size:clamp(1.9rem,4vw,2.8rem)}
+.workshop-head h2 small{display:block;font-family:var(--f-am);font-weight:600;font-size:.85rem;color:var(--ink-soft);letter-spacing:.05em;margin-top:8px}
+.workshop-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:24px}
+.tool{background:var(--plate);border:1px solid var(--line);border-radius:14px;box-shadow:var(--sun);overflow:hidden}
+.tool__bar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 16px;border-bottom:1px solid var(--line);background:rgba(35,31,23,.02)}
+.tool__bar .am{font-weight:600;font-size:.85rem}
+.tool__bar .mono{font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft)}
+.tool__body{padding:14px 16px 16px}
+.t-services{grid-column:span 5}.t-staff{grid-column:span 7}.t-hours{grid-column:span 7}.t-deposit{grid-column:span 5}
+@media(max-width:900px){.t-services,.t-staff,.t-hours,.t-deposit{grid-column:span 12}}
+.t-services ul{list-style:none}
+.t-services li{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 2px;border-top:1px solid var(--line);font-family:var(--f-am);font-weight:600;font-size:.9rem}
+.t-services li:first-child{border-top:none}
+.t-services .price{font-family:var(--f-mono);font-weight:700;font-size:.85rem}
+.t-services .dur{font-family:var(--f-mono);font-size:.66rem;color:var(--ink-soft);margin-left:auto;margin-right:14px}
+.staff-row{display:flex;align-items:center;gap:12px;padding:9px 0;border-top:1px solid var(--line)}
+.staff-row:first-child{border-top:none}
+.staff-row img{width:42px;height:42px;border-radius:9px;object-fit:cover;border:1px solid var(--line)}
+.sname{font-weight:700;font-family:var(--f-am);font-size:.92rem}
+.srole{font-family:var(--f-am);font-size:.74rem;color:var(--ink-soft);font-weight:600}
+.staff-days{margin-left:auto;display:flex;gap:4px}
+.staff-days i{width:19px;height:19px;border-radius:5px;background:#DCE9DF;display:block;box-shadow:inset 0 0 0 1px rgba(34,104,76,.25)}
+.staff-days i.off{background:transparent;box-shadow:inset 0 0 0 1px var(--line)}
+.hours-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.hours-grid .hday{text-align:center;font-family:var(--f-am);font-weight:600;font-size:.66rem;color:var(--ink-soft)}
+.hours-grid .hcell{height:32px;border-radius:5px;background:#DCE9DF;position:relative;box-shadow:inset 0 0 0 1px rgba(34,104,76,.25)}
+.hours-grid .hcell.off{background:transparent;box-shadow:inset 0 0 0 1px var(--line)}
+.hours-grid .hcell i{position:absolute;left:6px;top:6px;right:6px;height:3px;background:#2A7355;border-radius:2px}
+.hours-caption{margin-top:10px;font-family:var(--f-mono);font-size:.66rem;color:var(--ink-soft)}
+.deposit-demo{display:flex;flex-direction:column;gap:12px}
+.toggle-row{display:flex;align-items:center;gap:12px}
+.toggle{width:44px;height:25px;border-radius:999px;background:#DCE9DF;position:relative;border:1px solid rgba(34,104,76,.3);box-shadow:inset 0 1px 3px rgba(34,104,76,.18)}
+.toggle::after{content:"";position:absolute;top:3px;right:3px;width:17px;height:17px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(35,31,23,.25)}
+.toggle-row .tl{font-family:var(--f-am);font-weight:700;font-size:.9rem}
+.toggle-row .tl small{display:block;font-weight:600;font-size:.7rem;color:var(--ink-soft)}
+.deposit-rows{display:flex;flex-direction:column;gap:6px}
+.deposit-rows div{display:flex;justify-content:space-between;font-family:var(--f-mono);font-size:.73rem;background:rgba(35,31,23,.035);border:1px solid var(--line);border-radius:7px;padding:8px 12px}
+.deposit-rows .ok{color:#0B7A40;font-weight:700}
+
+/* ══ boards ══ */
+/* the money moment gets its own room: espresso band, gold top rule, night light */
+.boards-band{margin-top:56px;background:
+  radial-gradient(1100px 420px at 50% -8%, rgba(232,169,60,.10), transparent 60%),
+  linear-gradient(180deg,#2A231A,#3B2820 30%,#3B2820);
+  border-top:6px solid var(--gold);border-bottom:1px solid rgba(0,0,0,.4);
+  padding:56px 0 48px;box-shadow:inset 0 1px 0 rgba(255,255,255,.12)}
+.boards{padding:0}
+.boards-head h2{color:var(--cream)}
+.boards-head h2 .h1-lat{color:var(--gold)}
+.boards-head p{color:#C9B29D}
+.boards-head{margin-bottom:24px}
+.boards-head h2{font-family:var(--f-am-serif);font-weight:700;font-size:clamp(1.9rem,4vw,2.8rem)}
+.boards-head h2 .h1-lat{display:inline;font-family:var(--f-disp);font-weight:700;font-size:.55em;color:var(--red-deep)}
+.boards-head p{color:var(--ink-soft);margin-top:10px;max-width:56ch}
+.board{border:1px solid rgba(35,31,23,.2);border-radius:14px;box-shadow:var(--sun-lg);position:relative;background:var(--plate);display:flex;flex-direction:column}
+.boards-grid{display:grid;grid-template-columns:1fr 1fr;gap:28px;max-width:920px}
+.board__head{padding:20px 24px 16px;border-bottom:1px solid var(--line);display:flex;align-items:baseline;justify-content:space-between;gap:10px;border-radius:13px 13px 0 0}
+.board--pro .board__head{background:linear-gradient(180deg,#F0BC55,#E8A93C)}
+.board__name{font-family:var(--f-am-serif);font-weight:700;font-size:1.4rem}
+.board__price{font-family:var(--f-mono);font-weight:700;font-size:1.55rem;letter-spacing:-.01em}
+.board__price small{display:block;font-size:.64rem;font-weight:500;color:var(--ink-soft);letter-spacing:.06em;text-transform:uppercase;margin-top:3px}
+.board__body{padding:18px 24px 22px;display:flex;flex-direction:column;gap:10px;flex:1;list-style:none}
+.board__body li{display:flex;gap:10px;align-items:baseline;font-size:.92rem;font-family:var(--f-am);font-weight:600}
+.board__body li::before{content:"✓";font-weight:700;color:var(--green)}
+.board--pro .board__body li::before{color:var(--gold-deep)}
+.board__body .off{color:var(--ink-soft)}
+.board__body .off::before{content:"—";color:var(--ink-soft)}
+.board__foot{margin-top:auto;padding:0 24px 22px}
+.board__foot .btn{width:100%;justify-content:center}
+.board--basic .btn{box-shadow:inset 0 0 0 1px var(--line-strong);background:rgba(252,250,243,.7);color:var(--ink)}
+.board--basic .btn:hover{background:var(--ink);color:var(--cream)}
+.board--pro .btn{background:linear-gradient(180deg,#2C2820,#1A160F);color:#F0D9A0;box-shadow:0 1px 2px rgba(0,0,0,.3),0 8px 20px rgba(0,0,0,.25)}
+.board__note{margin-top:12px;font-family:var(--f-am);font-size:.68rem;color:var(--ink-soft);text-align:center}
+.paymarks{display:flex;gap:8px;justify-content:center;margin-top:12px}
+.paymark{font-family:var(--f-disp);font-weight:600;font-size:.72rem;letter-spacing:.03em;padding:4px 12px;border-radius:6px;background:rgba(252,250,243,.9);border:1px solid var(--line-strong);color:var(--ink)}
+.paymark--tb{color:#0B7A40;border-color:rgba(14,158,82,.35);font-weight:700}
+@media(max-width:820px){.boards-grid{grid-template-columns:1fr}}
+
+/* ══ footer ══ */
+.footer{margin-top:0;background:#211D15;color:var(--cream);border-top:1px solid rgba(249,244,234,.10)}
+.footer-in{max-width:1200px;margin:0 auto;padding:52px 24px 30px;display:grid;grid-template-columns:2fr 1fr 1fr;gap:36px}
+.footer-tag{margin-top:12px;color:rgba(249,245,233,.66);font-size:.9rem;max-width:34ch}
+.footer h4{font-family:var(--f-am);font-weight:600;font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin-bottom:14px}
+.footer ul{list-style:none;display:flex;flex-direction:column;gap:9px}
+.footer ul a{color:rgba(249,245,233,.78);font-size:.9rem;transition:color .15s ease-out}
+.footer ul a:hover{color:#fff}
+.clock{margin-top:16px;display:inline-flex;align-items:baseline;gap:8px;font-family:var(--f-mono)}
+.clock b{font-size:1.05rem}
+.clock .am{font-size:.68rem;color:rgba(249,245,233,.55)}
+/* Habesha clock: the real local reckoning, gold, above the EAT reference line */
+.clock-eth{margin-top:16px;display:inline-flex;align-items:baseline;gap:10px;font-family:var(--f-mono)}
+.clock-eth b{font-size:1.45rem;color:var(--gold);letter-spacing:.02em}
+.clock-eth .am{font-size:.72rem;color:rgba(249,245,233,.65);font-family:var(--f-am);font-weight:600}
+.footer-clock{display:flex;flex-direction:column;gap:2px;margin-top:16px}
+.footer-clock .clock{margin-top:0}
+.footer-base{border-top:1px dashed rgba(249,245,233,.25);max-width:1200px;margin:0 auto;padding:16px 24px 22px;display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;font-family:var(--f-mono);font-size:.64rem;color:rgba(249,245,233,.55)}
+@media(max-width:820px){.footer-in{grid-template-columns:1fr}}
+.sr-only{clip:rect(0 0 0 0);clip-path:inset(50%);height:1px;overflow:hidden;position:absolute;white-space:nowrap;width:1px}
+@media (prefers-reduced-motion:reduce){
+  .lane-track{animation:none}
+  .stage__note i{animation:none}
+  .bolt::after{animation:none}
+  .site-cta .book:hover .book__stamp{animation:none;opacity:1;transform:rotate(-10deg) scale(1)}
+}
+</style>
+<style id="egb-noticewall">
+/* ══ INDEX-13 · THE NOTICEWALL MARKET — my own direction ══
+   POV: the Fresha skins were borrowings; the product's own world is stronger —
+   the kebele noticewall + telebirr receipt (DESIGN.md). Fresha's job survives
+   (search → venue → hold a slot), executed in the brand's materials: a masonry
+   wall of pinned receipt slips, a take-a-number serial on every card, the truth
+   strip as the till total, hood filters as cash-book tabs. Flat inks, 2px
+   receipt geometry, mono for every numeral, Ethiopic serif for names.
+   AA fix carried in this build: cream on #0FA958 was 2.9:1 — Book rides
+   deep telebirr #0A7A40 (4.7:1) with the deposit stamp kept in deep green. */
+.merkato{
+  --nw-paper:#F6F1E8; --nw-bleached:#FBF8F2; --nw-ink:#1A1411; --nw-soft:#6E5B4E;
+  --nw-counter:#3B2820; --nw-green:#0A7A40; --nw-green-deep:#063F2D;
+  --nw-red:#D33426; --nw-gold:#DFA635; --nw-rule:rgba(26,20,17,.14);
+}
+/* shop-sign hero: the Amharic line leads, the search is a receipt field */
+.fsh{padding:34px 0 12px}
+.fsh h2{font-family:var(--f-am-serif);font-weight:700;letter-spacing:-.015em}
+.fsh h2 .fsh__lat{font-family:var(--f-disp);color:var(--nw-green-deep);font-size:.46em;letter-spacing:-.01em}
+.fsh__sub{color:var(--nw-soft);max-width:54ch}
+.fsh .kicker::before{background:var(--nw-red)}
+.fsearch{border-radius:2px;border:1px dashed rgba(26,20,17,.34);background:var(--nw-bleached);
+  box-shadow:none;max-width:640px}
+.fsearch:focus-within{border-style:solid;border-color:var(--nw-green);box-shadow:0 0 0 3px rgba(10,122,64,.12)}
+.fsearch input{font-family:var(--f-mono);font-size:.9rem;letter-spacing:.01em}
+.fsearch__btn{border-radius:2px;background:var(--nw-green);color:var(--nw-bleached);box-shadow:none;
+  font-family:var(--f-mono);text-transform:uppercase;letter-spacing:.09em;font-size:.72rem;padding:11px 18px}
+.fsearch__btn:hover{background:var(--nw-green-deep);transform:none}
+.fhoodchips{justify-content:flex-start;margin-top:16px}
+.fhoodchips .chip{border-radius:2px;box-shadow:none;border:1px solid var(--nw-rule)}
+/* ── the wall: masonry columns of pinned receipt slips ── */
+.fgrid-sec{padding:22px 0 6px}
+.fgrid-sec .wrap,.ftruth .wrap,.fhoods .wrap{max-width:1200px}
+.fgrid{display:block;columns:3;column-gap:26px;counter-reset:tkt}
+.fcard{position:relative;display:block;break-inside:avoid;margin:0 0 26px;
+  border-radius:2px;background:var(--nw-bleached);border:1px solid var(--nw-rule);
+  box-shadow:0 1px 2px rgba(26,20,17,.08);
+  transition:box-shadow .2s ease-out,rotate .2s ease-out;
+  counter-increment:tkt}
+.fcard:nth-child(3n){rotate:.45deg}
+.fcard:nth-child(3n+2){rotate:-.35deg}
+.fcard:hover{box-shadow:0 2px 4px rgba(26,20,17,.09),0 12px 28px rgba(26,20,17,.12);rotate:0deg}
+/* the pin */
+.fcard::before{content:"";position:absolute;top:9px;left:50%;width:9px;height:9px;margin-left:-4.5px;
+  border-radius:50%;background:var(--nw-counter);
+  box-shadow:inset 0 1px 2px rgba(0,0,0,.5),0 1px 0 rgba(255,255,255,.5);z-index:4}
+/* the tear line */
+.fcard::after{content:"";position:absolute;left:10px;right:10px;bottom:5px;border-bottom:1px dashed rgba(26,20,17,.2);pointer-events:none}
+.fcard__photo{aspect-ratio:16/9;margin:0;border-bottom:1px solid var(--nw-rule);outline:none;overflow:hidden}
+.fcard__photo img{border-radius:0}
+.fcard__photo::after{background:linear-gradient(180deg,rgba(232,169,60,.06),transparent 40%),radial-gradient(120% 90% at 50% 40%,transparent 66%,rgba(26,20,17,.12))}
+.fcard__chips{top:12px;left:12px;right:12px}
+.fcard__body{padding:14px 18px 2px;text-align:left;align-items:flex-start;display:flex;flex-direction:column}
+/* the serial: take a number */
+.fcard__body::before{content:"ቲኬት · № " counter(tkt,decimal-leading-zero);display:block;
+  font-family:var(--f-mono);font-size:.6rem;letter-spacing:.16em;color:var(--nw-red);margin-bottom:7px}
+.fcard__name{font-family:var(--f-am-serif);font-size:1.22rem}
+.fcard__lat{letter-spacing:.14em}
+.fcard__meta{justify-content:flex-start}
+.fcard__slot{border-top:1px dashed var(--nw-rule);padding-top:8px;margin-top:8px;font-family:var(--f-mono);color:var(--nw-soft)}
+.fcard__slot b{color:var(--nw-green-deep);background:none;border:none;padding:0}
+.fcard__foot{padding:12px 18px 14px;border-top:1px dashed var(--nw-rule);background:transparent;justify-content:space-between}
+.fcard__from b{color:var(--nw-green-deep)}
+.fbtn{border-radius:2px;background:var(--nw-green);color:var(--nw-bleached);box-shadow:none;
+  font-family:var(--f-mono);font-size:.72rem;text-transform:uppercase;letter-spacing:.07em;padding:10px 16px}
+.fbtn:hover{background:var(--nw-green-deep);transform:none}
+.fbtn.is-pressed,.fbtn:active{transform:translateY(1px);box-shadow:none}
+.fbtn__stamp{border-radius:2px;color:var(--nw-green-deep);border-color:var(--nw-green-deep);
+  background:var(--nw-bleached);box-shadow:2px 3px 0 rgba(26,20,17,.16)}
+.fempty{border-radius:2px;border:1.5px dashed rgba(26,20,17,.3);background:var(--nw-bleached)}
+/* ── the till: truth strip as a receipt total ── */
+.ftruth{max-width:660px;margin:38px auto 0;padding:26px 30px 20px;background:var(--nw-bleached);
+  border:1px solid var(--nw-rule);border-top:3px solid var(--nw-gold);border-radius:2px;
+  box-shadow:0 1px 2px rgba(26,20,17,.08)}
+.ftruth::before{content:"የዛሬ ሳጥን · the till, today";display:block;text-align:center;
+  font-family:var(--f-mono);font-size:.66rem;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--nw-soft);margin-bottom:14px}
+.ftruth__grid{display:block}
+.fstat{display:flex;align-items:baseline;gap:12px;border:none;padding:10px 0;text-align:left;
+  border-bottom:1px dotted rgba(26,20,17,.28)}
+.ftruth__grid .fstat:last-of-type{border-bottom:none}
+.ftruth__grid .fstat .odo{order:2;margin-left:auto;color:var(--nw-ink);
+  font-family:var(--f-mono);font-size:1.45rem;letter-spacing:-.01em}
+.ftruth__grid .fstat:nth-child(1) .odo{color:var(--nw-green-deep)}
+.fstat__label{order:1;font-family:var(--f-am);font-size:.86rem;font-weight:600;color:var(--nw-ink)}
+.fstat__am{display:none}
+.ftruth__note{text-align:center;color:var(--nw-soft);margin-top:14px}
+/* ── cash-book hood tabs ── */
+.fhoods{padding:44px 0 60px}
+.fhoods h3{font-family:var(--f-am-serif)}
+.fhoods__cols{gap:0 22px}
+.fhoods h4{border-bottom:none;border-top:2px solid var(--nw-ink);padding:9px 10px 7px;
+  background:var(--nw-bleached);font-family:var(--f-mono);font-size:.66rem;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--nw-ink)}
+.fhoods a{font-size:.86rem}
+.fhoods a::before{color:var(--nw-red)}
+.fhoods a:hover{color:var(--nw-green-deep)}
+/* ── the world stays flat: kill the remaining ramps ── */
+.fresha::before{background:var(--nw-gold) !important;background-image:none !important}
+.lane{background:var(--nw-gold) !important;background-image:none !important;color:var(--nw-ink);
+  box-shadow:0 6px 16px rgba(26,20,17,.12)}
+.lane-step{background:var(--nw-counter);color:#F0D9A0}
+.lane-item:nth-child(odd) .lane-step{background:rgba(26,20,17,.16);color:var(--nw-ink)}
+.lane-item{border-right:1px dashed rgba(26,20,17,.28)}
+.boards-band{background:#2A231A !important;background-image:none !important;box-shadow:none !important}
+.board--pro .board__head{background:var(--nw-gold) !important;background-image:none !important}
+.board--pro .btn{background:#1A160F !important;background-image:none !important}
+.btn-red{background:var(--nw-red) !important;background-image:none !important}
+.mk-nav-cta{background:#D33426 !important;background-image:none !important}
+.door .btn{background:#FFFDF6 !important;background-image:none !important}
+.door--owner .door__panel{background:#C24A1B !important;background-image:none !important}
+.door--cust .door__panel{background:#2A7355 !important;background-image:none !important}
+.mini__pub,.site-cta .book{background:var(--nw-green) !important;background-image:none !important}
+.device{background:var(--nw-bleached) !important;background-image:none !important}
+/* mobile */
+@media(max-width:1020px){.fgrid{columns:2}}
+@media(max-width:680px){.fgrid{columns:1}.fcard{rotate:0deg !important}
+  .ftruth{margin:30px 12px 0;padding:22px 18px 16px}}
+</style>
+<style id="egb-lamplight">
+/* ══ RECOLOR · "THE LAMP-LIT WALL" ═════════════════════════════════════
+   The old scheme was the expected kebele cliché: sage plaster + mustard +
+   brick + flag green — four warm neutrals fighting to be the accent. This
+   pass makes the page's own "two registers" story visible as an actual
+   day/night cut instead:
+     OWNER register  = the wall after dark. Roasted near-black limewash,
+                       cream receipts pinned hard against it, tungsten
+                       lamplight on every rule, ember-vermilion for the
+                       commit action. Paper glows; the wall recedes.
+     CUSTOMER register = unchanged daylight: bleached paper, espresso ink,
+                       telebirr green owns Book, lamplight gold carries the
+                       coping rule so the two registers stay one world.
+   Everything structural (type, layout, components, copy) is untouched —
+   only the color layer changes, driven from the same tokens. */
+.merkato{
+  --wall:#1B1512;                 /* roasted black-brown limewash */
+  --on-dark:#F4EDE1;              /* warm cream, the night register's ink */
+  --on-dark-soft:#B6A493;         /* lamplit secondary */
+  --on-dark-faint:#8A7869;        /* faintest label */
+  --rule-dark:rgba(244,237,225,.14);
+  --rule-dark-strong:rgba(244,237,225,.26);
+  --gold:#E8A93C; --gold-deep:#B9801F;   /* tungsten lamplight */
+  --red:#E4592C; --red-deep:#C2472A;     /* ember vermilion */
+  --nw-gold:#E8A93C; --nw-red:#C2472A;   /* carry the lamp into the day register */
+  color:var(--on-dark);
+  background:
+    radial-gradient(1300px 560px at 76% -10%, rgba(232,169,60,.16), transparent 60%),
+    radial-gradient(1000px 480px at -10% 34%, rgba(228,89,44,.07), transparent 56%),
+    var(--wall);
+  scrollbar-color:#7A5C49 #14100D;
+}
+.merkato ::selection{background:rgba(232,169,60,.30);color:var(--on-dark)}
+
+/* ── the wall itself: dark limewash, lamp top-left, grime where the street is ── */
+.wallbg__plaster{background:
+  radial-gradient(1300px 560px at 74% -8%, rgba(232,169,60,.15), transparent 60%),
+  radial-gradient(1000px 460px at -8% 34%, rgba(228,89,44,.06), transparent 56%),
+  var(--wall)}
+.wallbg__courses{background:repeating-linear-gradient(180deg,
+  rgba(244,237,225,.03) 0 54px,
+  rgba(0,0,0,.24) 54px 56px,
+  rgba(244,237,225,.012) 56px 110px,
+  rgba(0,0,0,.20) 110px 112px)}
+.wallbg__seams{opacity:.5;
+  background:repeating-linear-gradient(180deg,transparent 0 54.5px,rgba(0,0,0,.36) 54.5px 55.5px)}
+.wallbg__sun{background:linear-gradient(118deg,rgba(232,169,60,.12),rgba(232,169,60,.03) 42%,transparent 66%)}
+.wallbg__street{height:26%;background:linear-gradient(0deg,rgba(0,0,0,.55),transparent)}
+.wallbg__vignette{background:radial-gradient(140% 105% at 50% 42%,transparent 52%,rgba(0,0,0,.5))}
+
+/* the fascia melts into the night; the CTA is the ember */
+.mk-nav{background:rgba(12,9,7,.86);border-bottom-color:rgba(244,237,225,.08)}
+.mk-nav-cta{background:linear-gradient(180deg,#F0693C,var(--red));box-shadow:0 1px 2px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.22)}
+.mk-nav-cta:hover{background:linear-gradient(180deg,#F5764A,#D24E22)}
+
+/* hero type, lit from the wall */
+.stage h1{color:var(--on-dark);text-shadow:0 2px 26px rgba(0,0,0,.4)}
+.h1-lat{color:var(--gold) !important}
+.kicker,.stage__sub,.stage__note,.doors-head p,.workshop-head small,
+.owner-strip__note,.stage__caption .mono{color:var(--on-dark-soft)}
+.stage__trust{color:#5BD894}
+.btn-ghost{background:rgba(251,248,242,.94);color:var(--ink)}
+.btn-ghost:hover{background:#fff;color:var(--ink);transform:translateY(-1px)}
+.btn-red{background:linear-gradient(180deg,#F0693C,#C2472A)}
+.btn-red:hover{box-shadow:0 2px 4px rgba(0,0,0,.35),0 12px 28px rgba(0,0,0,.42)}
+
+/* paper stays paper: re-assert espresso ink on every pinned/light surface
+   so the night register's cream text never bleeds onto a cream card */
+.ws-art,.mini,.mini__head,.mini__list,.device,.device__screen,.tool,.board,.pinned-stub{color:var(--ink)}
+
+/* return-to-owner: the lane is the lamplight; the bands deepen with it */
+.lane-item .mono{color:#7A2E14}
+.lane-item:nth-child(odd) .lane-step{color:#5C1F0C}
+.workshop-head > .mono{color:var(--on-dark-soft) !important}
+.boards-band{background:
+  radial-gradient(1100px 420px at 50% -8%,rgba(232,169,60,.10),transparent 60%),
+  linear-gradient(180deg,#211913,#2A2018) !important;
+  border-top-color:var(--gold) !important}
+.boards-head p{color:#CDB4A0}
+.door{border-color:var(--rule-dark)}
+.door--owner .door__panel{background:#A83A18 !important}
+.door--cust .door__panel{background:#1C5A41 !important}
+
+/* day register: rebind the hood material hues to the new ember/lamp key
+   (color + label always, never color alone) */
+.fresha{--hd-kazanchis:#B07A1C;--hd-merkato:#C2472A}
+.fhoods a::before{color:var(--gold-deep)}
+.fhoods a:hover{color:#0A7A40}
+</style>
+</head>
+<body>
+<noscript>This mock needs JavaScript (React via CDN).</noscript>
+<div id="root"></div>
+
+<script type="text/babel" data-type="module" data-presets="react">
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { createRoot } from "react-dom/client";
+import {
+  motion, AnimatePresence, useScroll, useTransform, useSpring, useReducedMotion,
+  useInView, useMotionValue, useMotionValueEvent,
+} from "motion/react";
+
+/* ─────────────────────────── data ─────────────────────────── */
+const POOL = [
+  { name:"Selam Salon", am:"ሰላም ሳሎን", slug:"selam-salon", hood:"bole",
+    img:"https://images.unsplash.com/photo-1560066984-138dadb4c035?w=800&q=70&auto=format&fit=crop",
+    services:[["ፀጉር Haircut","Br 200"],["ጥፍር Manicure","Br 400"],["ቁርጥጥ Massage","Br 1,200"]] },
+  { name:"Blue Nile Physio", am:"ጥቁር አባይ ፊዚዮ", slug:"blue-nile-physio", hood:"kazanchis",
+    img:"https://images.unsplash.com/photo-1571731956672-f2b94d7dd0cb?w=800&q=70&auto=format&fit=crop",
+    services:[["ሕክምና Session","Br 600"],["መታጠብ Therapy","Br 450"]] },
+  { name:"Meron Braiding", am:"ሜሮን ጸጉር", slug:"meron-braiding", hood:"merkato",
+    img:"https://images.unsplash.com/photo-1593702288056-7927b442d0fa?w=800&q=70&auto=format&fit=crop",
+    services:[["ጸጉር ማቀራረዥ Braids","Br 650"],["ፀጉር Wash","Br 120"]] },
+  { name:"Addis Buna Bar", am:"አዲስ ቡና ቤት", slug:"addis-buna-bar", hood:"merkato",
+    img:"https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=800&q=70&auto=format&fit=crop",
+    services:[["ቡና Ceremony","Br 90"],["ሻይ Tea","Br 40"]] },
+  { name:"Yordanos Kids Clinic", am:"ዮርዳኖስ ክሊኒክ", slug:"yordanos-kids", hood:"bole",
+    img:"https://images.unsplash.com/photo-1596755389378-c31d21fd1273?w=800&q=70&auto=format&fit=crop",
+    services:[["ምርመራ Check-up","Br 350"],["ክትባት Vaccination","Br 200"]] },
+  { name:"Habesha Shemma Tailor", am:"ሀበሻ ሸማ", slug:"habesha-shemma", hood:"merkato",
+    img:"https://images.unsplash.com/photo-1620121692029-d088224ddc74?w=800&q=70&auto=format&fit=crop",
+    services:[["ሸማ ስፌት Shemma dress","Br 1,800"],["እንጭርታ Repair","Br 150"]] },
+];
+const STEPS = ["ስም name","አገልግሎቶች services","ፎቶ photo","ቀጠሮዎች booking","ታሪፍ deposit"];
+const HOODS = [
+  ["bole","ቦሌ · Bole"],["kazanchis","ካዛንቺስ · Kazanchis"],["merkato","መርካቶ · Merkato"],["all","ሁሉም · All"],
+];
+const LANE = [
+  ["ሳሎኖች","SALONS","Br 200–1,200"],["ፀጉር ቤቶች","BARBERS","Br 150+"],
+  ["ክሊኒኮች","CLINICS","ቀጠሮ booking"],["ቡና ቤቶች","BUNA BARS","Br 40+"],
+  ["ስፖዎች","SPAS","ታሪፍ deposits"],["ስፌቶች","TAILORS","Br 300+"],
+];
+/* The customer register's directory: the same seed-tenant truth, worn in the
+   Fresha register — photo-led cards with from-price, next free slot, deposit tell. */
+const HOOD_AM = { bole:"ቦሌ · Bole", kazanchis:"ካዛንቺስ · Kazanchis", merkato:"መርካቶ · Merkato" };
+const VENUES = [
+  { slug:"luxnails", name:"ሉክስ ነይልስ እና ስፓ", lat:"Lux Nails & Spa", hood:"bole", cat:"Salon · Spa",
+    img:"https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=900&q=70&auto=format&fit=crop",
+    from:"Br 400", slotOff:1, deposit:true, open:true },
+  { slug:"testpayment", name:"ቴስት ቴር", lat:"Test Payment Barbershop", hood:"kazanchis", cat:"Barbershop",
+    img:"https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=900&q=70&auto=format&fit=crop",
+    from:"Br 150", slotOff:2, deposit:true, open:true },
+  { slug:"selam-salon", name:"ሰላም ሳሎን", lat:"Selam Salon", hood:"bole", cat:"Salon",
+    img:"https://images.unsplash.com/photo-1560066984-138dadb4c035?w=900&q=70&auto=format&fit=crop",
+    from:"Br 200", slotOff:3, deposit:false, open:true },
+  { slug:"blue-nile-physio", name:"ጥቁር አባይ ፊዚዮ", lat:"Blue Nile Physio", hood:"kazanchis", cat:"Physio · Clinic",
+    img:"https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=900&q=70&auto=format&fit=crop",
+    from:"Br 450", slotOff:1, deposit:false, open:true },
+  { slug:"meron-braiding", name:"ሜሮን ስፌት", lat:"Meron Braiding", hood:"merkato", cat:"Braiding studio",
+    img:"https://images.unsplash.com/photo-1593702288056-7927b442d0fa?w=900&q=70&auto=format&fit=crop",
+    from:"Br 120", slotOff:2, deposit:false, open:true },
+  { slug:"addis-buna-bar", name:"አዲስ ቡና ቤት", lat:"Addis Buna Bar", hood:"merkato", cat:"Buna bar",
+    img:"https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=900&q=70&auto=format&fit=crop",
+    from:"Br 40", slotOff:1, deposit:false, open:true },
+  { slug:"habesha-shemma", name:"ሀበሻ ሸማ ብዝበዛ", lat:"Habesha Shemma Tailor", hood:"merkato", cat:"Tailor",
+    img:"https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1100&q=70&auto=format&fit=crop",
+    from:"Br 150", slotOff:3, deposit:false, open:true },
+  { slug:"yordanos-kids", name:"ዮርዳኖስ የሕፃናት ክሊኒክ", lat:"Yordanos Kids Clinic", hood:"bole", cat:"Kids clinic",
+    img:"https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=900&q=70&auto=format&fit=crop",
+    from:"Br 200", slotOff:2, deposit:false, open:true },
+];
+/* browse-by-hood index — the Fresha browse-by-city pattern over real Addis hoods */
+const HOOD_INDEX = [
+  { key:"bole", am:"ቦሌ", en:"Bole", links:["Beauty salons in Bole","Spas & massages in Bole","Kids clinics in Bole","Nail studios in Bole"] },
+  { key:"kazanchis", am:"ካዛንቺስ", en:"Kazanchis", links:["Barbershops in Kazanchis","Physiotherapy in Kazanchis","Barbers open today","Clinics in Kazanchis"] },
+  { key:"merkato", am:"መርካቶ", en:"Merkato", links:["Buna bars in Merkato","Tailors in Merkato","Braiding studios in Merkato","Haircuts in Merkato"] },
+  { key:"all", am:"ሁሉም አዲስ አበባ", en:"All of Addis", links:["Salons in Addis Ababa","Book online in Addis","Telebirr deposit booking","Open-now services in Addis"] },
+];
+/* Ethiopic numerals, 1–59 (queue tokens + the Habesha clock) */
+const ONES = ["፩","፪","፫","፬","፭","፮","፯","፰","፱"];
+const TENS = ["፲","፳","፴","፵","፶","፷","፸","፹","፺"];
+const toEth = (n) => n < 10 ? ONES[n - 1] : TENS[Math.floor(n / 10) - 1] + (n % 10 ? ONES[n % 10 - 1] : "");
+/* Habesha clock: Ethiopian hour runs six behind EAT, day starts at dawn */
+function habeshaClock(date){
+  let h, m;
+  try {
+    const p = new Intl.DateTimeFormat("en-GB", { timeZone: "Africa/Addis_Ababa", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(date);
+    h = +p.find(x => x.type === "hour").value;
+    m = +p.find(x => x.type === "minute").value;
+  } catch (e) { h = date.getHours(); m = date.getMinutes(); }
+  const eh = (h - 6 + 24) % 24;
+  const hour12 = eh % 12 === 0 ? 12 : eh % 12;
+  const part = h >= 6 && h < 12 ? ["ጠዋት","morning"] : h < 18 ? ["ከሰዓት","midday"] : h < 22 ? ["ምሽት","evening"] : ["ሌሊት","night"];
+  return { text: toEth(hour12) + "፡" + (m === 0 ? "00" : toEth(m)), partAm: part[0], partEn: part[1], hour12, m };
+}
+/* next slot times in Addis time — the queue line ticks with the real clock */
+function addisSlot(offsetSlots){
+  const d = new Date(Date.now() + offsetSlots * 30 * 60000);
+  d.setSeconds(0, 0);
+  const min = d.getMinutes();
+  if (min % 30) d.setMinutes(min + (30 - (min % 30)));
+  try {
+    return new Intl.DateTimeFormat("en-GB", { timeZone: "Africa/Addis_Ababa", hour: "2-digit", minute: "2-digit", hour12: false }).format(d);
+  } catch (e) {
+    return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+  }
+}
+const hhmm = addisSlot;
+
+/* ─────────────────────── build-slot loop ────────────────────── */
+function useBuildSlot(deviceRef, held){
+  const reduced = useReducedMotion();
+  const inView = useInView(deviceRef, { amount: 0.4 });
+  const heldRef = useRef(held);
+  const [kick, setKick] = useState(0);
+  useEffect(() => {
+    const was = heldRef.current;
+    heldRef.current = held;
+    if (was && !held) setKick(k => k + 1); // unheld: allow a fresh cycle
+  }, [held]);
+  const [idx, setIdx] = useState(0);
+  const [step, setStep] = useState(-1);       // -1 empty · 0..4 steps · 5 mounted
+  const [typed, setTyped] = useState("");
+  const [count, setCount] = useState(3);
+  const [userPaused, setUserPaused] = useState(false);
+  const runningRef = useRef(false);
+  const tokenRef = useRef(0);
+  const countRef = useRef(3);
+  const biz = POOL[idx % POOL.length];
+
+  useEffect(() => {
+    if (reduced) {
+      setStep(5);
+      countRef.current = Math.max(countRef.current, 4);
+      setCount(countRef.current);
+      window.dispatchEvent(new CustomEvent("egb:mount", { detail: { count: countRef.current } }));
+      return;
+
+    }
+    if (!inView || userPaused || heldRef.current) return;
+    if (runningRef.current) return;
+    runningRef.current = true;
+    const token = ++tokenRef.current;
+    const alive = () => token === tokenRef.current;
+    const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+    const b = POOL[idx % POOL.length];
+    (async () => {
+      setStep(-1); setTyped("");
+      await sleep(500); if (!alive()) return;
+      setStep(0);
+      for (let i = 1; i <= b.name.length; i++) { setTyped(b.name.slice(0, i)); await sleep(42); if (!alive()) return; }
+      setStep(1); await sleep(700); if (!alive()) return;
+      setStep(2); await sleep(780); if (!alive()) return;
+      setStep(3); await sleep(700); if (!alive()) return;
+      setStep(4); await sleep(800); if (!alive()) return;
+      setStep(5);
+      countRef.current += 1;
+      setCount(countRef.current);
+      // the wall listens for this: a plaque of the just-built business drops onto the grid
+      window.dispatchEvent(new CustomEvent("egb:mount", { detail: { count: countRef.current, biz: b } }));
+      await sleep(3600); if (!alive()) return;
+      // a held morph must not abort a finished build — it only gates the NEXT cycle
+      if (!heldRef.current) setIdx(i => i + 1);
+      runningRef.current = false;
+    })();
+    return () => { tokenRef.current++; runningRef.current = false; };
+  }, [inView, userPaused, reduced, idx, kick]);
+
+  const pause = () => {
+    setUserPaused(p => {
+      const next = !p;
+      if (next) tokenRef.current++;
+      return next;
+    });
+  };
+  return { biz, step, typed, count, paused: userPaused || held || !!reduced, pause, reduced };
+}
+
+/* the status-bar clock is the real Addis minute — no 9:41 costume */
+function useEATMinute(){
+  const fmt = () => {
+    try {
+      return new Intl.DateTimeFormat("en-GB", { timeZone: "Africa/Addis_Ababa", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date());
+    } catch (e) { return new Date().toTimeString().slice(0, 5); }
+  };
+  const [t, setT] = useState(fmt);
+  useEffect(() => {
+    const iv = setInterval(() => setT(fmt()), 15000);
+    return () => clearInterval(iv);
+  }, []);
+  return t;
+}
+
+/* ─────────── live deposit handshake (tap → print → stamp → tear → pin) ─────────── */
+function useHandshake(active, biz){
+  const [phase, setPhase] = useState("idle");
+  const [meta, setMeta] = useState(null);
+  const timers = useRef([]);
+  useEffect(() => {
+    timers.current.forEach(clearTimeout);
+    timers.current = [];
+    if (!active) { setPhase("idle"); return undefined; }
+    const m = {
+      tx: "EGB-2026-" + Math.floor(1000 + Math.random() * 9000),
+      time: new Intl.DateTimeFormat("en-GB", { timeZone: "Africa/Addis_Ababa", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date()),
+      svc: biz.services[0],
+    };
+    setMeta(m);
+    const seq = [["tap", 500], ["press", 240], ["print", 1100], ["hold", 2500], ["tear", 950], ["rest", 3000]];
+    let i = 0;
+    const step = () => {
+      const p = seq[i][0];
+      setPhase(p);
+      if (p === "tear") {
+        window.dispatchEvent(new CustomEvent("egb:booked", { detail: { tx_ref: m.tx, slug: biz.slug, svc: m.svc[0], amount: m.svc[1] } }));
+      }
+      i += 1;
+      if (i < seq.length) timers.current.push(setTimeout(step, seq[i][1]));
+    };
+    step();
+    return () => { timers.current.forEach(clearTimeout); timers.current = []; };
+  }, [active, biz]);
+  return { phase, meta };
+}
+
+/* the receipt + tap cursor live inside the published-site screen; the torn stub pins to the stage corner */
+function DepositScene({ biz, hs }){
+  const { phase, meta } = hs;
+  if (!meta) return null;
+  const shown = phase !== "idle" && phase !== "rest";
+  return (
+    <>
+      {(phase === "tap" || phase === "press") && (
+        <motion.span
+          className="tap-cursor" aria-hidden="true"
+          initial={{ left: "78%", top: "86%", scale: 1 }}
+          animate={phase === "tap"
+            ? { left: "46%", top: "91%" }
+            : { scale: 0.78 }}
+          transition={phase === "tap" ? { duration: 0.45, ease: "easeOut" } : { duration: 0.18 }}
+        />
+      )}
+      {shown && phase !== "tap" && phase !== "press" && (
+        <motion.div
+          className="receipt" role="status" aria-label={"Telebirr receipt " + meta.tx + ", " + meta.svc[0] + ", " + meta.svc[1] + ", confirmed"}
+          initial={{ y: "130%" }}
+          animate={{ y: phase === "tear" ? -26 : 0, opacity: phase === "tear" ? 0 : 1 }}
+          transition={phase === "tear" ? { duration: 0.4, ease: "easeIn" } : { type: "spring", stiffness: 190, damping: 22 }}
+        >
+          <div className="receipt__head"><span>ቴሌብር · TELEBIRR</span><span className="am">ደረሰኝ</span></div>
+          <div className="receipt__row"><span className="k">{biz.am}</span><span>{biz.slug}.egebeya.et</span></div>
+          <div className="receipt__row"><span className="k">{meta.svc[0]}</span><span>{meta.svc[1]}</span></div>
+          <div className="receipt__row"><span className="k">tx_ref {meta.tx}</span><span>{meta.time} EAT</span></div>
+          <div className="receipt__row"><span className="k">ታሪፍ deposit</span><span className="receipt__ok">✓ ተከከለ · HELD</span></div>
+          {(phase === "hold" || phase === "tear") && (
+            <span className="receipt__stamp" aria-hidden="true">ተከከለ<br />CONFIRMED</span>
+          )}
+          <span className="receipt__per" aria-hidden="true" />
+        </motion.div>
+      )}
+    </>
+  );
+}
+function PinnedStub({ biz, hs }){
+  const { phase, meta } = hs;
+  if (!meta || phase !== "tear" && phase !== "rest") return null;
+  return (
+    <motion.div
+      className="pinned-stub" role="note" aria-label={"Confirmed deposit stub " + meta.tx}
+      initial={{ opacity: 0, y: 18, rotate: -6, scale: 0.9 }}
+      animate={{ opacity: 1, y: 0, rotate: -1.5, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.92 }}
+      transition={{ type: "spring", stiffness: 260, damping: 20 }}
+    >
+      <span className="stub-bolt" aria-hidden="true" />
+      <div className="ok">ተከከለ · CONFIRMED</div>
+      <div>{meta.tx} · {meta.svc[1]}</div>
+      <div style={{ color: "var(--ink-soft)" }}>{biz.slug}.egebeya.et · {meta.time}</div>
+    </motion.div>
+  );
+}
+
+/* ─────────── the mini-builder: the demo is the product ───────────
+   A working three-field builder embedded in the hero: type a business name,
+   add a service + price, and your actual site renders in the phone beside it.
+   No staging, no fake loop — the same shape the real Puck builder writes. */
+function MiniBuilder({ onPreview }){
+  const [name, setName] = useState("");
+  const [svc, setSvc] = useState("");
+  const [price, setPrice] = useState("");
+  const [rows, setRows] = useState([]);
+  const [err, setErr] = useState("");
+  const slug = (name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "your-shop");
+  const addRow = () => {
+    const p = price.trim();
+    if (!svc.trim()) { setErr("አገልግሎት ያስፈልጋል · add a service first"); return; }
+    if (!/^\d+([.,]\d{1,2})?$/.test(p)) { setErr("ዋጋው ቁጥር ይሁን · price must be a number"); return; }
+    setErr("");
+    setRows(r => [...r, [svc.trim(), "Br " + Number(p.replace(",", ".")).toLocaleString("en-US")]]);
+    setSvc(""); setPrice("");
+  };
+  const publish = () => {
+    if (!name.trim() || !rows.length) { setErr("ስም እና ቢያንስ አንድ አገልግሎት · name + one service"); return; }
+    setErr("");
+    onPreview({ name: name.trim(), am: name.trim(), slug, services: rows,
+      img: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&q=70&auto=format&fit=crop", hood: "demo" });
+  };
+  return (
+    <div className="mini" aria-label="Try the builder right here">
+      <div className="mini__head">
+        <span lang="am">እዚህ ላይ ይሞክሩ · Try it here</span>
+        <span className="mono">live · no signup</span>
+      </div>
+      <label className="mini__row">
+        <span className="mini__k" lang="am">የንግድ ስም</span>
+        <input className="mini__in" value={name} onChange={e => setName(e.target.value)}
+          placeholder="e.g. Selam Beauty" maxLength={28} />
+      </label>
+      <div className="mini__row mini__row--svc">
+        <label><span className="mini__k" lang="am">አገልግሎት</span>
+          <input className="mini__in" value={svc} onChange={e => setSvc(e.target.value)}
+            placeholder="e.g. ፀጉር Haircut" maxLength={26}
+            onKeyDown={e => { if (e.key === "Enter") addRow(); }} /></label>
+        <label><span className="mini__k" lang="am">ዋጋ Br</span>
+          <input className="mini__in mini__in--num" value={price} onChange={e => setPrice(e.target.value)}
+            placeholder="200" inputMode="numeric" maxLength={7}
+            onKeyDown={e => { if (e.key === "Enter") addRow(); }} /></label>
+        <button type="button" className="mini__add" onClick={addRow}>+ ጨምር</button>
+      </div>
+      {err && <p className="mini__err" role="alert">{err}</p>}
+      {rows.length > 0 && (
+        <ul className="mini__list">
+          {rows.map(([n, p], i) => (
+            <li key={n + i}>
+              <span>{n}</span><span className="mono">{p}</span>
+              <button type="button" className="mini__del" aria-label={"Remove " + n}
+                onClick={() => setRows(r => r.filter((_, j) => j !== i))}>×</button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <button type="button" className="mini__pub" onClick={publish}
+        disabled={!name.trim() || !rows.length}>
+        አሳየኝ · Render my site →
+      </button>
+      <p className="mini__note">Your page renders in the phone — nothing is saved, nothing is charged.</p>
+    </div>
+  );
+}
+
+/* ───────────────────────── morph stage ─────────────────────── */
+function useIsDesktop(){
+  const [is, setIs] = useState(() => window.matchMedia("(min-width: 1000px)").matches);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1000px)");
+    const on = () => setIs(mq.matches);
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
+  return is;
+}
+function MorphStage(){
+  const ref = useRef(null);
+  const deviceRef = useRef(null);
+  const reduced = useReducedMotion();
+  const isDesktop = useIsDesktop();
+  const [restX, setRestX] = useState(0);
+  useEffect(() => {
+    const on = () => setRestX(Math.min(window.innerWidth * 0.3, (window.innerWidth - 340) / 2 - 16));
+    on();
+    window.addEventListener("resize", on);
+    return () => window.removeEventListener("resize", on);
+  }, []);
+  const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end end"] });
+  const smooth = useSpring(scrollYProgress, { stiffness: 120, damping: 28, mass: 0.4 });
+  // the mini-builder hands the morph stage a real site to wear
+  const [override, setOverride] = useState(null);
+
+  /* phone rests on the RIGHT of the split hero; scroll carries it to center
+     while it widens into the prebuilt site */
+  const devX = useTransform(smooth, [0, 0.28], [restX, 0]);
+  const devXApplied = isDesktop ? devX : 0;
+  const copyOpacity = useTransform(smooth, [0, 0.1, 0.26], [1, 1, 0]);
+  const copyY = useTransform(smooth, [0, 0.3], [0, -70]);
+  /* phone rests on the RIGHT of the split hero; scroll carries it to center
+     while it widens into the prebuilt site. Mobile pins size in CSS — the
+     honest morph there is the screen content swapping, not a resizing card. */
+  const devW = useTransform(smooth, [0.2, 0.72], [340, 980]);
+  const devH = useTransform(smooth, [0.2, 0.72], [640, 580]);
+  const devR = useTransform(smooth, [0.34, 0.62], [34, 16]);
+  const chromePhoneOp = useTransform(smooth, [0.34, 0.5], [1, 0]);
+  const chromeWebOp = useTransform(smooth, [0.44, 0.6], [0, 1]);
+  const builderOp = useTransform(smooth, [0.4, 0.55], [1, 0]);
+  const siteOp = useTransform(smooth, [0.48, 0.66], [0, 1]);
+  // only the on-screen layer may receive clicks (the pause button lives in the builder)
+  const builderPE = useTransform(builderOp, (o) => (o > 0.5 ? "auto" : "none"));
+  const sitePE = useTransform(siteOp, (o) => (o > 0.5 ? "auto" : "none"));
+  const siteScale = useTransform(smooth, [0.46, 0.64], [0.985, 1]);
+  const captionOp = useTransform(smooth, [0.72, 0.88], [0, 1]);
+  const captionY = useTransform(smooth, [0.72, 0.88], [26, 0]);
+  const deviceY = useTransform(smooth, [0, 0.14, 1], [40, 0, 0]);
+  // the pinned wall artifacts belong to the "wall at rest" — they yield as the morph begins
+  const skinOp = useTransform(smooth, [0.16, 0.42], [1, 0]);
+  const skinY = useTransform(smooth, [0, 0.42], [0, -34]);
+
+  // pause the build loop once the published site is on screen
+  const [held, setHeld] = useState(false);
+  const [siteLive, setSiteLive] = useState(false);
+  const liveOn = isDesktop ? 0.72 : 0.62;
+  useMotionValueEvent(scrollYProgress, "change", (v) => {
+    const shouldHold = v > (isDesktop ? 0.55 : 0.45);
+    setHeld(shouldHold);
+    setSiteLive(v > liveOn);
+  });
+  const slot0 = useBuildSlot(deviceRef, held);
+  const slot = { ...slot0, biz: override || slot0.biz };
+  // the deposit handshake runs once per arrival at the live-site scroll position
+  const handshake = useHandshake(siteLive && !reduced, slot.biz);
+  // the status-bar clock is the real Addis minute — no 9:41 costume
+  const clock = useEATMinute();
+  // a touch of B: the mount stamp's slam recoils the whole physical device
+  const recoilRaw = useMotionValue(0);
+  const recoil = useSpring(recoilRaw, { stiffness: 300, damping: 12, mass: 0.9 });
+  useEffect(() => {
+    const onMount = () => {
+      recoilRaw.set(13);
+      requestAnimationFrame(() => recoilRaw.set(0));
+    };
+    window.addEventListener("egb:mount", onMount);
+    return () => window.removeEventListener("egb:mount", onMount);
+  }, [recoilRaw]);
+  const deviceYOffset = useTransform([deviceY, recoil], ([y, r]) => y + r);
+
+  if (reduced) {
+    const b = slot.biz;
+    return (
+      <section className="stage" style={{ height: "auto" }} aria-label="Built on a phone, live as a website">
+        <div className="stage__viewport" style={{ position: "relative", height: "auto", padding: "80px 24px" }}>
+          <div style={{ width: "min(92vw, 960px)", margin: "0 auto" }}>
+            <DeviceFrame url={b.slug} webOp={1} phoneOp={0}>
+              <SiteScreen biz={b} />
+            </DeviceFrame>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="stage" ref={ref} aria-label="The builder becomes the website">
+      <div className="stage__viewport">
+        <div className="wallbg" aria-hidden="true">
+          <div className="wallbg__plaster" />
+          <div className="wallbg__courses" />
+          <div className="wallbg__seams" />
+          <div className="wallbg__sun" />
+          <div className="wallbg__navshadow" />
+          <div className="wallbg__street" />
+          <div className="wallbg__vignette" />
+        </div>
+        <motion.div className="wallbg-art" style={{ opacity: skinOp, y: skinY }} aria-hidden="true">
+          <div className="ws-art ws-art--hours">
+            <span className="ws-pin" />
+            <span className="ws-t" lang="am">የሥራ ሰዓት · HOURS</span>
+            <span className="ws-r"><span>ሰን–ሐሙ</span><b>09:00–19:00</b></span>
+            <span className="ws-r"><span>ዓርቅ</span><b>09:00–13:00</b></span>
+            <span className="ws-r"><span>እሁድ</span><b>ተዘግቷል · closed</b></span>
+          </div>
+          <div className="ws-art ws-art--prices">
+            <span className="ws-pin" />
+            <span className="ws-t" lang="am">ዋጋ · PRICES</span>
+            <span className="ws-r"><span>ፀጉር Haircut</span><b>Br 200</b></span>
+            <span className="ws-r"><span>ጥፍር Manicure</span><b>Br 400</b></span>
+            <span className="ws-r"><span>ቁርጥጥ Massage</span><b>Br 1,200</b></span>
+          </div>
+          <div className="ws-sticker" lang="am">ኢ-ገበያ</div>
+        </motion.div>
+        <div className="stage__copy-pos">
+        <motion.div className="stage__copy" style={{ opacity: copyOpacity, y: copyY }}>
+          <p className="kicker" style={{ justifyContent: "center" }}><span className="wk" style={{ animationDelay: ".05s" }}>አዲስ አበባ · The Merkato wall of services</span></p>
+          <h1 lang="am">
+            <span className="wk" style={{ animationDelay: ".13s" }}>ንግድህን በግድግዳው ላይ አስቀምጠው።</span>
+            <span className="h1-lat wk" lang="en" style={{ animationDelay: ".21s" }}>Hang your business on the wall — Addis finds it.</span>
+          </h1>
+          <p className="stage__sub"><span className="wk" style={{ animationDelay: ".29s" }}>Egebeya is where Ethiopian service businesses go live: a real website built
+            from your phone, with booking and Telebirr deposits pre-wired. Customers browse the wall
+            and book a slot. You stop missing calls.</span></p>
+          <div className="stage__ctas">
+            <a className="btn btn-red" href="#prices"><span lang="am">ገበያዬን ግንባ</span> <small>· Build my shop · 14 days free</small></a>
+            <a className="btn btn-ghost" href="#wall"><span lang="am">ፈልግ</span> <small>· Browse the wall</small></a>
+          </div>
+          <p className="stage__trust mono" lang="en">NO CARD · NO AUTO-CHARGE · ብቻ በራስዎ ፈቃድ ያደስሉ</p>
+          <MiniBuilder onPreview={setOverride} />
+          <p className="stage__note"><i />LIVE · keep scrolling — the phone becomes the website</p>
+        </motion.div>
+        </div>
+
+        <motion.div
+          ref={deviceRef}
+          className="device"
+          style={{ width: isDesktop ? devW : "min(92vw, 420px)", height: isDesktop ? devH : "50vh", borderRadius: devR, y: deviceYOffset, x: devXApplied, maxWidth: "92vw" }}
+          role="img"
+          aria-label={"Phone builder morphing into the live site " + slot.biz.slug + ".egebeya.et"}
+        >
+          {/* phone chrome: real status bar — drawn glyphs, punch-hole, live Addis clock */}
+          <motion.div className="device__chrome device__chrome--phone" style={{ opacity: chromePhoneOp, pointerEvents: "none" }} aria-hidden="true">
+            <span className="d-time">{clock.split(":")[0]}:{clock.split(":")[1]}</span>
+            <span className="d-punch" />
+            <span className="d-tele">
+              <span className="d-sig"><i /><i /><i /><i /></span>
+              <svg className="d-wifi" width="13" height="10" viewBox="0 0 13 10" fill="none">
+                <path d="M1 3.4C2.6 2 4.5 1.2 6.5 1.2S10.4 2 12 3.4" stroke="#211D15" strokeWidth="1.4" strokeLinecap="round"/>
+                <path d="M3.1 5.5C4.1 4.7 5.3 4.2 6.5 4.2s2.4.5 3.4 1.3" stroke="#211D15" strokeWidth="1.4" strokeLinecap="round"/>
+                <circle cx="6.5" cy="8" r="1.2" fill="#211D15"/>
+              </svg>
+              <span className="d-batt" />
+            </span>
+          </motion.div>
+          {/* browser chrome (dots + url) */}
+          <motion.div className="device__chrome" style={{ opacity: chromeWebOp, position: "absolute", top: 7, left: 7, right: 7, pointerEvents: "none" }} aria-hidden="true">
+            <span className="device__dots"><i /><i /><i /></span>
+            <span className="device__url">
+              <svg width="10" height="12" viewBox="0 0 10 12" fill="none" aria-hidden="true">
+                <rect x="1" y="5" width="8" height="6" rx="1.5" stroke="#0A7A40" strokeWidth="1.5"/>
+                <path d="M3 5V3.5a2 2 0 1 1 4 0V5" stroke="#0A7A40" strokeWidth="1.5"/>
+              </svg>
+              {slot.biz.slug}<b>.egebeya.et</b>
+            </span>
+          </motion.div>
+
+          <div className="device__screen">
+            <motion.div className="screen-layer" style={{ opacity: builderOp, pointerEvents: builderPE }}>
+              <div className="sb-status"><span>Egebeya Builder</span><span className="mono">draft</span></div>
+              <div className="sb-head">
+                <span className="chip chip--ink" style={{ fontSize: ".6rem" }}>ሉክስ · draft</span>
+                <span className="mono" style={{ fontSize: ".6rem", color: "var(--ink-soft)" }}>v0.1</span>
+              </div>
+              <div className="sb-body">
+                <p className="sb-name">{override ? slot.biz.name : (slot.typed || "…")}{!override && <span className="am">· {slot.biz.am}</span>}</p>
+                <div className="sb-steps">
+                  {STEPS.map((s, i) => (
+                    <span key={s} className={"sb-step" + (i <= slot.step && slot.step >= 0 ? " is-on" : "")}>{s}</span>
+                  ))}
+                </div>
+                {slot.step >= 1 && (
+                  <ul className="sb-services">
+                    {slot.biz.services.map(([n, p]) => (
+                      <li key={n}><span>{n}</span><span className="price">{p}</span></li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <div className="sb-foot">
+                {slot.step >= 3 && <span className="chip chip--green">ክፍት · OPEN</span>}
+                {slot.step >= 4 && <span className="chip chip--tb">ታሪፍ · deposit on</span>}
+              </div>
+              <p className="sb-log">{slot.step >= 5
+                ? "ተሰቀለ · mounted — " + slot.biz.slug + ".egebeya.et"
+                : slot.step >= 4 ? "ታሪፍ · Telebirr deposit switched on…"
+                : slot.step >= 3 ? "ቀጠሮዎች · Addis-time slots opening…"
+                : slot.step >= 2 ? "ፎቶ · photo uploaded from the phone…"
+                : slot.step >= 1 ? "አገልግሎቶች · services & prices…"
+                : slot.step === 0 ? "ስም · setting name…"
+                : "> waiting…"}</p>
+              {slot.step >= 5 && (
+                <motion.span
+                  key={"mount-" + slot.count}
+                  className="mount-stamp" aria-hidden="true"
+                  initial={{ scale: 1.7, opacity: 0, rotate: -18 }}
+                  animate={{ scale: 1, opacity: 1, rotate: -8 }}
+                  transition={{ type: "spring", stiffness: 320, damping: 17 }}
+                >
+                  <span className="am-serif" lang="am">ተሰቅሏል</span>
+                  <span className="mono">MOUNTED</span>
+                </motion.span>
+              )}
+              <button type="button" className="sb-pause" onClick={slot.pause} aria-pressed={slot.paused}>
+                {slot.paused ? "▶ ቀጥል resume" : "⏸ አቁም pause"}
+              </button>
+            </motion.div>
+
+            <motion.div className="screen-layer" style={{ opacity: siteOp, scale: siteScale, pointerEvents: sitePE }}>
+              <SiteScreen biz={slot.biz} pressed={handshake.phase === "press"} />
+              <DepositScene biz={slot.biz} hs={handshake} />
+            </motion.div>
+          </div>
+          <motion.span className="d-home" style={{ opacity: chromePhoneOp }} aria-hidden="true" />
+        </motion.div>
+        <AnimatePresence>
+          <PinnedStub key="stub" biz={slot.biz} hs={handshake} />
+        </AnimatePresence>
+
+        <motion.div className="stage__caption" style={{ opacity: captionOp, y: captionY }}>
+          <span className="am-serif" lang="am">በስልክ ተሠራ። እንደ ዌብሳይት ተከፈተ።</span>
+          <span className="mono">Built on a phone. Live as a website.</span>
+        </motion.div>
+      </div>
+    </section>
+  );
+}
+
+/* ───────────────────────── published site ──────────────────── */
+function SiteScreen({ biz, pressed }){
+  return (
+    <>
+      <div className="site-hero">
+        <img src={biz.img} alt={biz.name + " storefront"} loading="eager" />
+        <span className="chip chip--green">ክፍት · OPEN NOW</span>
+      </div>
+      <div className="site-body">
+        <p className="site-name">{biz.name}<span className="am">· {biz.am}</span></p>
+        <ul className="site-services">
+          {biz.services.map(([n, p]) => (
+            <li key={n}><span>{n}</span><span className="price">{p}</span></li>
+          ))}
+        </ul>
+        <div className="site-queue">
+          <span className="q-t">TODAY'S QUEUE · ADDIS</span>
+          <span className="q-r"><b>{hhmm(0)}</b> · {biz.services[0][0]}&nbsp;&nbsp;|&nbsp;&nbsp;<b>{hhmm(2)}</b> · {biz.services[biz.services.length > 1 ? 1 : 0][0]}</span>
+        </div>
+      </div>
+      <div className="site-cta">
+        <span className={"book" + (pressed ? " is-pressed" : "")}>ቀጠሮ ይዙ · Book a slot
+          <span className="book__stamp" aria-hidden="true"><span lang="am">ተያዟል</span> · SLOT HELD</span>
+        </span>
+        <span className="chip chip--tb">ታሪፍ · deposit</span>
+      </div>
+    </>
+  );
+}
+function DeviceFrame({ url, webOp, phoneOp, children }){
+  return (
+    <div className="device" style={{ width: "100%", height: 560, borderRadius: 16 }}>
+      <motion.div className="device__chrome" style={{ opacity: phoneOp }} aria-hidden="true">
+        <span className="device__notch" />
+      </motion.div>
+      <motion.div className="device__chrome" style={{ opacity: webOp }} aria-hidden="true">
+        <span className="device__dots"><i /><i /><i /></span>
+        <span className="device__url">{url}<b>.egebeya.et</b></span>
+      </motion.div>
+      <div className="device__screen">{children}</div>
+    </div>
+  );
+}
+
+/* ─────────────── register boundary (plain, no interstitial) ───────────────
+   The next register's hero opens directly; the kicker line carries the
+   wayfinding, the background shift carries the register change. */
+function RegisterBoundary({ id, tone, reveal }){
+  return (
+    <section id={id} className={"seam seam--" + tone} aria-label="Register boundary">
+      {reveal}
+    </section>
+  );
+}
+
+/* ─────────────── the wall's live events, one hook ───────────────
+   The hero build loop and the deposit handshake talk to the customer
+   register through these two channels. */
+function useWallEvents(){
+  const [liveCount, setLiveCount] = useState(VENUES.length);
+  const [slotsHeld, setSlotsHeld] = useState(47);
+  const [mounted, setMounted] = useState(null); // { biz, count } — the just-built business
+  const [bookedSlug, setBookedSlug] = useState(null);
+  useEffect(() => {
+    let t;
+    const onMount = (e) => {
+      setLiveCount(c => c + 1);
+      if (e.detail.biz) setMounted({ biz: e.detail.biz, count: e.detail.count });
+    };
+    const onBooked = (e) => {
+      setSlotsHeld(n => n + 1);
+      setBookedSlug(e.detail.slug);
+      clearTimeout(t);
+      t = setTimeout(() => setBookedSlug(null), 6000);
+    };
+    window.addEventListener("egb:mount", onMount);
+    window.addEventListener("egb:booked", onBooked);
+    return () => {
+      window.removeEventListener("egb:mount", onMount);
+      window.removeEventListener("egb:booked", onBooked);
+      clearTimeout(t);
+    };
+  }, []);
+  return { liveCount, slotsHeld, mounted, bookedSlug };
+}
+
+/* Fresha's rolling odometer digits, told in receipt-mono */
+function Odo({ value }){
+  const s = String(value);
+  return (
+    <b className="odo" aria-label={s}>
+      {s.split("").map((ch, i) => (
+        /\d/.test(ch)
+          ? <span className="odo__win" key={i} aria-hidden="true">
+              <span className="odo__col" style={{ transform: "translateY(" + (-+ch) + "em)" }}>
+                {[0,1,2,3,4,5,6,7,8,9].map(n => <span key={n}>{n}</span>)}
+              </span>
+            </span>
+          : <span key={i}>{ch}</span>
+      ))}
+    </b>
+  );
+}
+
+/* ─────────────── customer register: the Fresha register ─────────────── */
+function CustomerHero({ q, setQ, hood, setHood }){
+  return (
+    <div className="fsh">
+      <div className="fsh__in">
+        <p className="kicker">የደንበኛው እይታ · the customer's view</p>
+        <h2>
+          <span className="fsh__am" lang="am">ተያዥዎች ክፍት ናቸው።</span>
+          <span className="fsh__lat" lang="en">Slots are open. Book without a phone call.</span>
+        </h2>
+        <p className="fsh__sub">Every business on this wall is live — real hours in Addis time, real
+           prices in birr. Search, pick a free slot, and a Telebirr deposit holds your chair. No
+           calls, no “come back later”.</p>
+        <form className="fsearch" role="search" onSubmit={(e) => e.preventDefault()}>
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+            <circle cx="8" cy="8" r="5.5" stroke="#26211A" strokeWidth="1.6" />
+            <path d="M12.5 12.5L16 16" stroke="#26211A" strokeWidth="1.6" strokeLinecap="round" />
+          </svg>
+          <input value={q} onChange={(e) => setQ(e.target.value)} type="search"
+            placeholder="ፈልጉ · try “salon”, “barber”, “Lux”…" aria-label="Search businesses on the wall" />
+          <button type="submit" className="fsearch__btn">ፈልግ · Search</button>
+        </form>
+        <div className="fhoodchips" role="group" aria-label="Filter the wall by neighborhood">
+          {HOODS.map(([k, label]) => (
+            <button key={k} type="button" className={"chip " + (hood === k ? "chip--ink" : "chip--ghost")}
+              onClick={() => setHood(k)} aria-pressed={hood === k}>
+              {k !== "all" && <i className="hooddot" data-hood={k} aria-hidden="true" />}
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* the deposit-confirms-booking moment, worn in the customer register:
+   press the Book pill and the ተያዟል stamp slams on */
+function BookPill(){
+  const [on, setOn] = useState(false);
+  const t = useRef(null);
+  useEffect(() => () => clearTimeout(t.current), []);
+  const press = () => {
+    setOn(true);
+    clearTimeout(t.current);
+    t.current = setTimeout(() => setOn(false), 1700);
+  };
+  return (
+    <button type="button" className={"fbtn" + (on ? " is-pressed" : "")} onClick={press} aria-pressed={on}>
+      {on ? "ተያዟል · held" : "ቀጠሮ · Book"}
+      <span className="fbtn__stamp" aria-hidden="true">ተያዟል · SLOT HELD</span>
+    </button>
+  );
+}
+
+function VenueCard({ v, i, booked, drop }){
+  const reduced = useReducedMotion();
+  return (
+    <motion.article className="fcard" role="listitem" layout
+      initial={reduced ? false : (drop ? { opacity: 0, y: -30, rotate: -1.2 } : { opacity: 0, y: 20 })}
+      whileInView={reduced ? undefined : { opacity: 1, y: 0, rotate: 0 }}
+      viewport={{ once: true, amount: 0.2 }}
+      exit={{ opacity: 0, scale: 0.97 }}
+      transition={{ duration: drop ? 0.4 : 0.24, delay: drop ? 0 : (i % 3) * 0.05,
+        ease: drop ? [0.34, 1.4, 0.64, 1] : "easeOut", layout: { duration: 0.3 } }}
+      whileHover={reduced ? undefined : { y: -3 }}
+    >
+      <div className="fcard__photo">
+        <img src={v.img} alt={v.lat + " storefront"} loading="lazy" />
+        <div className="fcard__chips">
+          {v.open && <span className="chip chip--green">ክፍት · OPEN</span>}
+          {v.deposit && <span className="chip chip--tb">ታሪፍ · deposit</span>}
+          {drop && <span className="chip chip--gold">ዛሬ ተሰቀለ · NEW</span>}
+          {booked && <span className="chip chip--green chip--flash">ቀጠሮ ተያዟል · SLOT HELD</span>}
+        </div>
+      </div>
+      <div className="fcard__body">
+        <h3 className="fcard__name" lang="am">{v.name}</h3>
+        <span className="fcard__lat">{v.lat}</span>
+        <span className="fcard__meta"><i className="hooddot" data-hood={v.hood} aria-hidden="true" />{HOOD_AM[v.hood] || "አዲስ · new"} · {v.cat}</span>
+        <span className="fcard__slot">ቀጣዩ ክፍት · next free slot <b>{hhmm(v.slotOff || 1)}</b> EAT</span>
+      </div>
+      <div className="fcard__foot">
+        <span className="fcard__from">from <b>{v.from}</b></span>
+        <BookPill />
+      </div>
+    </motion.article>
+  );
+}
+
+function VenueGrid({ wall, q, hood, setQ, setHood }){
+  const list = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    const match = (v) => (hood === "all" || v.hood === hood) &&
+      (!needle || (v.name + " " + v.lat + " " + v.cat + " " + v.slug + " " + (HOOD_AM[v.hood] || ""))
+        .toLowerCase().includes(needle));
+    const base = VENUES.filter(match);
+    if (wall.mounted) {
+      const b = wall.mounted.biz;
+      const mv = {
+        slug: b.slug, name: b.am || b.name, lat: b.name, hood: "demo", cat: "Just mounted",
+        img: b.img, from: b.services[0][1], slotOff: 1, deposit: true, open: true,
+      };
+      if (match(mv)) return [{ ...mv, key: mv.slug + ":" + wall.mounted.count }, ...base];
+    }
+    return base;
+  }, [q, hood, wall.mounted]);
+  return (
+    <div className="fgrid-sec">
+      <div className="wrap">
+        <div className="fgrid" role="list" aria-label="Businesses on the wall">
+          <AnimatePresence initial={false} mode="popLayout">
+            {list.map((v, i) => (
+              <VenueCard key={v.key || v.slug} v={v} i={i} drop={v.hood === "demo"}
+                booked={wall.bookedSlug === v.slug} />
+            ))}
+          </AnimatePresence>
+          {list.length === 0 && (
+            <div className="fempty" role="status">
+              <span className="am-serif" lang="am">ባዶ ግድግዳ · nothing hangs here yet</span>
+              Try “salon”, “clinic”, or clear the filters.
+              <br />
+              <button type="button" onClick={() => { setQ(""); setHood("all"); }}>አጽዳ · Clear search</button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* the truth strip: Fresha's stats band, told with wall honesty — no fabricated
+   ratings, no invented reviews; the counters roll when the hero's loop fires */
+function TruthBand({ wall }){
+  return (
+    <section className="ftruth" aria-label="The wall in numbers">
+      <div className="wrap ftruth__grid">
+        <div className="fstat">
+          <Odo value={wall.slotsHeld} />
+          <span className="fstat__label">slots held today by Telebirr deposits</span>
+          <span className="fstat__am" lang="am">ዛሬ በታሪፍ የተያዙ ቀጠሮዎች</span>
+        </div>
+        <div className="fstat">
+          <Odo value={wall.liveCount} />
+          <span className="fstat__label">businesses live on the wall</span>
+          <span className="fstat__am" lang="am">በግድግዳው ላይ ያሉ ንግዶች</span>
+        </div>
+        <div className="fstat">
+          <Odo value={0} />
+          <span className="fstat__label">phone calls needed to confirm a booking</span>
+          <span className="fstat__am" lang="am">ለማረጋገጫ የሚያስፈልግ የስልክ ጥሪ</span>
+        </div>
+      </div>
+      <p className="ftruth__note">DEMO COUNTERS · Lux Nails &amp; Spa and Test Payment Barbershop are
+         seeded tenants; wall numbers here are illustrative</p>
+    </section>
+  );
+}
+
+/* browse-by-hood: the Fresha browse-by-city pattern, over real Addis hoods */
+function HoodIndex(){
+  return (
+    <section className="fhoods" aria-label="Browse by neighborhood">
+      <div className="wrap">
+        <h3><span lang="am">በአካባቢ ይፈልጉ</span> <span lang="en">· Browse the wall by neighborhood</span></h3>
+        <div className="fhoods__cols">
+          {HOOD_INDEX.map((h) => (
+            <div key={h.en}>
+              <h4 lang="am"><i className="hooddot" data-hood={h.key} aria-hidden="true" style={{ marginRight: 8 }} />{h.am} <span style={{ color: "#6E675A", fontWeight: 500 }}>{h.en}</span></h4>
+              <ul>
+                {h.links.map((l) => <li key={l}><a href="#wall">{l}</a></li>)}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* the owner-side welcome: the gold lane survives as the strip you cross on the
+   way back into the wall */
+function OwnerStrip(){
+  return (
+    <div className="owner-strip">
+      <div className="lane is-visible" aria-hidden="true">
+        <div className="lane-track">
+          {LANE.concat(LANE).map(([am, lat, mono], i) => (
+            <span className="lane-item" key={i}>
+              <i className="lane-step" lang="am">{am}</i><b>{lat}</b><em className="mono">{mono}</em>
+            </span>
+          ))}
+        </div>
+      </div>
+      <p className="owner-strip__note mono">THE OWNER'S SIDE · YOUR TURN TO HANG A PLAQUE</p>
+    </div>
+  );
+}
+
+function CustomerWorld(){
+  const wall = useWallEvents();
+  const [q, setQ] = useState("");
+  const [hood, setHood] = useState("all");
+  return (
+    <>
+      <div className="fresha" id="wall">
+        <CustomerHero q={q} setQ={setQ} hood={hood} setHood={setHood} />
+        <VenueGrid wall={wall} q={q} hood={hood} setQ={setQ} setHood={setHood} />
+        <TruthBand wall={wall} />
+        <HoodIndex />
+      </div>
+      <RegisterBoundary tone="owner" reveal={<OwnerStrip />} />
+    </>
+  );
+}
+
+/* ─────────────────────────── doors ─────────────────────────── */
+function Door({ tone, tag, title, lat, steps, cta, ctaHref, delay }){
+  const reduced = useReducedMotion();
+  return (
+    <motion.div
+      className={"door door--" + tone}
+      initial={reduced ? false : "hidden"}
+      whileInView="show"
+      viewport={{ once: true, amount: 0.25 }}
+      variants={{ hidden: {}, show: { transition: { staggerChildren: 0.05 } } }}
+    >
+      <motion.div className="door__panel"
+        variants={{
+          hidden: { opacity: 0, y: 14 },
+          show: { opacity: 1, y: 0, transition: { duration: 0.25, delay: delay || 0, ease: "easeOut" } },
+        }}
+      >
+        <span className="door__tag">{tag}</span>
+        <h3 lang="am">{title}<span className="lat" lang="en">{lat}</span></h3>
+        <ol>
+          {steps.map(([geo, jsx]) => (
+            <motion.li key={geo}
+              variants={{
+                hidden: { opacity: 0, y: 8 },
+                show: { opacity: 1, y: 0, transition: { duration: 0.2, ease: "easeOut" } },
+              }}
+            >
+              <span className="geo" lang="am">{geo}</span><span>{jsx}</span>
+            </motion.li>
+          ))}
+        </ol>
+        <a className="btn" href={ctaHref}>{cta}</a>
+      </motion.div>
+    </motion.div>
+  );
+}
+function DoorsSection(){
+  return (
+    <section id="doors" className="doors wrap" aria-label="Two doors">
+      <div className="doors-head">
+        <h2 lang="am">ሁለት በሮች <span className="h1-lat" lang="en">Two doors, one wall.</span></h2>
+        <p>Every plaque on this wall has two sides: someone built it from a phone, and someone
+           booked through it. Pick your door.</p>
+      </div>
+      <div className="doors-grid">
+        <Door tone="owner" tag="For owners · ለባለቤት" title="ባለቤት ነኝ" lat="I run a business, hang my sign"
+          cta="ጀምር · Start free, 14 ቀን ነጻ" ctaHref="/register"
+          steps={[
+            ["፩", <><b>Publish your site.</b> Name, photos, contact: one page, your address <span className="mono" style={{fontSize:".8rem"}}>you.egebeya.et</span></>],
+            ["፪", <><b>List services with prices.</b> Durations, staff, who does what. Edit from your phone anytime.</>],
+            ["፫", <><b>Switch on booking + Telebirr deposit.</b> A deposit holds the slot; no-shows stop.</>],
+            ["፬", <><b>See today's queue.</b> Service and time only. Your customers' names stay yours.</>],
+          ]} />
+        <Door tone="cust" tag="For customers · ለደንበኛ" title="አገልግሎት ፈልጋለሁ" lat="I need a service, find it, book it"
+          cta="ፈልግ · Browse the wall" ctaHref="/discover"
+          steps={[
+            ["፩", <><b>Browse the wall.</b> Salons, barbers, clinics, tailors. Real businesses, real prices.</>],
+            ["፪", <><b>Pick a free slot.</b> Live availability in Addis time, no "call us to confirm".</>],
+            ["፫", <><b>Hold it with a Telebirr deposit.</b> The stamp confirms; your chair is kept.</>],
+            ["፬", <><b>Walk in.</b> Your booking is on their board. Show the reference, take the chair.</>],
+          ]} />
+      </div>
+    </section>
+  );
+}
+
+/* ────────────────────────── workshop ───────────────────────── */
+function Rise({ children, delay, style }){
+  const reduced = useReducedMotion();
+  return (
+    <motion.div style={style}
+      initial={reduced ? false : { opacity: 0, y: 10 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.35 }}
+      transition={{ duration: 0.2, delay: delay || 0, ease: "easeOut" }}
+    >{children}</motion.div>
+  );
+}
+function WorkshopSection(){
+  return (
+    <section id="workshop" className="workshop wrap" aria-label="How the wall gets built">
+      <div className="workshop-head">
+        <h2 lang="am">ሥራው <small lang="en">How the wall gets built, inside the builder, on a phone</small></h2>
+        <span className="mono" style={{ fontSize: ".72rem", color: "var(--ink-soft)" }}>builder exhibits · ማሳያዎች</span>
+      </div>
+      <div className="workshop-grid">
+        <motion.div className="tool t-services"
+          initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.25 }} transition={{ duration: 0.7, ease: [0.34, 1.4, 0.64, 1] }}>
+          <div className="tool__bar"><span className="am" lang="am">አገልግሎቶች · Services &amp; prices</span><span className="mono">፩ · exhibit</span></div>
+          <div className="tool__body">
+            <ul>
+              <li>ጥፍር Manicure <span className="dur">45m</span><span className="chip chip--tb">deposit</span><span className="price">400.00</span></li>
+              <li>እግር Pedicure <span className="dur">60m</span><span className="price">500.00</span></li>
+              <li>ፀጉር Haircut <span className="dur">30m</span><span className="price">200.00</span></li>
+              <li>ቁርጥጥ Massage <span className="dur">75m</span><span className="chip chip--tb">deposit</span><span className="price">1,200.00</span></li>
+            </ul>
+          </div>
+        </motion.div>
+        <motion.div className="tool t-staff"
+          initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.25 }} transition={{ duration: 0.7, delay: 0.08, ease: [0.34, 1.4, 0.64, 1] }}>
+          <div className="tool__bar"><span className="am" lang="am">ሰራተኞች · Staff &amp; days</span><span className="mono">፪ · exhibit</span></div>
+          <div className="tool__body">
+            {[
+              ["https://images.unsplash.com/photo-1571731956672-f2b94d7dd0cb?w=200&q=60&auto=format&fit=crop","Sara M. · ሳራ","Nail artist · Mon–Sat",[0,1,2,3,4,5]],
+              ["https://images.unsplash.com/photo-1519014816548-bf5fe059798b?w=200&q=60&auto=format&fit=crop","Dawit G. · ዳዊት","Senior barber · Tue–Sun",[1,2,3,4,5,6]],
+              ["https://images.unsplash.com/photo-1519415510236-718bdfcd89c8?w=200&q=60&auto=format&fit=crop","Hanna T. · ሐና","Massage therapist · Wed–Sun",[2,3,4,5,6]],
+            ].map(([img, n, r, days], i) => (
+              <Rise key={n} delay={0.08 + i * 0.08}>
+                <div className="staff-row">
+                  <img src={img} alt={"Portrait of " + n.split(" ")[0]} />
+                  <div><div className="sname">{n}</div><div className="srole">{r}</div></div>
+                  <div className="staff-days" aria-label={r}>
+                    {[0,1,2,3,4,5,6].map(d => <i key={d} className={days.includes(d) ? "" : "off"} />)}
+                  </div>
+                </div>
+              </Rise>
+            ))}
+          </div>
+        </motion.div>
+        <motion.div className="tool t-hours"
+          initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.25 }} transition={{ duration: 0.7, delay: 0.05, ease: [0.34, 1.4, 0.64, 1] }}>
+          <div className="tool__bar"><span className="am" lang="am">ሰዓታት · Hours (Addis time)</span><span className="mono">፫ · exhibit</span></div>
+          <div className="tool__body">
+            <div className="hours-grid" aria-label="Business hours by weekday">
+              {["ሰን","ሰኑ","ማክ","ረቡ","ሐሙ","ዓር","ቅዳ"].map(d => <span className="hday" key={d} lang="am">{d}</span>)}
+              {[0,1,2,3,4,5].map(d => <span className="hcell" key={d}><i /></span>)}
+              <span className="hcell off" />
+            </div>
+            <Rise delay={0.15}><p className="hours-caption">09:00–19:00 EAT · እሁድ ተዘግቷል · closed Sunday · Ethiopian calendar: ሐምሌ 27</p></Rise>
+          </div>
+        </motion.div>
+        <motion.div className="tool t-deposit"
+          initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.25 }} transition={{ duration: 0.7, delay: 0.12, ease: [0.34, 1.4, 0.64, 1] }}>
+          <div className="tool__bar"><span className="am" lang="am">ታሪፍ · Telebirr deposit</span><span className="mono">፬ · exhibit</span></div>
+          <div className="tool__body deposit-demo">
+            <div className="toggle-row">
+              <span className="toggle" aria-hidden="true" />
+              <span className="tl">Require deposit to confirm<small>· ማረጋገጫ ታሪፍ ያስፈልጋል</small></span>
+            </div>
+            <Rise delay={0.1}>
+              <div className="deposit-rows">
+                <div><span>CHAIR HOLD · Manicure 15:00</span><span className="ok">Br 400 · SETTLED</span></div>
+                <div><span>tx_ref EGB-2026-4831</span><span className="ok">ተከከለ · stamped</span></div>
+                <div><span>Balance at the chair</span><span>Br 0.00</span></div>
+              </div>
+            </Rise>
+          </div>
+        </motion.div>
+      </div>
+    </section>
+  );
+}
+
+/* ─────────────────────────── boards ────────────────────────── */
+function Board({ pro, name, price, priceSub, features, foot, note, delay }){
+  const reduced = useReducedMotion();
+  return (
+    <motion.div className={"board board--" + (pro ? "pro" : "basic")}
+      initial={reduced ? false : { opacity: 0, y: 18 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.3 }}
+      transition={{ duration: 0.22, delay, ease: "easeOut" }}>
+      <div className="board__head">
+        <span className="board__name" lang="am">{name}</span>
+        <span className="board__price">{price}<small>{priceSub}</small></span>
+      </div>
+      <ul className="board__body">
+        {features.map(([t, off]) => <li key={t} className={off ? "off" : ""}>{t}</li>)}
+      </ul>
+      <div className="board__foot">
+        <a className="btn" href="/register">{foot}</a>
+        {pro && <div className="paymarks" aria-label="Paid with Telebirr through Chapa"><span className="paymark paymark--tb" lang="am">telebirr</span><span className="paymark">Chapa</span></div>}
+        {note && <p className="board__note">{note}</p>}
+      </div>
+    </motion.div>
+  );
+}
+function BoardsSection(){
+  return (
+    <section id="prices" className="boards-band" aria-label="Prices">
+      <div className="wrap boards">
+      <div className="boards-head">
+        <h2 lang="am">ዋጋ <span className="h1-lat" lang="en">Two boards, hung straight.</span></h2>
+        <p>Start free. Turn on booking and deposits when you're ready. Pro is paid with Telebirr
+           through Chapa, per 30 days — and nothing renews itself.</p>
+      </div>
+      <div className="boards-grid">
+        <Board pro={false} name="መሰረታዊ · Basic" price="Br 0" priceSub="free · ነጻ" delay={0}
+          foot="Start free · ጀምር"
+          features={[
+            ["One-page site at you.egebeya.et"],
+            ["Services with prices & durations"],
+            ["Staff list, hours, photos"],
+            ["Addis time + Ethiopian calendar display"],
+            ["Booking & Telebirr deposits", true],
+            ["Up to 2 staff (Pro lifts the limit to 10)", true],
+          ]} />
+        <Board pro name="ፕሮ · Pro" price="Br 500" priceSub="per 30 days · በሙሉ ቀን" delay={0.15}
+          foot="14 ቀን ነጻ · Start free trial"
+          note="አንድ ደንበኛ ማጣት ከዚህ ውድ ነው · cheaper than one lost customer. በእጅዎ ያደስሉ · renew manually with Telebirr — no card, no auto-charge."
+          features={[
+            ["Everything in Basic"],
+            ["Booking with live Addis-time slots"],
+            ["Telebirr deposits via Chapa: stamped confirmations"],
+            ["Privacy-safe public queue"],
+            ["Custom domain: your own .et address"],
+            ["Website editor with code access"],
+          ]} />
+      </div>
+      </div>
+    </section>
+  );
+}
+
+/* ─────────────────────────── footer ────────────────────────── */
+function MerkatoFooter(){
+  const [clock, setClock] = useState({ hms: "--:--:--", eth: "…", partAm: "", partEn: "", hour12: "" });
+  useEffect(() => {
+    const tick = () => {
+      const d = new Date();
+      /* the Habesha clock is the headline; EAT below for the exact-second check */
+      const hb = habeshaClock(d);
+      let hms;
+      try {
+        hms = new Intl.DateTimeFormat("en-GB", {
+          timeZone: "Africa/Addis_Ababa", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
+        }).format(d);
+      } catch (e) { hms = d.toTimeString().slice(0, 8); }
+      setClock({ hms, eth: hb.text, partAm: hb.partAm, partEn: hb.partEn, hour12: hb.hour12 });
+    };
+    tick();
+    const iv = setInterval(tick, 1000);
+    return () => clearInterval(iv);
+  }, []);
+  return (
+    <footer className="footer">
+      <div className="footer-in">
+        <div>
+          <a className="brand" href="#top" aria-label="Egebeya home">
+            <span className="brand__am" lang="am">ኢ-ገበያ</span>
+            <span className="brand__lat">Egebeya</span>
+          </a>
+          <p className="footer-tag">The wall where Ethiopian service businesses go live. Built in Addis Ababa, for Addis time.</p>
+          <div className="footer-clock">
+            <p className="clock-eth" aria-label={"Ethiopian time " + clock.hour12 + " " + clock.partEn}><b>{clock.eth}</b><span className="am" lang="am">{clock.partAm} · አዲስ አበባ</span></p>
+            <p className="clock" aria-label="Exact time in Addis Ababa"><b>{clock.hms}</b><span className="am" lang="am">EAT · UTC+3</span></p>
+          </div>
+        </div>
+        <div>
+          <h4>The wall · ግድግዳው</h4>
+          <ul>
+            <li><a href="#wall">Browse businesses</a></li>
+            <li><a href="#doors">For owners</a></li>
+            <li><a href="#workshop">How it's built</a></li>
+            <li><a href="#prices">Prices</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Talk · ያግኙን</h4>
+          <ul>
+            <li><a href="tel:+251900000000">+251 900 000 000</a></li>
+            <li><a href="mailto:hello@egebeya.et">hello@egebeya.et</a></li>
+            <li><span>አዲስ አበባ · Addis Ababa</span></li>
+          </ul>
+        </div>
+      </div>
+      <div className="footer-base">
+        <span>© 2026 EGEBEYA · ኢ-ገበያ</span>
+        <span>REACT MOCK · wall plaques tagged DEMO are illustrative · Lux Nails &amp; Spa and Test Payment Barbershop are seeded tenants</span>
+      </div>
+    </footer>
+  );
+}
+
+/* Dala's opening ritual, rebuilt as a market shutter: digits sprint, the wall confirms, it lifts.
+   Purely visual — pointer-events none, ~1.4s, and reduced motion never sees it. */
+function WallLoader(){
+  const reduced = useReducedMotion();
+  // motion budget: the opening shutter is a first-impression ritual, not a toll —
+  // once per browser session, never again
+  const [seen] = useState(() => {
+    try { return sessionStorage.getItem("egb-opened") === "1"; } catch (e) { return false; }
+  });
+  const [pct, setPct] = useState(reduced || seen ? 100 : 0);
+  const [done, setDone] = useState(reduced || seen);
+  useEffect(() => {
+    if (reduced || seen) return undefined;
+    try { sessionStorage.setItem("egb-opened", "1"); } catch (e) {}
+  }, [reduced, seen]);
+  useEffect(() => {
+    if (reduced) return undefined;
+    const start = performance.now();
+    let raf;
+    const tick = (t) => {
+      const p = Math.min(1, (t - start) / 1050);
+      setPct(Math.round((1 - Math.pow(1 - p, 3)) * 100));
+      if (p < 1) raf = requestAnimationFrame(tick);
+      else { setPct(100); setTimeout(() => setDone(true), 700); }
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [reduced]);
+  if (done) return null;
+  const open = pct === 100;
+  return (
+    <div className={"loader" + (open ? " is-done" : "")} aria-hidden="true">
+      <div className="loader__in">
+        <span className="loader__sq" />
+        <span className="loader__am" lang="am">ገበያው ይከፈታል</span>
+        <span className="loader__lat mono">Opening the wall · ገበያ · Addis Ababa</span>
+      </div>
+      <div className="loader__bar">
+        <span className="mono">{open ? "ተከፈተ። completed" : "loading · በመከፈት ላይ"}</span>
+        <span className={"loader__digits mono" + (open ? " is-open" : "")}>{open ? "OPEN" : String(pct).padStart(3, "0")}</span>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────── app ───────────────────────────── */
+function App(){
+  return (
+    <div className="merkato" id="top">
+      <WallLoader />
+      <nav className="mk-nav" aria-label="Main">
+        <div className="mk-nav-in">
+          <a className="brand" href="#top">
+            <span className="brand__am" lang="am">ኢ-ገበያ</span>
+            <span className="brand__lat">Egebeya</span>
+          </a>
+          <div className="mk-nav-links">
+            <a href="#wall">The Wall · ግድግዳው</a>
+            <a href="#doors">Doors · በሮች</a>
+            <a href="#workshop">How it's built · ሥራው</a>
+            <a href="#prices">Prices · ዋጋ</a>
+          </div>
+          <a className="mk-nav-cta" href="/register" lang="am">ወደ ግድግዳው · Get on</a>
+        </div>
+      </nav>
+      <MorphStage />
+      <CustomerWorld />
+      <DoorsSection />
+      <WorkshopSection />
+      <BoardsSection />
+      <MerkatoFooter />
+    </div>
+  );
+}
+createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
